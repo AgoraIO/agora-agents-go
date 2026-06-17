@@ -1095,16 +1095,21 @@ func (a *AresAsr) String() string {
 type AresAsrParams = map[string]interface{}
 
 type Asr struct {
-	Vendor       string
-	Ares         *AresAsr
-	Microsoft    *MicrosoftAsr
-	Deepgram     *DeepgramAsr
-	Openai       *OpenAiAsr
-	Google       *GoogleAsr
-	Amazon       *AmazonAsr
-	Assemblyai   *AssemblyAiAsr
-	Speechmatics *SpeechmaticsAsr
-	Sarvam       *SarvamAsr
+	Vendor        string
+	Ares          *AresAsr
+	Fengming      *FengmingAsr
+	Tencent       *TencentAsr
+	Microsoft     *MicrosoftAsr
+	Deepgram      *DeepgramAsr
+	Openai        *OpenAiAsr
+	Google        *GoogleAsr
+	Amazon        *AmazonAsr
+	Assemblyai    *AssemblyAiAsr
+	Speechmatics  *SpeechmaticsAsr
+	Sarvam        *SarvamAsr
+	Xfyun         *XfyunAsr
+	XfyunBigmodel *XfyunBigmodelAsr
+	XfyunDialect  *XfyunDialectAsr
 }
 
 func (a *Asr) GetVendor() string {
@@ -1119,6 +1124,20 @@ func (a *Asr) GetAres() *AresAsr {
 		return nil
 	}
 	return a.Ares
+}
+
+func (a *Asr) GetFengming() *FengmingAsr {
+	if a == nil {
+		return nil
+	}
+	return a.Fengming
+}
+
+func (a *Asr) GetTencent() *TencentAsr {
+	if a == nil {
+		return nil
+	}
+	return a.Tencent
 }
 
 func (a *Asr) GetMicrosoft() *MicrosoftAsr {
@@ -1177,6 +1196,27 @@ func (a *Asr) GetSarvam() *SarvamAsr {
 	return a.Sarvam
 }
 
+func (a *Asr) GetXfyun() *XfyunAsr {
+	if a == nil {
+		return nil
+	}
+	return a.Xfyun
+}
+
+func (a *Asr) GetXfyunBigmodel() *XfyunBigmodelAsr {
+	if a == nil {
+		return nil
+	}
+	return a.XfyunBigmodel
+}
+
+func (a *Asr) GetXfyunDialect() *XfyunDialectAsr {
+	if a == nil {
+		return nil
+	}
+	return a.XfyunDialect
+}
+
 func (a *Asr) UnmarshalJSON(data []byte) error {
 	var unmarshaler struct {
 		Vendor string `json:"vendor"`
@@ -1195,6 +1235,18 @@ func (a *Asr) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		a.Ares = value
+	case "fengming":
+		value := new(FengmingAsr)
+		if err := json.Unmarshal(data, &value); err != nil {
+			return err
+		}
+		a.Fengming = value
+	case "tencent":
+		value := new(TencentAsr)
+		if err := json.Unmarshal(data, &value); err != nil {
+			return err
+		}
+		a.Tencent = value
 	case "microsoft":
 		value := new(MicrosoftAsr)
 		if err := json.Unmarshal(data, &value); err != nil {
@@ -1243,6 +1295,24 @@ func (a *Asr) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		a.Sarvam = value
+	case "xfyun":
+		value := new(XfyunAsr)
+		if err := json.Unmarshal(data, &value); err != nil {
+			return err
+		}
+		a.Xfyun = value
+	case "xfyun_bigmodel":
+		value := new(XfyunBigmodelAsr)
+		if err := json.Unmarshal(data, &value); err != nil {
+			return err
+		}
+		a.XfyunBigmodel = value
+	case "xfyun_dialect":
+		value := new(XfyunDialectAsr)
+		if err := json.Unmarshal(data, &value); err != nil {
+			return err
+		}
+		a.XfyunDialect = value
 	}
 	return nil
 }
@@ -1253,6 +1323,12 @@ func (a Asr) MarshalJSON() ([]byte, error) {
 	}
 	if a.Ares != nil {
 		return internal.MarshalJSONWithExtraProperty(a.Ares, "vendor", "ares")
+	}
+	if a.Fengming != nil {
+		return internal.MarshalJSONWithExtraProperty(a.Fengming, "vendor", "fengming")
+	}
+	if a.Tencent != nil {
+		return internal.MarshalJSONWithExtraProperty(a.Tencent, "vendor", "tencent")
 	}
 	if a.Microsoft != nil {
 		return internal.MarshalJSONWithExtraProperty(a.Microsoft, "vendor", "microsoft")
@@ -1278,11 +1354,22 @@ func (a Asr) MarshalJSON() ([]byte, error) {
 	if a.Sarvam != nil {
 		return internal.MarshalJSONWithExtraProperty(a.Sarvam, "vendor", "sarvam")
 	}
+	if a.Xfyun != nil {
+		return internal.MarshalJSONWithExtraProperty(a.Xfyun, "vendor", "xfyun")
+	}
+	if a.XfyunBigmodel != nil {
+		return internal.MarshalJSONWithExtraProperty(a.XfyunBigmodel, "vendor", "xfyun_bigmodel")
+	}
+	if a.XfyunDialect != nil {
+		return internal.MarshalJSONWithExtraProperty(a.XfyunDialect, "vendor", "xfyun_dialect")
+	}
 	return nil, fmt.Errorf("type %T does not define a non-empty union type", a)
 }
 
 type AsrVisitor interface {
 	VisitAres(*AresAsr) error
+	VisitFengming(*FengmingAsr) error
+	VisitTencent(*TencentAsr) error
 	VisitMicrosoft(*MicrosoftAsr) error
 	VisitDeepgram(*DeepgramAsr) error
 	VisitOpenai(*OpenAiAsr) error
@@ -1291,11 +1378,20 @@ type AsrVisitor interface {
 	VisitAssemblyai(*AssemblyAiAsr) error
 	VisitSpeechmatics(*SpeechmaticsAsr) error
 	VisitSarvam(*SarvamAsr) error
+	VisitXfyun(*XfyunAsr) error
+	VisitXfyunBigmodel(*XfyunBigmodelAsr) error
+	VisitXfyunDialect(*XfyunDialectAsr) error
 }
 
 func (a *Asr) Accept(visitor AsrVisitor) error {
 	if a.Ares != nil {
 		return visitor.VisitAres(a.Ares)
+	}
+	if a.Fengming != nil {
+		return visitor.VisitFengming(a.Fengming)
+	}
+	if a.Tencent != nil {
+		return visitor.VisitTencent(a.Tencent)
 	}
 	if a.Microsoft != nil {
 		return visitor.VisitMicrosoft(a.Microsoft)
@@ -1321,6 +1417,15 @@ func (a *Asr) Accept(visitor AsrVisitor) error {
 	if a.Sarvam != nil {
 		return visitor.VisitSarvam(a.Sarvam)
 	}
+	if a.Xfyun != nil {
+		return visitor.VisitXfyun(a.Xfyun)
+	}
+	if a.XfyunBigmodel != nil {
+		return visitor.VisitXfyunBigmodel(a.XfyunBigmodel)
+	}
+	if a.XfyunDialect != nil {
+		return visitor.VisitXfyunDialect(a.XfyunDialect)
+	}
 	return fmt.Errorf("type %T does not define a non-empty union type", a)
 }
 
@@ -1331,6 +1436,12 @@ func (a *Asr) validate() error {
 	var fields []string
 	if a.Ares != nil {
 		fields = append(fields, "ares")
+	}
+	if a.Fengming != nil {
+		fields = append(fields, "fengming")
+	}
+	if a.Tencent != nil {
+		fields = append(fields, "tencent")
 	}
 	if a.Microsoft != nil {
 		fields = append(fields, "microsoft")
@@ -1355,6 +1466,15 @@ func (a *Asr) validate() error {
 	}
 	if a.Sarvam != nil {
 		fields = append(fields, "sarvam")
+	}
+	if a.Xfyun != nil {
+		fields = append(fields, "xfyun")
+	}
+	if a.XfyunBigmodel != nil {
+		fields = append(fields, "xfyun_bigmodel")
+	}
+	if a.XfyunDialect != nil {
+		fields = append(fields, "xfyun_dialect")
 	}
 	if len(fields) == 0 {
 		if a.Vendor != "" {
@@ -1709,6 +1829,521 @@ func (a *AssemblyAiAsrParams) String() string {
 		return value
 	}
 	return fmt.Sprintf("%#v", a)
+}
+
+// Bytedance duplex streaming Text-to-Speech configuration.
+var (
+	bytedanceDuplexTtsFieldParams       = big.NewInt(1 << 0)
+	bytedanceDuplexTtsFieldSkipPatterns = big.NewInt(1 << 1)
+)
+
+type BytedanceDuplexTts struct {
+	Params *BytedanceDuplexTtsParams `json:"params" url:"params"`
+	// Controls whether the TTS module skips bracketed content when reading LLM response text.
+	SkipPatterns []int `json:"skip_patterns,omitempty" url:"skip_patterns,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	extraProperties map[string]interface{}
+	rawJSON         json.RawMessage
+}
+
+func (b *BytedanceDuplexTts) GetParams() *BytedanceDuplexTtsParams {
+	if b == nil {
+		return nil
+	}
+	return b.Params
+}
+
+func (b *BytedanceDuplexTts) GetSkipPatterns() []int {
+	if b == nil {
+		return nil
+	}
+	return b.SkipPatterns
+}
+
+func (b *BytedanceDuplexTts) GetExtraProperties() map[string]interface{} {
+	return b.extraProperties
+}
+
+func (b *BytedanceDuplexTts) require(field *big.Int) {
+	if b.explicitFields == nil {
+		b.explicitFields = big.NewInt(0)
+	}
+	b.explicitFields.Or(b.explicitFields, field)
+}
+
+// SetParams sets the Params field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (b *BytedanceDuplexTts) SetParams(params *BytedanceDuplexTtsParams) {
+	b.Params = params
+	b.require(bytedanceDuplexTtsFieldParams)
+}
+
+// SetSkipPatterns sets the SkipPatterns field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (b *BytedanceDuplexTts) SetSkipPatterns(skipPatterns []int) {
+	b.SkipPatterns = skipPatterns
+	b.require(bytedanceDuplexTtsFieldSkipPatterns)
+}
+
+func (b *BytedanceDuplexTts) UnmarshalJSON(data []byte) error {
+	type unmarshaler BytedanceDuplexTts
+	var value unmarshaler
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	*b = BytedanceDuplexTts(value)
+	extraProperties, err := internal.ExtractExtraProperties(data, *b)
+	if err != nil {
+		return err
+	}
+	b.extraProperties = extraProperties
+	b.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (b *BytedanceDuplexTts) MarshalJSON() ([]byte, error) {
+	type embed BytedanceDuplexTts
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*b),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, b.explicitFields)
+	return json.Marshal(explicitMarshaler)
+}
+
+func (b *BytedanceDuplexTts) String() string {
+	if len(b.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(b.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(b); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", b)
+}
+
+// Bytedance duplex streaming TTS configuration parameters.
+var (
+	bytedanceDuplexTtsParamsFieldAppID   = big.NewInt(1 << 0)
+	bytedanceDuplexTtsParamsFieldToken   = big.NewInt(1 << 1)
+	bytedanceDuplexTtsParamsFieldSpeaker = big.NewInt(1 << 2)
+)
+
+type BytedanceDuplexTtsParams struct {
+	// Bytedance application ID.
+	AppID string `json:"app_id" url:"app_id"`
+	// Bytedance API token.
+	Token string `json:"token" url:"token"`
+	// Duplex TTS speaker identifier.
+	Speaker string `json:"speaker" url:"speaker"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (b *BytedanceDuplexTtsParams) GetAppID() string {
+	if b == nil {
+		return ""
+	}
+	return b.AppID
+}
+
+func (b *BytedanceDuplexTtsParams) GetToken() string {
+	if b == nil {
+		return ""
+	}
+	return b.Token
+}
+
+func (b *BytedanceDuplexTtsParams) GetSpeaker() string {
+	if b == nil {
+		return ""
+	}
+	return b.Speaker
+}
+
+func (b *BytedanceDuplexTtsParams) GetExtraProperties() map[string]interface{} {
+	return b.ExtraProperties
+}
+
+func (b *BytedanceDuplexTtsParams) require(field *big.Int) {
+	if b.explicitFields == nil {
+		b.explicitFields = big.NewInt(0)
+	}
+	b.explicitFields.Or(b.explicitFields, field)
+}
+
+// SetAppID sets the AppID field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (b *BytedanceDuplexTtsParams) SetAppID(appID string) {
+	b.AppID = appID
+	b.require(bytedanceDuplexTtsParamsFieldAppID)
+}
+
+// SetToken sets the Token field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (b *BytedanceDuplexTtsParams) SetToken(token string) {
+	b.Token = token
+	b.require(bytedanceDuplexTtsParamsFieldToken)
+}
+
+// SetSpeaker sets the Speaker field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (b *BytedanceDuplexTtsParams) SetSpeaker(speaker string) {
+	b.Speaker = speaker
+	b.require(bytedanceDuplexTtsParamsFieldSpeaker)
+}
+
+func (b *BytedanceDuplexTtsParams) UnmarshalJSON(data []byte) error {
+	type embed BytedanceDuplexTtsParams
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*b),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*b = BytedanceDuplexTtsParams(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *b)
+	if err != nil {
+		return err
+	}
+	b.ExtraProperties = extraProperties
+	b.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (b *BytedanceDuplexTtsParams) MarshalJSON() ([]byte, error) {
+	type embed BytedanceDuplexTtsParams
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*b),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, b.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, b.ExtraProperties)
+}
+
+func (b *BytedanceDuplexTtsParams) String() string {
+	if len(b.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(b.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(b); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", b)
+}
+
+// Bytedance Volcano Engine Text-to-Speech configuration.
+var (
+	bytedanceTtsFieldParams       = big.NewInt(1 << 0)
+	bytedanceTtsFieldSkipPatterns = big.NewInt(1 << 1)
+)
+
+type BytedanceTts struct {
+	Params *BytedanceTtsParams `json:"params" url:"params"`
+	// Controls whether the TTS module skips bracketed content when reading LLM response text.
+	SkipPatterns []int `json:"skip_patterns,omitempty" url:"skip_patterns,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	extraProperties map[string]interface{}
+	rawJSON         json.RawMessage
+}
+
+func (b *BytedanceTts) GetParams() *BytedanceTtsParams {
+	if b == nil {
+		return nil
+	}
+	return b.Params
+}
+
+func (b *BytedanceTts) GetSkipPatterns() []int {
+	if b == nil {
+		return nil
+	}
+	return b.SkipPatterns
+}
+
+func (b *BytedanceTts) GetExtraProperties() map[string]interface{} {
+	return b.extraProperties
+}
+
+func (b *BytedanceTts) require(field *big.Int) {
+	if b.explicitFields == nil {
+		b.explicitFields = big.NewInt(0)
+	}
+	b.explicitFields.Or(b.explicitFields, field)
+}
+
+// SetParams sets the Params field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (b *BytedanceTts) SetParams(params *BytedanceTtsParams) {
+	b.Params = params
+	b.require(bytedanceTtsFieldParams)
+}
+
+// SetSkipPatterns sets the SkipPatterns field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (b *BytedanceTts) SetSkipPatterns(skipPatterns []int) {
+	b.SkipPatterns = skipPatterns
+	b.require(bytedanceTtsFieldSkipPatterns)
+}
+
+func (b *BytedanceTts) UnmarshalJSON(data []byte) error {
+	type unmarshaler BytedanceTts
+	var value unmarshaler
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	*b = BytedanceTts(value)
+	extraProperties, err := internal.ExtractExtraProperties(data, *b)
+	if err != nil {
+		return err
+	}
+	b.extraProperties = extraProperties
+	b.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (b *BytedanceTts) MarshalJSON() ([]byte, error) {
+	type embed BytedanceTts
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*b),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, b.explicitFields)
+	return json.Marshal(explicitMarshaler)
+}
+
+func (b *BytedanceTts) String() string {
+	if len(b.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(b.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(b); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", b)
+}
+
+// Bytedance Volcano Engine TTS configuration parameters.
+var (
+	bytedanceTtsParamsFieldToken       = big.NewInt(1 << 0)
+	bytedanceTtsParamsFieldAppID       = big.NewInt(1 << 1)
+	bytedanceTtsParamsFieldCluster     = big.NewInt(1 << 2)
+	bytedanceTtsParamsFieldVoiceType   = big.NewInt(1 << 3)
+	bytedanceTtsParamsFieldSpeedRatio  = big.NewInt(1 << 4)
+	bytedanceTtsParamsFieldVolumeRatio = big.NewInt(1 << 5)
+	bytedanceTtsParamsFieldPitchRatio  = big.NewInt(1 << 6)
+	bytedanceTtsParamsFieldEmotion     = big.NewInt(1 << 7)
+)
+
+type BytedanceTtsParams struct {
+	// Bytedance API token.
+	Token string `json:"token" url:"token"`
+	// Bytedance application ID.
+	AppID string `json:"app_id" url:"app_id"`
+	// Bytedance cluster name.
+	Cluster string `json:"cluster" url:"cluster"`
+	// Bytedance voice type.
+	VoiceType string `json:"voice_type" url:"voice_type"`
+	// Speech speed ratio.
+	SpeedRatio *float64 `json:"speed_ratio,omitempty" url:"speed_ratio,omitempty"`
+	// Volume ratio.
+	VolumeRatio *float64 `json:"volume_ratio,omitempty" url:"volume_ratio,omitempty"`
+	// Pitch ratio.
+	PitchRatio *float64 `json:"pitch_ratio,omitempty" url:"pitch_ratio,omitempty"`
+	// Emotion preset.
+	Emotion *string `json:"emotion,omitempty" url:"emotion,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (b *BytedanceTtsParams) GetToken() string {
+	if b == nil {
+		return ""
+	}
+	return b.Token
+}
+
+func (b *BytedanceTtsParams) GetAppID() string {
+	if b == nil {
+		return ""
+	}
+	return b.AppID
+}
+
+func (b *BytedanceTtsParams) GetCluster() string {
+	if b == nil {
+		return ""
+	}
+	return b.Cluster
+}
+
+func (b *BytedanceTtsParams) GetVoiceType() string {
+	if b == nil {
+		return ""
+	}
+	return b.VoiceType
+}
+
+func (b *BytedanceTtsParams) GetSpeedRatio() *float64 {
+	if b == nil {
+		return nil
+	}
+	return b.SpeedRatio
+}
+
+func (b *BytedanceTtsParams) GetVolumeRatio() *float64 {
+	if b == nil {
+		return nil
+	}
+	return b.VolumeRatio
+}
+
+func (b *BytedanceTtsParams) GetPitchRatio() *float64 {
+	if b == nil {
+		return nil
+	}
+	return b.PitchRatio
+}
+
+func (b *BytedanceTtsParams) GetEmotion() *string {
+	if b == nil {
+		return nil
+	}
+	return b.Emotion
+}
+
+func (b *BytedanceTtsParams) GetExtraProperties() map[string]interface{} {
+	return b.ExtraProperties
+}
+
+func (b *BytedanceTtsParams) require(field *big.Int) {
+	if b.explicitFields == nil {
+		b.explicitFields = big.NewInt(0)
+	}
+	b.explicitFields.Or(b.explicitFields, field)
+}
+
+// SetToken sets the Token field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (b *BytedanceTtsParams) SetToken(token string) {
+	b.Token = token
+	b.require(bytedanceTtsParamsFieldToken)
+}
+
+// SetAppID sets the AppID field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (b *BytedanceTtsParams) SetAppID(appID string) {
+	b.AppID = appID
+	b.require(bytedanceTtsParamsFieldAppID)
+}
+
+// SetCluster sets the Cluster field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (b *BytedanceTtsParams) SetCluster(cluster string) {
+	b.Cluster = cluster
+	b.require(bytedanceTtsParamsFieldCluster)
+}
+
+// SetVoiceType sets the VoiceType field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (b *BytedanceTtsParams) SetVoiceType(voiceType string) {
+	b.VoiceType = voiceType
+	b.require(bytedanceTtsParamsFieldVoiceType)
+}
+
+// SetSpeedRatio sets the SpeedRatio field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (b *BytedanceTtsParams) SetSpeedRatio(speedRatio *float64) {
+	b.SpeedRatio = speedRatio
+	b.require(bytedanceTtsParamsFieldSpeedRatio)
+}
+
+// SetVolumeRatio sets the VolumeRatio field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (b *BytedanceTtsParams) SetVolumeRatio(volumeRatio *float64) {
+	b.VolumeRatio = volumeRatio
+	b.require(bytedanceTtsParamsFieldVolumeRatio)
+}
+
+// SetPitchRatio sets the PitchRatio field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (b *BytedanceTtsParams) SetPitchRatio(pitchRatio *float64) {
+	b.PitchRatio = pitchRatio
+	b.require(bytedanceTtsParamsFieldPitchRatio)
+}
+
+// SetEmotion sets the Emotion field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (b *BytedanceTtsParams) SetEmotion(emotion *string) {
+	b.Emotion = emotion
+	b.require(bytedanceTtsParamsFieldEmotion)
+}
+
+func (b *BytedanceTtsParams) UnmarshalJSON(data []byte) error {
+	type embed BytedanceTtsParams
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*b),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*b = BytedanceTtsParams(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *b)
+	if err != nil {
+		return err
+	}
+	b.ExtraProperties = extraProperties
+	b.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (b *BytedanceTtsParams) MarshalJSON() ([]byte, error) {
+	type embed BytedanceTtsParams
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*b),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, b.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, b.ExtraProperties)
+}
+
+func (b *BytedanceTtsParams) String() string {
+	if len(b.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(b.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(b); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", b)
 }
 
 // Cartesia Text-to-Speech configuration (Beta).
@@ -2164,6 +2799,238 @@ func (c *CartesiaTtsVoice) MarshalJSON() ([]byte, error) {
 }
 
 func (c *CartesiaTtsVoice) String() string {
+	if len(c.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(c.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(c); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", c)
+}
+
+// Alibaba Cloud CosyVoice Text-to-Speech configuration.
+var (
+	cosyvoiceTtsFieldParams       = big.NewInt(1 << 0)
+	cosyvoiceTtsFieldSkipPatterns = big.NewInt(1 << 1)
+)
+
+type CosyvoiceTts struct {
+	Params *CosyvoiceTtsParams `json:"params" url:"params"`
+	// Controls whether the TTS module skips bracketed content when reading LLM response text.
+	SkipPatterns []int `json:"skip_patterns,omitempty" url:"skip_patterns,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	extraProperties map[string]interface{}
+	rawJSON         json.RawMessage
+}
+
+func (c *CosyvoiceTts) GetParams() *CosyvoiceTtsParams {
+	if c == nil {
+		return nil
+	}
+	return c.Params
+}
+
+func (c *CosyvoiceTts) GetSkipPatterns() []int {
+	if c == nil {
+		return nil
+	}
+	return c.SkipPatterns
+}
+
+func (c *CosyvoiceTts) GetExtraProperties() map[string]interface{} {
+	return c.extraProperties
+}
+
+func (c *CosyvoiceTts) require(field *big.Int) {
+	if c.explicitFields == nil {
+		c.explicitFields = big.NewInt(0)
+	}
+	c.explicitFields.Or(c.explicitFields, field)
+}
+
+// SetParams sets the Params field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (c *CosyvoiceTts) SetParams(params *CosyvoiceTtsParams) {
+	c.Params = params
+	c.require(cosyvoiceTtsFieldParams)
+}
+
+// SetSkipPatterns sets the SkipPatterns field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (c *CosyvoiceTts) SetSkipPatterns(skipPatterns []int) {
+	c.SkipPatterns = skipPatterns
+	c.require(cosyvoiceTtsFieldSkipPatterns)
+}
+
+func (c *CosyvoiceTts) UnmarshalJSON(data []byte) error {
+	type unmarshaler CosyvoiceTts
+	var value unmarshaler
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	*c = CosyvoiceTts(value)
+	extraProperties, err := internal.ExtractExtraProperties(data, *c)
+	if err != nil {
+		return err
+	}
+	c.extraProperties = extraProperties
+	c.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (c *CosyvoiceTts) MarshalJSON() ([]byte, error) {
+	type embed CosyvoiceTts
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*c),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, c.explicitFields)
+	return json.Marshal(explicitMarshaler)
+}
+
+func (c *CosyvoiceTts) String() string {
+	if len(c.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(c.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(c); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", c)
+}
+
+// CosyVoice TTS configuration parameters.
+var (
+	cosyvoiceTtsParamsFieldAPIKey     = big.NewInt(1 << 0)
+	cosyvoiceTtsParamsFieldModel      = big.NewInt(1 << 1)
+	cosyvoiceTtsParamsFieldSampleRate = big.NewInt(1 << 2)
+	cosyvoiceTtsParamsFieldVoice      = big.NewInt(1 << 3)
+)
+
+type CosyvoiceTtsParams struct {
+	// CosyVoice API key.
+	APIKey string `json:"api_key" url:"api_key"`
+	// CosyVoice model identifier.
+	Model string `json:"model" url:"model"`
+	// Audio sample rate in Hz.
+	SampleRate int `json:"sample_rate" url:"sample_rate"`
+	// CosyVoice speaker voice.
+	Voice string `json:"voice" url:"voice"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (c *CosyvoiceTtsParams) GetAPIKey() string {
+	if c == nil {
+		return ""
+	}
+	return c.APIKey
+}
+
+func (c *CosyvoiceTtsParams) GetModel() string {
+	if c == nil {
+		return ""
+	}
+	return c.Model
+}
+
+func (c *CosyvoiceTtsParams) GetSampleRate() int {
+	if c == nil {
+		return 0
+	}
+	return c.SampleRate
+}
+
+func (c *CosyvoiceTtsParams) GetVoice() string {
+	if c == nil {
+		return ""
+	}
+	return c.Voice
+}
+
+func (c *CosyvoiceTtsParams) GetExtraProperties() map[string]interface{} {
+	return c.ExtraProperties
+}
+
+func (c *CosyvoiceTtsParams) require(field *big.Int) {
+	if c.explicitFields == nil {
+		c.explicitFields = big.NewInt(0)
+	}
+	c.explicitFields.Or(c.explicitFields, field)
+}
+
+// SetAPIKey sets the APIKey field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (c *CosyvoiceTtsParams) SetAPIKey(apiKey string) {
+	c.APIKey = apiKey
+	c.require(cosyvoiceTtsParamsFieldAPIKey)
+}
+
+// SetModel sets the Model field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (c *CosyvoiceTtsParams) SetModel(model string) {
+	c.Model = model
+	c.require(cosyvoiceTtsParamsFieldModel)
+}
+
+// SetSampleRate sets the SampleRate field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (c *CosyvoiceTtsParams) SetSampleRate(sampleRate int) {
+	c.SampleRate = sampleRate
+	c.require(cosyvoiceTtsParamsFieldSampleRate)
+}
+
+// SetVoice sets the Voice field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (c *CosyvoiceTtsParams) SetVoice(voice string) {
+	c.Voice = voice
+	c.require(cosyvoiceTtsParamsFieldVoice)
+}
+
+func (c *CosyvoiceTtsParams) UnmarshalJSON(data []byte) error {
+	type embed CosyvoiceTtsParams
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*c),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*c = CosyvoiceTtsParams(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *c)
+	if err != nil {
+		return err
+	}
+	c.ExtraProperties = extraProperties
+	c.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (c *CosyvoiceTtsParams) MarshalJSON() ([]byte, error) {
+	type embed CosyvoiceTtsParams
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*c),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, c.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, c.ExtraProperties)
+}
+
+func (c *CosyvoiceTtsParams) String() string {
 	if len(c.rawJSON) > 0 {
 		if value, err := internal.StringifyJSON(c.rawJSON); err == nil {
 			return value
@@ -3009,6 +3876,107 @@ func (e *ElevenLabsTtsParams) String() string {
 		return value
 	}
 	return fmt.Sprintf("%#v", e)
+}
+
+// Agora Fengming ASR configuration.
+var (
+	fengmingAsrFieldLanguage = big.NewInt(1 << 0)
+	fengmingAsrFieldParams   = big.NewInt(1 << 1)
+)
+
+type FengmingAsr struct {
+	Language *AsrLanguage `json:"language,omitempty" url:"language,omitempty"`
+	// Agora Fengming ASR configuration parameters.
+	Params map[string]interface{} `json:"params,omitempty" url:"params,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (f *FengmingAsr) GetLanguage() *AsrLanguage {
+	if f == nil {
+		return nil
+	}
+	return f.Language
+}
+
+func (f *FengmingAsr) GetParams() map[string]interface{} {
+	if f == nil {
+		return nil
+	}
+	return f.Params
+}
+
+func (f *FengmingAsr) GetExtraProperties() map[string]interface{} {
+	return f.ExtraProperties
+}
+
+func (f *FengmingAsr) require(field *big.Int) {
+	if f.explicitFields == nil {
+		f.explicitFields = big.NewInt(0)
+	}
+	f.explicitFields.Or(f.explicitFields, field)
+}
+
+// SetLanguage sets the Language field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (f *FengmingAsr) SetLanguage(language *AsrLanguage) {
+	f.Language = language
+	f.require(fengmingAsrFieldLanguage)
+}
+
+// SetParams sets the Params field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (f *FengmingAsr) SetParams(params map[string]interface{}) {
+	f.Params = params
+	f.require(fengmingAsrFieldParams)
+}
+
+func (f *FengmingAsr) UnmarshalJSON(data []byte) error {
+	type embed FengmingAsr
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*f),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*f = FengmingAsr(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *f)
+	if err != nil {
+		return err
+	}
+	f.ExtraProperties = extraProperties
+	f.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (f *FengmingAsr) MarshalJSON() ([]byte, error) {
+	type embed FengmingAsr
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*f),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, f.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, f.ExtraProperties)
+}
+
+func (f *FengmingAsr) String() string {
+	if len(f.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(f.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(f); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", f)
 }
 
 // Fish Audio Text-to-Speech configuration (Beta).
@@ -5326,23 +6294,35 @@ func (m *MinimaxTts) String() string {
 
 // MiniMax TTS configuration parameters.
 var (
-	minimaxTtsParamsFieldKey          = big.NewInt(1 << 0)
-	minimaxTtsParamsFieldGroupID      = big.NewInt(1 << 1)
-	minimaxTtsParamsFieldModel        = big.NewInt(1 << 2)
-	minimaxTtsParamsFieldVoiceSetting = big.NewInt(1 << 3)
-	minimaxTtsParamsFieldURL          = big.NewInt(1 << 4)
+	minimaxTtsParamsFieldKey               = big.NewInt(1 << 0)
+	minimaxTtsParamsFieldGroupID           = big.NewInt(1 << 1)
+	minimaxTtsParamsFieldModel             = big.NewInt(1 << 2)
+	minimaxTtsParamsFieldVoiceSetting      = big.NewInt(1 << 3)
+	minimaxTtsParamsFieldAudioSetting      = big.NewInt(1 << 4)
+	minimaxTtsParamsFieldPronunciationDict = big.NewInt(1 << 5)
+	minimaxTtsParamsFieldTimberWeights     = big.NewInt(1 << 6)
+	minimaxTtsParamsFieldLanguageBoost     = big.NewInt(1 << 7)
+	minimaxTtsParamsFieldURL               = big.NewInt(1 << 8)
 )
 
 type MinimaxTtsParams struct {
 	// MiniMax API key
 	Key string `json:"key" url:"key"`
 	// MiniMax group identifier
-	GroupID string `json:"group_id" url:"group_id"`
-	// TTS model (e.g., speech-02-turbo)
+	GroupID *string `json:"group_id,omitempty" url:"group_id,omitempty"`
+	// BYOK TTS model. Managed MiniMax preset models are selected through the top-level preset field instead.
 	Model        string                        `json:"model" url:"model"`
 	VoiceSetting *MinimaxTtsParamsVoiceSetting `json:"voice_setting" url:"voice_setting"`
+	// Audio output settings.
+	AudioSetting *MinimaxTtsParamsAudioSetting `json:"audio_setting,omitempty" url:"audio_setting,omitempty"`
+	// Custom pronunciation dictionary settings.
+	PronunciationDict *MinimaxTtsParamsPronunciationDict `json:"pronunciation_dict,omitempty" url:"pronunciation_dict,omitempty"`
+	// Weighted voice blending configuration.
+	TimberWeights []*MinimaxTtsParamsTimberWeightsItem `json:"timber_weights,omitempty" url:"timber_weights,omitempty"`
+	// Language boost mode.
+	LanguageBoost *string `json:"language_boost,omitempty" url:"language_boost,omitempty"`
 	// WebSocket endpoint (e.g., wss://api-uw.minimax.io/ws/v1/t2a_v2)
-	URL string `json:"url" url:"url"`
+	URL *string `json:"url,omitempty" url:"url,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
 	explicitFields *big.Int `json:"-" url:"-"`
@@ -5359,9 +6339,9 @@ func (m *MinimaxTtsParams) GetKey() string {
 	return m.Key
 }
 
-func (m *MinimaxTtsParams) GetGroupID() string {
+func (m *MinimaxTtsParams) GetGroupID() *string {
 	if m == nil {
-		return ""
+		return nil
 	}
 	return m.GroupID
 }
@@ -5380,9 +6360,37 @@ func (m *MinimaxTtsParams) GetVoiceSetting() *MinimaxTtsParamsVoiceSetting {
 	return m.VoiceSetting
 }
 
-func (m *MinimaxTtsParams) GetURL() string {
+func (m *MinimaxTtsParams) GetAudioSetting() *MinimaxTtsParamsAudioSetting {
 	if m == nil {
-		return ""
+		return nil
+	}
+	return m.AudioSetting
+}
+
+func (m *MinimaxTtsParams) GetPronunciationDict() *MinimaxTtsParamsPronunciationDict {
+	if m == nil {
+		return nil
+	}
+	return m.PronunciationDict
+}
+
+func (m *MinimaxTtsParams) GetTimberWeights() []*MinimaxTtsParamsTimberWeightsItem {
+	if m == nil {
+		return nil
+	}
+	return m.TimberWeights
+}
+
+func (m *MinimaxTtsParams) GetLanguageBoost() *string {
+	if m == nil {
+		return nil
+	}
+	return m.LanguageBoost
+}
+
+func (m *MinimaxTtsParams) GetURL() *string {
+	if m == nil {
+		return nil
 	}
 	return m.URL
 }
@@ -5407,7 +6415,7 @@ func (m *MinimaxTtsParams) SetKey(key string) {
 
 // SetGroupID sets the GroupID field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (m *MinimaxTtsParams) SetGroupID(groupID string) {
+func (m *MinimaxTtsParams) SetGroupID(groupID *string) {
 	m.GroupID = groupID
 	m.require(minimaxTtsParamsFieldGroupID)
 }
@@ -5426,9 +6434,37 @@ func (m *MinimaxTtsParams) SetVoiceSetting(voiceSetting *MinimaxTtsParamsVoiceSe
 	m.require(minimaxTtsParamsFieldVoiceSetting)
 }
 
+// SetAudioSetting sets the AudioSetting field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxTtsParams) SetAudioSetting(audioSetting *MinimaxTtsParamsAudioSetting) {
+	m.AudioSetting = audioSetting
+	m.require(minimaxTtsParamsFieldAudioSetting)
+}
+
+// SetPronunciationDict sets the PronunciationDict field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxTtsParams) SetPronunciationDict(pronunciationDict *MinimaxTtsParamsPronunciationDict) {
+	m.PronunciationDict = pronunciationDict
+	m.require(minimaxTtsParamsFieldPronunciationDict)
+}
+
+// SetTimberWeights sets the TimberWeights field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxTtsParams) SetTimberWeights(timberWeights []*MinimaxTtsParamsTimberWeightsItem) {
+	m.TimberWeights = timberWeights
+	m.require(minimaxTtsParamsFieldTimberWeights)
+}
+
+// SetLanguageBoost sets the LanguageBoost field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxTtsParams) SetLanguageBoost(languageBoost *string) {
+	m.LanguageBoost = languageBoost
+	m.require(minimaxTtsParamsFieldLanguageBoost)
+}
+
 // SetURL sets the URL field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (m *MinimaxTtsParams) SetURL(url string) {
+func (m *MinimaxTtsParams) SetURL(url *string) {
 	m.URL = url
 	m.require(minimaxTtsParamsFieldURL)
 }
@@ -5476,13 +6512,302 @@ func (m *MinimaxTtsParams) String() string {
 	return fmt.Sprintf("%#v", m)
 }
 
+// Audio output settings.
 var (
-	minimaxTtsParamsVoiceSettingFieldVoiceID = big.NewInt(1 << 0)
+	minimaxTtsParamsAudioSettingFieldSampleRate = big.NewInt(1 << 0)
+)
+
+type MinimaxTtsParamsAudioSetting struct {
+	// Audio sample rate in Hz.
+	SampleRate *int `json:"sample_rate,omitempty" url:"sample_rate,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (m *MinimaxTtsParamsAudioSetting) GetSampleRate() *int {
+	if m == nil {
+		return nil
+	}
+	return m.SampleRate
+}
+
+func (m *MinimaxTtsParamsAudioSetting) GetExtraProperties() map[string]interface{} {
+	return m.ExtraProperties
+}
+
+func (m *MinimaxTtsParamsAudioSetting) require(field *big.Int) {
+	if m.explicitFields == nil {
+		m.explicitFields = big.NewInt(0)
+	}
+	m.explicitFields.Or(m.explicitFields, field)
+}
+
+// SetSampleRate sets the SampleRate field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxTtsParamsAudioSetting) SetSampleRate(sampleRate *int) {
+	m.SampleRate = sampleRate
+	m.require(minimaxTtsParamsAudioSettingFieldSampleRate)
+}
+
+func (m *MinimaxTtsParamsAudioSetting) UnmarshalJSON(data []byte) error {
+	type embed MinimaxTtsParamsAudioSetting
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*m),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*m = MinimaxTtsParamsAudioSetting(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *m)
+	if err != nil {
+		return err
+	}
+	m.ExtraProperties = extraProperties
+	m.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (m *MinimaxTtsParamsAudioSetting) MarshalJSON() ([]byte, error) {
+	type embed MinimaxTtsParamsAudioSetting
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*m),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, m.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, m.ExtraProperties)
+}
+
+func (m *MinimaxTtsParamsAudioSetting) String() string {
+	if len(m.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(m.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(m); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", m)
+}
+
+// Custom pronunciation dictionary settings.
+var (
+	minimaxTtsParamsPronunciationDictFieldTone = big.NewInt(1 << 0)
+)
+
+type MinimaxTtsParamsPronunciationDict struct {
+	// Tone override list.
+	Tone []string `json:"tone,omitempty" url:"tone,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (m *MinimaxTtsParamsPronunciationDict) GetTone() []string {
+	if m == nil {
+		return nil
+	}
+	return m.Tone
+}
+
+func (m *MinimaxTtsParamsPronunciationDict) GetExtraProperties() map[string]interface{} {
+	return m.ExtraProperties
+}
+
+func (m *MinimaxTtsParamsPronunciationDict) require(field *big.Int) {
+	if m.explicitFields == nil {
+		m.explicitFields = big.NewInt(0)
+	}
+	m.explicitFields.Or(m.explicitFields, field)
+}
+
+// SetTone sets the Tone field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxTtsParamsPronunciationDict) SetTone(tone []string) {
+	m.Tone = tone
+	m.require(minimaxTtsParamsPronunciationDictFieldTone)
+}
+
+func (m *MinimaxTtsParamsPronunciationDict) UnmarshalJSON(data []byte) error {
+	type embed MinimaxTtsParamsPronunciationDict
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*m),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*m = MinimaxTtsParamsPronunciationDict(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *m)
+	if err != nil {
+		return err
+	}
+	m.ExtraProperties = extraProperties
+	m.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (m *MinimaxTtsParamsPronunciationDict) MarshalJSON() ([]byte, error) {
+	type embed MinimaxTtsParamsPronunciationDict
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*m),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, m.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, m.ExtraProperties)
+}
+
+func (m *MinimaxTtsParamsPronunciationDict) String() string {
+	if len(m.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(m.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(m); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", m)
+}
+
+var (
+	minimaxTtsParamsTimberWeightsItemFieldVoiceID = big.NewInt(1 << 0)
+	minimaxTtsParamsTimberWeightsItemFieldWeight  = big.NewInt(1 << 1)
+)
+
+type MinimaxTtsParamsTimberWeightsItem struct {
+	// Voice identifier for blending.
+	VoiceID *string `json:"voice_id,omitempty" url:"voice_id,omitempty"`
+	// Relative blend weight.
+	Weight *float64 `json:"weight,omitempty" url:"weight,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (m *MinimaxTtsParamsTimberWeightsItem) GetVoiceID() *string {
+	if m == nil {
+		return nil
+	}
+	return m.VoiceID
+}
+
+func (m *MinimaxTtsParamsTimberWeightsItem) GetWeight() *float64 {
+	if m == nil {
+		return nil
+	}
+	return m.Weight
+}
+
+func (m *MinimaxTtsParamsTimberWeightsItem) GetExtraProperties() map[string]interface{} {
+	return m.ExtraProperties
+}
+
+func (m *MinimaxTtsParamsTimberWeightsItem) require(field *big.Int) {
+	if m.explicitFields == nil {
+		m.explicitFields = big.NewInt(0)
+	}
+	m.explicitFields.Or(m.explicitFields, field)
+}
+
+// SetVoiceID sets the VoiceID field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxTtsParamsTimberWeightsItem) SetVoiceID(voiceID *string) {
+	m.VoiceID = voiceID
+	m.require(minimaxTtsParamsTimberWeightsItemFieldVoiceID)
+}
+
+// SetWeight sets the Weight field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxTtsParamsTimberWeightsItem) SetWeight(weight *float64) {
+	m.Weight = weight
+	m.require(minimaxTtsParamsTimberWeightsItemFieldWeight)
+}
+
+func (m *MinimaxTtsParamsTimberWeightsItem) UnmarshalJSON(data []byte) error {
+	type embed MinimaxTtsParamsTimberWeightsItem
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*m),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*m = MinimaxTtsParamsTimberWeightsItem(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *m)
+	if err != nil {
+		return err
+	}
+	m.ExtraProperties = extraProperties
+	m.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (m *MinimaxTtsParamsTimberWeightsItem) MarshalJSON() ([]byte, error) {
+	type embed MinimaxTtsParamsTimberWeightsItem
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*m),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, m.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, m.ExtraProperties)
+}
+
+func (m *MinimaxTtsParamsTimberWeightsItem) String() string {
+	if len(m.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(m.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(m); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", m)
+}
+
+var (
+	minimaxTtsParamsVoiceSettingFieldVoiceID              = big.NewInt(1 << 0)
+	minimaxTtsParamsVoiceSettingFieldSpeed                = big.NewInt(1 << 1)
+	minimaxTtsParamsVoiceSettingFieldVol                  = big.NewInt(1 << 2)
+	minimaxTtsParamsVoiceSettingFieldPitch                = big.NewInt(1 << 3)
+	minimaxTtsParamsVoiceSettingFieldEmotion              = big.NewInt(1 << 4)
+	minimaxTtsParamsVoiceSettingFieldLatexRead            = big.NewInt(1 << 5)
+	minimaxTtsParamsVoiceSettingFieldEnglishNormalization = big.NewInt(1 << 6)
 )
 
 type MinimaxTtsParamsVoiceSetting struct {
 	// Voice style identifier (e.g., English_captivating_female1)
 	VoiceID string `json:"voice_id" url:"voice_id"`
+	// Speech speed multiplier.
+	Speed *float64 `json:"speed,omitempty" url:"speed,omitempty"`
+	// Voice volume multiplier.
+	Vol *float64 `json:"vol,omitempty" url:"vol,omitempty"`
+	// Voice pitch adjustment.
+	Pitch *float64 `json:"pitch,omitempty" url:"pitch,omitempty"`
+	// Emotion preset.
+	Emotion *string `json:"emotion,omitempty" url:"emotion,omitempty"`
+	// Whether to read LaTeX expressions.
+	LatexRead *bool `json:"latex_read,omitempty" url:"latex_read,omitempty"`
+	// Whether to normalize English text before synthesis.
+	EnglishNormalization *bool `json:"english_normalization,omitempty" url:"english_normalization,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
 	explicitFields *big.Int `json:"-" url:"-"`
@@ -5497,6 +6822,48 @@ func (m *MinimaxTtsParamsVoiceSetting) GetVoiceID() string {
 		return ""
 	}
 	return m.VoiceID
+}
+
+func (m *MinimaxTtsParamsVoiceSetting) GetSpeed() *float64 {
+	if m == nil {
+		return nil
+	}
+	return m.Speed
+}
+
+func (m *MinimaxTtsParamsVoiceSetting) GetVol() *float64 {
+	if m == nil {
+		return nil
+	}
+	return m.Vol
+}
+
+func (m *MinimaxTtsParamsVoiceSetting) GetPitch() *float64 {
+	if m == nil {
+		return nil
+	}
+	return m.Pitch
+}
+
+func (m *MinimaxTtsParamsVoiceSetting) GetEmotion() *string {
+	if m == nil {
+		return nil
+	}
+	return m.Emotion
+}
+
+func (m *MinimaxTtsParamsVoiceSetting) GetLatexRead() *bool {
+	if m == nil {
+		return nil
+	}
+	return m.LatexRead
+}
+
+func (m *MinimaxTtsParamsVoiceSetting) GetEnglishNormalization() *bool {
+	if m == nil {
+		return nil
+	}
+	return m.EnglishNormalization
 }
 
 func (m *MinimaxTtsParamsVoiceSetting) GetExtraProperties() map[string]interface{} {
@@ -5515,6 +6882,48 @@ func (m *MinimaxTtsParamsVoiceSetting) require(field *big.Int) {
 func (m *MinimaxTtsParamsVoiceSetting) SetVoiceID(voiceID string) {
 	m.VoiceID = voiceID
 	m.require(minimaxTtsParamsVoiceSettingFieldVoiceID)
+}
+
+// SetSpeed sets the Speed field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxTtsParamsVoiceSetting) SetSpeed(speed *float64) {
+	m.Speed = speed
+	m.require(minimaxTtsParamsVoiceSettingFieldSpeed)
+}
+
+// SetVol sets the Vol field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxTtsParamsVoiceSetting) SetVol(vol *float64) {
+	m.Vol = vol
+	m.require(minimaxTtsParamsVoiceSettingFieldVol)
+}
+
+// SetPitch sets the Pitch field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxTtsParamsVoiceSetting) SetPitch(pitch *float64) {
+	m.Pitch = pitch
+	m.require(minimaxTtsParamsVoiceSettingFieldPitch)
+}
+
+// SetEmotion sets the Emotion field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxTtsParamsVoiceSetting) SetEmotion(emotion *string) {
+	m.Emotion = emotion
+	m.require(minimaxTtsParamsVoiceSettingFieldEmotion)
+}
+
+// SetLatexRead sets the LatexRead field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxTtsParamsVoiceSetting) SetLatexRead(latexRead *bool) {
+	m.LatexRead = latexRead
+	m.require(minimaxTtsParamsVoiceSettingFieldLatexRead)
+}
+
+// SetEnglishNormalization sets the EnglishNormalization field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxTtsParamsVoiceSetting) SetEnglishNormalization(englishNormalization *bool) {
+	m.EnglishNormalization = englishNormalization
+	m.require(minimaxTtsParamsVoiceSettingFieldEnglishNormalization)
 }
 
 func (m *MinimaxTtsParamsVoiceSetting) UnmarshalJSON(data []byte) error {
@@ -8830,21 +10239,794 @@ func (s *SpeechmaticsAsrParams) String() string {
 	return fmt.Sprintf("%#v", s)
 }
 
+// StepFun Text-to-Speech configuration.
+var (
+	stepfunTtsFieldParams       = big.NewInt(1 << 0)
+	stepfunTtsFieldSkipPatterns = big.NewInt(1 << 1)
+)
+
+type StepfunTts struct {
+	Params *StepfunTtsParams `json:"params" url:"params"`
+	// Controls whether the TTS module skips bracketed content when reading LLM response text.
+	SkipPatterns []int `json:"skip_patterns,omitempty" url:"skip_patterns,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	extraProperties map[string]interface{}
+	rawJSON         json.RawMessage
+}
+
+func (s *StepfunTts) GetParams() *StepfunTtsParams {
+	if s == nil {
+		return nil
+	}
+	return s.Params
+}
+
+func (s *StepfunTts) GetSkipPatterns() []int {
+	if s == nil {
+		return nil
+	}
+	return s.SkipPatterns
+}
+
+func (s *StepfunTts) GetExtraProperties() map[string]interface{} {
+	return s.extraProperties
+}
+
+func (s *StepfunTts) require(field *big.Int) {
+	if s.explicitFields == nil {
+		s.explicitFields = big.NewInt(0)
+	}
+	s.explicitFields.Or(s.explicitFields, field)
+}
+
+// SetParams sets the Params field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *StepfunTts) SetParams(params *StepfunTtsParams) {
+	s.Params = params
+	s.require(stepfunTtsFieldParams)
+}
+
+// SetSkipPatterns sets the SkipPatterns field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *StepfunTts) SetSkipPatterns(skipPatterns []int) {
+	s.SkipPatterns = skipPatterns
+	s.require(stepfunTtsFieldSkipPatterns)
+}
+
+func (s *StepfunTts) UnmarshalJSON(data []byte) error {
+	type unmarshaler StepfunTts
+	var value unmarshaler
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	*s = StepfunTts(value)
+	extraProperties, err := internal.ExtractExtraProperties(data, *s)
+	if err != nil {
+		return err
+	}
+	s.extraProperties = extraProperties
+	s.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (s *StepfunTts) MarshalJSON() ([]byte, error) {
+	type embed StepfunTts
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*s),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, s.explicitFields)
+	return json.Marshal(explicitMarshaler)
+}
+
+func (s *StepfunTts) String() string {
+	if len(s.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(s.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(s); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", s)
+}
+
+// StepFun TTS configuration parameters.
+var (
+	stepfunTtsParamsFieldAPIKey  = big.NewInt(1 << 0)
+	stepfunTtsParamsFieldModel   = big.NewInt(1 << 1)
+	stepfunTtsParamsFieldVoiceID = big.NewInt(1 << 2)
+)
+
+type StepfunTtsParams struct {
+	// StepFun API key.
+	APIKey string `json:"api_key" url:"api_key"`
+	// StepFun model identifier.
+	Model string `json:"model" url:"model"`
+	// StepFun voice identifier.
+	VoiceID string `json:"voice_id" url:"voice_id"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (s *StepfunTtsParams) GetAPIKey() string {
+	if s == nil {
+		return ""
+	}
+	return s.APIKey
+}
+
+func (s *StepfunTtsParams) GetModel() string {
+	if s == nil {
+		return ""
+	}
+	return s.Model
+}
+
+func (s *StepfunTtsParams) GetVoiceID() string {
+	if s == nil {
+		return ""
+	}
+	return s.VoiceID
+}
+
+func (s *StepfunTtsParams) GetExtraProperties() map[string]interface{} {
+	return s.ExtraProperties
+}
+
+func (s *StepfunTtsParams) require(field *big.Int) {
+	if s.explicitFields == nil {
+		s.explicitFields = big.NewInt(0)
+	}
+	s.explicitFields.Or(s.explicitFields, field)
+}
+
+// SetAPIKey sets the APIKey field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *StepfunTtsParams) SetAPIKey(apiKey string) {
+	s.APIKey = apiKey
+	s.require(stepfunTtsParamsFieldAPIKey)
+}
+
+// SetModel sets the Model field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *StepfunTtsParams) SetModel(model string) {
+	s.Model = model
+	s.require(stepfunTtsParamsFieldModel)
+}
+
+// SetVoiceID sets the VoiceID field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *StepfunTtsParams) SetVoiceID(voiceID string) {
+	s.VoiceID = voiceID
+	s.require(stepfunTtsParamsFieldVoiceID)
+}
+
+func (s *StepfunTtsParams) UnmarshalJSON(data []byte) error {
+	type embed StepfunTtsParams
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*s),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*s = StepfunTtsParams(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *s)
+	if err != nil {
+		return err
+	}
+	s.ExtraProperties = extraProperties
+	s.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (s *StepfunTtsParams) MarshalJSON() ([]byte, error) {
+	type embed StepfunTtsParams
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*s),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, s.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, s.ExtraProperties)
+}
+
+func (s *StepfunTtsParams) String() string {
+	if len(s.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(s.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(s); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", s)
+}
+
+// Tencent ASR configuration.
+var (
+	tencentAsrFieldLanguage = big.NewInt(1 << 0)
+	tencentAsrFieldParams   = big.NewInt(1 << 1)
+)
+
+type TencentAsr struct {
+	Language *AsrLanguage      `json:"language,omitempty" url:"language,omitempty"`
+	Params   *TencentAsrParams `json:"params" url:"params"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (t *TencentAsr) GetLanguage() *AsrLanguage {
+	if t == nil {
+		return nil
+	}
+	return t.Language
+}
+
+func (t *TencentAsr) GetParams() *TencentAsrParams {
+	if t == nil {
+		return nil
+	}
+	return t.Params
+}
+
+func (t *TencentAsr) GetExtraProperties() map[string]interface{} {
+	return t.ExtraProperties
+}
+
+func (t *TencentAsr) require(field *big.Int) {
+	if t.explicitFields == nil {
+		t.explicitFields = big.NewInt(0)
+	}
+	t.explicitFields.Or(t.explicitFields, field)
+}
+
+// SetLanguage sets the Language field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (t *TencentAsr) SetLanguage(language *AsrLanguage) {
+	t.Language = language
+	t.require(tencentAsrFieldLanguage)
+}
+
+// SetParams sets the Params field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (t *TencentAsr) SetParams(params *TencentAsrParams) {
+	t.Params = params
+	t.require(tencentAsrFieldParams)
+}
+
+func (t *TencentAsr) UnmarshalJSON(data []byte) error {
+	type embed TencentAsr
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*t),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*t = TencentAsr(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *t)
+	if err != nil {
+		return err
+	}
+	t.ExtraProperties = extraProperties
+	t.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (t *TencentAsr) MarshalJSON() ([]byte, error) {
+	type embed TencentAsr
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*t),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, t.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, t.ExtraProperties)
+}
+
+func (t *TencentAsr) String() string {
+	if len(t.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(t.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(t); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", t)
+}
+
+// Tencent ASR configuration parameters.
+var (
+	tencentAsrParamsFieldKey             = big.NewInt(1 << 0)
+	tencentAsrParamsFieldAppID           = big.NewInt(1 << 1)
+	tencentAsrParamsFieldSecret          = big.NewInt(1 << 2)
+	tencentAsrParamsFieldEngineModelType = big.NewInt(1 << 3)
+	tencentAsrParamsFieldVoiceID         = big.NewInt(1 << 4)
+)
+
+type TencentAsrParams struct {
+	// Tencent ASR secret key.
+	Key string `json:"key" url:"key"`
+	// Tencent Cloud application ID.
+	AppID string `json:"app_id" url:"app_id"`
+	// Tencent ASR secret.
+	Secret string `json:"secret" url:"secret"`
+	// Tencent ASR engine model type.
+	EngineModelType string `json:"engine_model_type" url:"engine_model_type"`
+	// Tencent ASR voice session identifier.
+	VoiceID string `json:"voice_id" url:"voice_id"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (t *TencentAsrParams) GetKey() string {
+	if t == nil {
+		return ""
+	}
+	return t.Key
+}
+
+func (t *TencentAsrParams) GetAppID() string {
+	if t == nil {
+		return ""
+	}
+	return t.AppID
+}
+
+func (t *TencentAsrParams) GetSecret() string {
+	if t == nil {
+		return ""
+	}
+	return t.Secret
+}
+
+func (t *TencentAsrParams) GetEngineModelType() string {
+	if t == nil {
+		return ""
+	}
+	return t.EngineModelType
+}
+
+func (t *TencentAsrParams) GetVoiceID() string {
+	if t == nil {
+		return ""
+	}
+	return t.VoiceID
+}
+
+func (t *TencentAsrParams) GetExtraProperties() map[string]interface{} {
+	return t.ExtraProperties
+}
+
+func (t *TencentAsrParams) require(field *big.Int) {
+	if t.explicitFields == nil {
+		t.explicitFields = big.NewInt(0)
+	}
+	t.explicitFields.Or(t.explicitFields, field)
+}
+
+// SetKey sets the Key field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (t *TencentAsrParams) SetKey(key string) {
+	t.Key = key
+	t.require(tencentAsrParamsFieldKey)
+}
+
+// SetAppID sets the AppID field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (t *TencentAsrParams) SetAppID(appID string) {
+	t.AppID = appID
+	t.require(tencentAsrParamsFieldAppID)
+}
+
+// SetSecret sets the Secret field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (t *TencentAsrParams) SetSecret(secret string) {
+	t.Secret = secret
+	t.require(tencentAsrParamsFieldSecret)
+}
+
+// SetEngineModelType sets the EngineModelType field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (t *TencentAsrParams) SetEngineModelType(engineModelType string) {
+	t.EngineModelType = engineModelType
+	t.require(tencentAsrParamsFieldEngineModelType)
+}
+
+// SetVoiceID sets the VoiceID field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (t *TencentAsrParams) SetVoiceID(voiceID string) {
+	t.VoiceID = voiceID
+	t.require(tencentAsrParamsFieldVoiceID)
+}
+
+func (t *TencentAsrParams) UnmarshalJSON(data []byte) error {
+	type embed TencentAsrParams
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*t),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*t = TencentAsrParams(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *t)
+	if err != nil {
+		return err
+	}
+	t.ExtraProperties = extraProperties
+	t.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (t *TencentAsrParams) MarshalJSON() ([]byte, error) {
+	type embed TencentAsrParams
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*t),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, t.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, t.ExtraProperties)
+}
+
+func (t *TencentAsrParams) String() string {
+	if len(t.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(t.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(t); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", t)
+}
+
+// Tencent Text-to-Speech configuration.
+var (
+	tencentTtsFieldParams       = big.NewInt(1 << 0)
+	tencentTtsFieldSkipPatterns = big.NewInt(1 << 1)
+)
+
+type TencentTts struct {
+	Params *TencentTtsParams `json:"params" url:"params"`
+	// Controls whether the TTS module skips bracketed content when reading LLM response text.
+	SkipPatterns []int `json:"skip_patterns,omitempty" url:"skip_patterns,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	extraProperties map[string]interface{}
+	rawJSON         json.RawMessage
+}
+
+func (t *TencentTts) GetParams() *TencentTtsParams {
+	if t == nil {
+		return nil
+	}
+	return t.Params
+}
+
+func (t *TencentTts) GetSkipPatterns() []int {
+	if t == nil {
+		return nil
+	}
+	return t.SkipPatterns
+}
+
+func (t *TencentTts) GetExtraProperties() map[string]interface{} {
+	return t.extraProperties
+}
+
+func (t *TencentTts) require(field *big.Int) {
+	if t.explicitFields == nil {
+		t.explicitFields = big.NewInt(0)
+	}
+	t.explicitFields.Or(t.explicitFields, field)
+}
+
+// SetParams sets the Params field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (t *TencentTts) SetParams(params *TencentTtsParams) {
+	t.Params = params
+	t.require(tencentTtsFieldParams)
+}
+
+// SetSkipPatterns sets the SkipPatterns field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (t *TencentTts) SetSkipPatterns(skipPatterns []int) {
+	t.SkipPatterns = skipPatterns
+	t.require(tencentTtsFieldSkipPatterns)
+}
+
+func (t *TencentTts) UnmarshalJSON(data []byte) error {
+	type unmarshaler TencentTts
+	var value unmarshaler
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	*t = TencentTts(value)
+	extraProperties, err := internal.ExtractExtraProperties(data, *t)
+	if err != nil {
+		return err
+	}
+	t.extraProperties = extraProperties
+	t.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (t *TencentTts) MarshalJSON() ([]byte, error) {
+	type embed TencentTts
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*t),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, t.explicitFields)
+	return json.Marshal(explicitMarshaler)
+}
+
+func (t *TencentTts) String() string {
+	if len(t.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(t.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(t); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", t)
+}
+
+// Tencent TTS configuration parameters.
+var (
+	tencentTtsParamsFieldAppID            = big.NewInt(1 << 0)
+	tencentTtsParamsFieldSecretID         = big.NewInt(1 << 1)
+	tencentTtsParamsFieldSecretKey        = big.NewInt(1 << 2)
+	tencentTtsParamsFieldVoiceType        = big.NewInt(1 << 3)
+	tencentTtsParamsFieldVolume           = big.NewInt(1 << 4)
+	tencentTtsParamsFieldSpeed            = big.NewInt(1 << 5)
+	tencentTtsParamsFieldEmotionCategory  = big.NewInt(1 << 6)
+	tencentTtsParamsFieldEmotionIntensity = big.NewInt(1 << 7)
+)
+
+type TencentTtsParams struct {
+	// Tencent Cloud application ID.
+	AppID string `json:"app_id" url:"app_id"`
+	// Tencent Cloud secret ID.
+	SecretID string `json:"secret_id" url:"secret_id"`
+	// Tencent Cloud secret key.
+	SecretKey string `json:"secret_key" url:"secret_key"`
+	// Tencent voice type identifier.
+	VoiceType int `json:"voice_type" url:"voice_type"`
+	// Volume setting.
+	Volume *float64 `json:"volume,omitempty" url:"volume,omitempty"`
+	// Speech speed setting.
+	Speed *float64 `json:"speed,omitempty" url:"speed,omitempty"`
+	// Emotion category.
+	EmotionCategory *string `json:"emotion_category,omitempty" url:"emotion_category,omitempty"`
+	// Emotion intensity.
+	EmotionIntensity *int `json:"emotion_intensity,omitempty" url:"emotion_intensity,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (t *TencentTtsParams) GetAppID() string {
+	if t == nil {
+		return ""
+	}
+	return t.AppID
+}
+
+func (t *TencentTtsParams) GetSecretID() string {
+	if t == nil {
+		return ""
+	}
+	return t.SecretID
+}
+
+func (t *TencentTtsParams) GetSecretKey() string {
+	if t == nil {
+		return ""
+	}
+	return t.SecretKey
+}
+
+func (t *TencentTtsParams) GetVoiceType() int {
+	if t == nil {
+		return 0
+	}
+	return t.VoiceType
+}
+
+func (t *TencentTtsParams) GetVolume() *float64 {
+	if t == nil {
+		return nil
+	}
+	return t.Volume
+}
+
+func (t *TencentTtsParams) GetSpeed() *float64 {
+	if t == nil {
+		return nil
+	}
+	return t.Speed
+}
+
+func (t *TencentTtsParams) GetEmotionCategory() *string {
+	if t == nil {
+		return nil
+	}
+	return t.EmotionCategory
+}
+
+func (t *TencentTtsParams) GetEmotionIntensity() *int {
+	if t == nil {
+		return nil
+	}
+	return t.EmotionIntensity
+}
+
+func (t *TencentTtsParams) GetExtraProperties() map[string]interface{} {
+	return t.ExtraProperties
+}
+
+func (t *TencentTtsParams) require(field *big.Int) {
+	if t.explicitFields == nil {
+		t.explicitFields = big.NewInt(0)
+	}
+	t.explicitFields.Or(t.explicitFields, field)
+}
+
+// SetAppID sets the AppID field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (t *TencentTtsParams) SetAppID(appID string) {
+	t.AppID = appID
+	t.require(tencentTtsParamsFieldAppID)
+}
+
+// SetSecretID sets the SecretID field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (t *TencentTtsParams) SetSecretID(secretID string) {
+	t.SecretID = secretID
+	t.require(tencentTtsParamsFieldSecretID)
+}
+
+// SetSecretKey sets the SecretKey field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (t *TencentTtsParams) SetSecretKey(secretKey string) {
+	t.SecretKey = secretKey
+	t.require(tencentTtsParamsFieldSecretKey)
+}
+
+// SetVoiceType sets the VoiceType field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (t *TencentTtsParams) SetVoiceType(voiceType int) {
+	t.VoiceType = voiceType
+	t.require(tencentTtsParamsFieldVoiceType)
+}
+
+// SetVolume sets the Volume field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (t *TencentTtsParams) SetVolume(volume *float64) {
+	t.Volume = volume
+	t.require(tencentTtsParamsFieldVolume)
+}
+
+// SetSpeed sets the Speed field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (t *TencentTtsParams) SetSpeed(speed *float64) {
+	t.Speed = speed
+	t.require(tencentTtsParamsFieldSpeed)
+}
+
+// SetEmotionCategory sets the EmotionCategory field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (t *TencentTtsParams) SetEmotionCategory(emotionCategory *string) {
+	t.EmotionCategory = emotionCategory
+	t.require(tencentTtsParamsFieldEmotionCategory)
+}
+
+// SetEmotionIntensity sets the EmotionIntensity field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (t *TencentTtsParams) SetEmotionIntensity(emotionIntensity *int) {
+	t.EmotionIntensity = emotionIntensity
+	t.require(tencentTtsParamsFieldEmotionIntensity)
+}
+
+func (t *TencentTtsParams) UnmarshalJSON(data []byte) error {
+	type embed TencentTtsParams
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*t),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*t = TencentTtsParams(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *t)
+	if err != nil {
+		return err
+	}
+	t.ExtraProperties = extraProperties
+	t.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (t *TencentTtsParams) MarshalJSON() ([]byte, error) {
+	type embed TencentTtsParams
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*t),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, t.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, t.ExtraProperties)
+}
+
+func (t *TencentTtsParams) String() string {
+	if len(t.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(t.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(t); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", t)
+}
+
 type Tts struct {
-	Vendor     string
-	Microsoft  *MicrosoftTts
-	Elevenlabs *ElevenLabsTts
-	Minimax    *MinimaxTts
-	Murf       *MurfTts
-	Cartesia   *CartesiaTts
-	Openai     *OpenAiTts
-	Humeai     *HumeAiTts
-	Rime       *RimeTts
-	Fishaudio  *FishAudioTts
-	Google     *GoogleTts
-	Amazon     *AmazonTts
-	Sarvam     *SarvamTts
-	Deepgram   *DeepgramTts
+	Vendor          string
+	Tencent         *TencentTts
+	Bytedance       *BytedanceTts
+	Microsoft       *MicrosoftTts
+	Elevenlabs      *ElevenLabsTts
+	Minimax         *MinimaxTts
+	Murf            *MurfTts
+	Cartesia        *CartesiaTts
+	Openai          *OpenAiTts
+	Humeai          *HumeAiTts
+	Rime            *RimeTts
+	Fishaudio       *FishAudioTts
+	Google          *GoogleTts
+	Amazon          *AmazonTts
+	Sarvam          *SarvamTts
+	Deepgram        *DeepgramTts
+	Cosyvoice       *CosyvoiceTts
+	BytedanceDuplex *BytedanceDuplexTts
+	Stepfun         *StepfunTts
 }
 
 func (t *Tts) GetVendor() string {
@@ -8852,6 +11034,20 @@ func (t *Tts) GetVendor() string {
 		return ""
 	}
 	return t.Vendor
+}
+
+func (t *Tts) GetTencent() *TencentTts {
+	if t == nil {
+		return nil
+	}
+	return t.Tencent
+}
+
+func (t *Tts) GetBytedance() *BytedanceTts {
+	if t == nil {
+		return nil
+	}
+	return t.Bytedance
 }
 
 func (t *Tts) GetMicrosoft() *MicrosoftTts {
@@ -8945,6 +11141,27 @@ func (t *Tts) GetDeepgram() *DeepgramTts {
 	return t.Deepgram
 }
 
+func (t *Tts) GetCosyvoice() *CosyvoiceTts {
+	if t == nil {
+		return nil
+	}
+	return t.Cosyvoice
+}
+
+func (t *Tts) GetBytedanceDuplex() *BytedanceDuplexTts {
+	if t == nil {
+		return nil
+	}
+	return t.BytedanceDuplex
+}
+
+func (t *Tts) GetStepfun() *StepfunTts {
+	if t == nil {
+		return nil
+	}
+	return t.Stepfun
+}
+
 func (t *Tts) UnmarshalJSON(data []byte) error {
 	var unmarshaler struct {
 		Vendor string `json:"vendor"`
@@ -8957,6 +11174,18 @@ func (t *Tts) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("%T did not include discriminant vendor", t)
 	}
 	switch unmarshaler.Vendor {
+	case "tencent":
+		value := new(TencentTts)
+		if err := json.Unmarshal(data, &value); err != nil {
+			return err
+		}
+		t.Tencent = value
+	case "bytedance":
+		value := new(BytedanceTts)
+		if err := json.Unmarshal(data, &value); err != nil {
+			return err
+		}
+		t.Bytedance = value
 	case "microsoft":
 		value := new(MicrosoftTts)
 		if err := json.Unmarshal(data, &value); err != nil {
@@ -9035,6 +11264,24 @@ func (t *Tts) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		t.Deepgram = value
+	case "cosyvoice":
+		value := new(CosyvoiceTts)
+		if err := json.Unmarshal(data, &value); err != nil {
+			return err
+		}
+		t.Cosyvoice = value
+	case "bytedance_duplex":
+		value := new(BytedanceDuplexTts)
+		if err := json.Unmarshal(data, &value); err != nil {
+			return err
+		}
+		t.BytedanceDuplex = value
+	case "stepfun":
+		value := new(StepfunTts)
+		if err := json.Unmarshal(data, &value); err != nil {
+			return err
+		}
+		t.Stepfun = value
 	}
 	return nil
 }
@@ -9042,6 +11289,12 @@ func (t *Tts) UnmarshalJSON(data []byte) error {
 func (t Tts) MarshalJSON() ([]byte, error) {
 	if err := t.validate(); err != nil {
 		return nil, err
+	}
+	if t.Tencent != nil {
+		return internal.MarshalJSONWithExtraProperty(t.Tencent, "vendor", "tencent")
+	}
+	if t.Bytedance != nil {
+		return internal.MarshalJSONWithExtraProperty(t.Bytedance, "vendor", "bytedance")
 	}
 	if t.Microsoft != nil {
 		return internal.MarshalJSONWithExtraProperty(t.Microsoft, "vendor", "microsoft")
@@ -9082,10 +11335,21 @@ func (t Tts) MarshalJSON() ([]byte, error) {
 	if t.Deepgram != nil {
 		return internal.MarshalJSONWithExtraProperty(t.Deepgram, "vendor", "deepgram")
 	}
+	if t.Cosyvoice != nil {
+		return internal.MarshalJSONWithExtraProperty(t.Cosyvoice, "vendor", "cosyvoice")
+	}
+	if t.BytedanceDuplex != nil {
+		return internal.MarshalJSONWithExtraProperty(t.BytedanceDuplex, "vendor", "bytedance_duplex")
+	}
+	if t.Stepfun != nil {
+		return internal.MarshalJSONWithExtraProperty(t.Stepfun, "vendor", "stepfun")
+	}
 	return nil, fmt.Errorf("type %T does not define a non-empty union type", t)
 }
 
 type TtsVisitor interface {
+	VisitTencent(*TencentTts) error
+	VisitBytedance(*BytedanceTts) error
 	VisitMicrosoft(*MicrosoftTts) error
 	VisitElevenlabs(*ElevenLabsTts) error
 	VisitMinimax(*MinimaxTts) error
@@ -9099,9 +11363,18 @@ type TtsVisitor interface {
 	VisitAmazon(*AmazonTts) error
 	VisitSarvam(*SarvamTts) error
 	VisitDeepgram(*DeepgramTts) error
+	VisitCosyvoice(*CosyvoiceTts) error
+	VisitBytedanceDuplex(*BytedanceDuplexTts) error
+	VisitStepfun(*StepfunTts) error
 }
 
 func (t *Tts) Accept(visitor TtsVisitor) error {
+	if t.Tencent != nil {
+		return visitor.VisitTencent(t.Tencent)
+	}
+	if t.Bytedance != nil {
+		return visitor.VisitBytedance(t.Bytedance)
+	}
 	if t.Microsoft != nil {
 		return visitor.VisitMicrosoft(t.Microsoft)
 	}
@@ -9141,6 +11414,15 @@ func (t *Tts) Accept(visitor TtsVisitor) error {
 	if t.Deepgram != nil {
 		return visitor.VisitDeepgram(t.Deepgram)
 	}
+	if t.Cosyvoice != nil {
+		return visitor.VisitCosyvoice(t.Cosyvoice)
+	}
+	if t.BytedanceDuplex != nil {
+		return visitor.VisitBytedanceDuplex(t.BytedanceDuplex)
+	}
+	if t.Stepfun != nil {
+		return visitor.VisitStepfun(t.Stepfun)
+	}
 	return fmt.Errorf("type %T does not define a non-empty union type", t)
 }
 
@@ -9149,6 +11431,12 @@ func (t *Tts) validate() error {
 		return fmt.Errorf("type %T is nil", t)
 	}
 	var fields []string
+	if t.Tencent != nil {
+		fields = append(fields, "tencent")
+	}
+	if t.Bytedance != nil {
+		fields = append(fields, "bytedance")
+	}
 	if t.Microsoft != nil {
 		fields = append(fields, "microsoft")
 	}
@@ -9188,6 +11476,15 @@ func (t *Tts) validate() error {
 	if t.Deepgram != nil {
 		fields = append(fields, "deepgram")
 	}
+	if t.Cosyvoice != nil {
+		fields = append(fields, "cosyvoice")
+	}
+	if t.BytedanceDuplex != nil {
+		fields = append(fields, "bytedance_duplex")
+	}
+	if t.Stepfun != nil {
+		fields = append(fields, "stepfun")
+	}
 	if len(fields) == 0 {
 		if t.Vendor != "" {
 			return fmt.Errorf("type %T defines a discriminant set to %q but the field is not set", t, t.Vendor)
@@ -9209,6 +11506,731 @@ func (t *Tts) validate() error {
 		}
 	}
 	return nil
+}
+
+// iFlytek ASR configuration.
+var (
+	xfyunAsrFieldLanguage = big.NewInt(1 << 0)
+	xfyunAsrFieldParams   = big.NewInt(1 << 1)
+)
+
+type XfyunAsr struct {
+	Language *AsrLanguage    `json:"language,omitempty" url:"language,omitempty"`
+	Params   *XfyunAsrParams `json:"params" url:"params"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (x *XfyunAsr) GetLanguage() *AsrLanguage {
+	if x == nil {
+		return nil
+	}
+	return x.Language
+}
+
+func (x *XfyunAsr) GetParams() *XfyunAsrParams {
+	if x == nil {
+		return nil
+	}
+	return x.Params
+}
+
+func (x *XfyunAsr) GetExtraProperties() map[string]interface{} {
+	return x.ExtraProperties
+}
+
+func (x *XfyunAsr) require(field *big.Int) {
+	if x.explicitFields == nil {
+		x.explicitFields = big.NewInt(0)
+	}
+	x.explicitFields.Or(x.explicitFields, field)
+}
+
+// SetLanguage sets the Language field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (x *XfyunAsr) SetLanguage(language *AsrLanguage) {
+	x.Language = language
+	x.require(xfyunAsrFieldLanguage)
+}
+
+// SetParams sets the Params field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (x *XfyunAsr) SetParams(params *XfyunAsrParams) {
+	x.Params = params
+	x.require(xfyunAsrFieldParams)
+}
+
+func (x *XfyunAsr) UnmarshalJSON(data []byte) error {
+	type embed XfyunAsr
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*x),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*x = XfyunAsr(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *x)
+	if err != nil {
+		return err
+	}
+	x.ExtraProperties = extraProperties
+	x.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (x *XfyunAsr) MarshalJSON() ([]byte, error) {
+	type embed XfyunAsr
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*x),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, x.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, x.ExtraProperties)
+}
+
+func (x *XfyunAsr) String() string {
+	if len(x.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(x.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(x); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", x)
+}
+
+// iFlytek ASR configuration parameters.
+var (
+	xfyunAsrParamsFieldAPIKey    = big.NewInt(1 << 0)
+	xfyunAsrParamsFieldAppID     = big.NewInt(1 << 1)
+	xfyunAsrParamsFieldAPISecret = big.NewInt(1 << 2)
+	xfyunAsrParamsFieldLanguage  = big.NewInt(1 << 3)
+)
+
+type XfyunAsrParams struct {
+	// iFlytek API key.
+	APIKey string `json:"api_key" url:"api_key"`
+	// iFlytek application ID.
+	AppID string `json:"app_id" url:"app_id"`
+	// iFlytek API secret.
+	APISecret string `json:"api_secret" url:"api_secret"`
+	// iFlytek language code.
+	Language string `json:"language" url:"language"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (x *XfyunAsrParams) GetAPIKey() string {
+	if x == nil {
+		return ""
+	}
+	return x.APIKey
+}
+
+func (x *XfyunAsrParams) GetAppID() string {
+	if x == nil {
+		return ""
+	}
+	return x.AppID
+}
+
+func (x *XfyunAsrParams) GetAPISecret() string {
+	if x == nil {
+		return ""
+	}
+	return x.APISecret
+}
+
+func (x *XfyunAsrParams) GetLanguage() string {
+	if x == nil {
+		return ""
+	}
+	return x.Language
+}
+
+func (x *XfyunAsrParams) GetExtraProperties() map[string]interface{} {
+	return x.ExtraProperties
+}
+
+func (x *XfyunAsrParams) require(field *big.Int) {
+	if x.explicitFields == nil {
+		x.explicitFields = big.NewInt(0)
+	}
+	x.explicitFields.Or(x.explicitFields, field)
+}
+
+// SetAPIKey sets the APIKey field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (x *XfyunAsrParams) SetAPIKey(apiKey string) {
+	x.APIKey = apiKey
+	x.require(xfyunAsrParamsFieldAPIKey)
+}
+
+// SetAppID sets the AppID field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (x *XfyunAsrParams) SetAppID(appID string) {
+	x.AppID = appID
+	x.require(xfyunAsrParamsFieldAppID)
+}
+
+// SetAPISecret sets the APISecret field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (x *XfyunAsrParams) SetAPISecret(apiSecret string) {
+	x.APISecret = apiSecret
+	x.require(xfyunAsrParamsFieldAPISecret)
+}
+
+// SetLanguage sets the Language field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (x *XfyunAsrParams) SetLanguage(language string) {
+	x.Language = language
+	x.require(xfyunAsrParamsFieldLanguage)
+}
+
+func (x *XfyunAsrParams) UnmarshalJSON(data []byte) error {
+	type embed XfyunAsrParams
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*x),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*x = XfyunAsrParams(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *x)
+	if err != nil {
+		return err
+	}
+	x.ExtraProperties = extraProperties
+	x.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (x *XfyunAsrParams) MarshalJSON() ([]byte, error) {
+	type embed XfyunAsrParams
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*x),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, x.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, x.ExtraProperties)
+}
+
+func (x *XfyunAsrParams) String() string {
+	if len(x.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(x.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(x); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", x)
+}
+
+// iFlytek large-model ASR configuration.
+var (
+	xfyunBigmodelAsrFieldLanguage = big.NewInt(1 << 0)
+	xfyunBigmodelAsrFieldParams   = big.NewInt(1 << 1)
+)
+
+type XfyunBigmodelAsr struct {
+	Language *AsrLanguage            `json:"language,omitempty" url:"language,omitempty"`
+	Params   *XfyunBigmodelAsrParams `json:"params" url:"params"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (x *XfyunBigmodelAsr) GetLanguage() *AsrLanguage {
+	if x == nil {
+		return nil
+	}
+	return x.Language
+}
+
+func (x *XfyunBigmodelAsr) GetParams() *XfyunBigmodelAsrParams {
+	if x == nil {
+		return nil
+	}
+	return x.Params
+}
+
+func (x *XfyunBigmodelAsr) GetExtraProperties() map[string]interface{} {
+	return x.ExtraProperties
+}
+
+func (x *XfyunBigmodelAsr) require(field *big.Int) {
+	if x.explicitFields == nil {
+		x.explicitFields = big.NewInt(0)
+	}
+	x.explicitFields.Or(x.explicitFields, field)
+}
+
+// SetLanguage sets the Language field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (x *XfyunBigmodelAsr) SetLanguage(language *AsrLanguage) {
+	x.Language = language
+	x.require(xfyunBigmodelAsrFieldLanguage)
+}
+
+// SetParams sets the Params field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (x *XfyunBigmodelAsr) SetParams(params *XfyunBigmodelAsrParams) {
+	x.Params = params
+	x.require(xfyunBigmodelAsrFieldParams)
+}
+
+func (x *XfyunBigmodelAsr) UnmarshalJSON(data []byte) error {
+	type embed XfyunBigmodelAsr
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*x),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*x = XfyunBigmodelAsr(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *x)
+	if err != nil {
+		return err
+	}
+	x.ExtraProperties = extraProperties
+	x.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (x *XfyunBigmodelAsr) MarshalJSON() ([]byte, error) {
+	type embed XfyunBigmodelAsr
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*x),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, x.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, x.ExtraProperties)
+}
+
+func (x *XfyunBigmodelAsr) String() string {
+	if len(x.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(x.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(x); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", x)
+}
+
+// iFlytek large-model ASR configuration parameters.
+var (
+	xfyunBigmodelAsrParamsFieldAPIKey       = big.NewInt(1 << 0)
+	xfyunBigmodelAsrParamsFieldAppID        = big.NewInt(1 << 1)
+	xfyunBigmodelAsrParamsFieldAPISecret    = big.NewInt(1 << 2)
+	xfyunBigmodelAsrParamsFieldLanguageName = big.NewInt(1 << 3)
+	xfyunBigmodelAsrParamsFieldLanguage     = big.NewInt(1 << 4)
+)
+
+type XfyunBigmodelAsrParams struct {
+	// iFlytek large-model API key.
+	APIKey string `json:"api_key" url:"api_key"`
+	// iFlytek large-model application ID.
+	AppID string `json:"app_id" url:"app_id"`
+	// iFlytek large-model API secret.
+	APISecret string `json:"api_secret" url:"api_secret"`
+	// iFlytek language family name.
+	LanguageName string `json:"language_name" url:"language_name"`
+	// iFlytek language mode.
+	Language string `json:"language" url:"language"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (x *XfyunBigmodelAsrParams) GetAPIKey() string {
+	if x == nil {
+		return ""
+	}
+	return x.APIKey
+}
+
+func (x *XfyunBigmodelAsrParams) GetAppID() string {
+	if x == nil {
+		return ""
+	}
+	return x.AppID
+}
+
+func (x *XfyunBigmodelAsrParams) GetAPISecret() string {
+	if x == nil {
+		return ""
+	}
+	return x.APISecret
+}
+
+func (x *XfyunBigmodelAsrParams) GetLanguageName() string {
+	if x == nil {
+		return ""
+	}
+	return x.LanguageName
+}
+
+func (x *XfyunBigmodelAsrParams) GetLanguage() string {
+	if x == nil {
+		return ""
+	}
+	return x.Language
+}
+
+func (x *XfyunBigmodelAsrParams) GetExtraProperties() map[string]interface{} {
+	return x.ExtraProperties
+}
+
+func (x *XfyunBigmodelAsrParams) require(field *big.Int) {
+	if x.explicitFields == nil {
+		x.explicitFields = big.NewInt(0)
+	}
+	x.explicitFields.Or(x.explicitFields, field)
+}
+
+// SetAPIKey sets the APIKey field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (x *XfyunBigmodelAsrParams) SetAPIKey(apiKey string) {
+	x.APIKey = apiKey
+	x.require(xfyunBigmodelAsrParamsFieldAPIKey)
+}
+
+// SetAppID sets the AppID field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (x *XfyunBigmodelAsrParams) SetAppID(appID string) {
+	x.AppID = appID
+	x.require(xfyunBigmodelAsrParamsFieldAppID)
+}
+
+// SetAPISecret sets the APISecret field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (x *XfyunBigmodelAsrParams) SetAPISecret(apiSecret string) {
+	x.APISecret = apiSecret
+	x.require(xfyunBigmodelAsrParamsFieldAPISecret)
+}
+
+// SetLanguageName sets the LanguageName field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (x *XfyunBigmodelAsrParams) SetLanguageName(languageName string) {
+	x.LanguageName = languageName
+	x.require(xfyunBigmodelAsrParamsFieldLanguageName)
+}
+
+// SetLanguage sets the Language field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (x *XfyunBigmodelAsrParams) SetLanguage(language string) {
+	x.Language = language
+	x.require(xfyunBigmodelAsrParamsFieldLanguage)
+}
+
+func (x *XfyunBigmodelAsrParams) UnmarshalJSON(data []byte) error {
+	type embed XfyunBigmodelAsrParams
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*x),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*x = XfyunBigmodelAsrParams(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *x)
+	if err != nil {
+		return err
+	}
+	x.ExtraProperties = extraProperties
+	x.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (x *XfyunBigmodelAsrParams) MarshalJSON() ([]byte, error) {
+	type embed XfyunBigmodelAsrParams
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*x),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, x.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, x.ExtraProperties)
+}
+
+func (x *XfyunBigmodelAsrParams) String() string {
+	if len(x.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(x.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(x); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", x)
+}
+
+// iFlytek dialect ASR configuration.
+var (
+	xfyunDialectAsrFieldLanguage = big.NewInt(1 << 0)
+	xfyunDialectAsrFieldParams   = big.NewInt(1 << 1)
+)
+
+type XfyunDialectAsr struct {
+	Language *AsrLanguage           `json:"language,omitempty" url:"language,omitempty"`
+	Params   *XfyunDialectAsrParams `json:"params" url:"params"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (x *XfyunDialectAsr) GetLanguage() *AsrLanguage {
+	if x == nil {
+		return nil
+	}
+	return x.Language
+}
+
+func (x *XfyunDialectAsr) GetParams() *XfyunDialectAsrParams {
+	if x == nil {
+		return nil
+	}
+	return x.Params
+}
+
+func (x *XfyunDialectAsr) GetExtraProperties() map[string]interface{} {
+	return x.ExtraProperties
+}
+
+func (x *XfyunDialectAsr) require(field *big.Int) {
+	if x.explicitFields == nil {
+		x.explicitFields = big.NewInt(0)
+	}
+	x.explicitFields.Or(x.explicitFields, field)
+}
+
+// SetLanguage sets the Language field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (x *XfyunDialectAsr) SetLanguage(language *AsrLanguage) {
+	x.Language = language
+	x.require(xfyunDialectAsrFieldLanguage)
+}
+
+// SetParams sets the Params field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (x *XfyunDialectAsr) SetParams(params *XfyunDialectAsrParams) {
+	x.Params = params
+	x.require(xfyunDialectAsrFieldParams)
+}
+
+func (x *XfyunDialectAsr) UnmarshalJSON(data []byte) error {
+	type embed XfyunDialectAsr
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*x),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*x = XfyunDialectAsr(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *x)
+	if err != nil {
+		return err
+	}
+	x.ExtraProperties = extraProperties
+	x.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (x *XfyunDialectAsr) MarshalJSON() ([]byte, error) {
+	type embed XfyunDialectAsr
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*x),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, x.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, x.ExtraProperties)
+}
+
+func (x *XfyunDialectAsr) String() string {
+	if len(x.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(x.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(x); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", x)
+}
+
+// iFlytek dialect ASR configuration parameters.
+var (
+	xfyunDialectAsrParamsFieldAppID           = big.NewInt(1 << 0)
+	xfyunDialectAsrParamsFieldAccessKeyID     = big.NewInt(1 << 1)
+	xfyunDialectAsrParamsFieldAccessKeySecret = big.NewInt(1 << 2)
+	xfyunDialectAsrParamsFieldLanguage        = big.NewInt(1 << 3)
+)
+
+type XfyunDialectAsrParams struct {
+	// iFlytek dialect application ID.
+	AppID string `json:"app_id" url:"app_id"`
+	// iFlytek access key ID.
+	AccessKeyID string `json:"access_key_id" url:"access_key_id"`
+	// iFlytek access key secret.
+	AccessKeySecret string `json:"access_key_secret" url:"access_key_secret"`
+	// Dialect recognition language code.
+	Language string `json:"language" url:"language"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (x *XfyunDialectAsrParams) GetAppID() string {
+	if x == nil {
+		return ""
+	}
+	return x.AppID
+}
+
+func (x *XfyunDialectAsrParams) GetAccessKeyID() string {
+	if x == nil {
+		return ""
+	}
+	return x.AccessKeyID
+}
+
+func (x *XfyunDialectAsrParams) GetAccessKeySecret() string {
+	if x == nil {
+		return ""
+	}
+	return x.AccessKeySecret
+}
+
+func (x *XfyunDialectAsrParams) GetLanguage() string {
+	if x == nil {
+		return ""
+	}
+	return x.Language
+}
+
+func (x *XfyunDialectAsrParams) GetExtraProperties() map[string]interface{} {
+	return x.ExtraProperties
+}
+
+func (x *XfyunDialectAsrParams) require(field *big.Int) {
+	if x.explicitFields == nil {
+		x.explicitFields = big.NewInt(0)
+	}
+	x.explicitFields.Or(x.explicitFields, field)
+}
+
+// SetAppID sets the AppID field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (x *XfyunDialectAsrParams) SetAppID(appID string) {
+	x.AppID = appID
+	x.require(xfyunDialectAsrParamsFieldAppID)
+}
+
+// SetAccessKeyID sets the AccessKeyID field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (x *XfyunDialectAsrParams) SetAccessKeyID(accessKeyID string) {
+	x.AccessKeyID = accessKeyID
+	x.require(xfyunDialectAsrParamsFieldAccessKeyID)
+}
+
+// SetAccessKeySecret sets the AccessKeySecret field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (x *XfyunDialectAsrParams) SetAccessKeySecret(accessKeySecret string) {
+	x.AccessKeySecret = accessKeySecret
+	x.require(xfyunDialectAsrParamsFieldAccessKeySecret)
+}
+
+// SetLanguage sets the Language field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (x *XfyunDialectAsrParams) SetLanguage(language string) {
+	x.Language = language
+	x.require(xfyunDialectAsrParamsFieldLanguage)
+}
+
+func (x *XfyunDialectAsrParams) UnmarshalJSON(data []byte) error {
+	type embed XfyunDialectAsrParams
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*x),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*x = XfyunDialectAsrParams(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *x)
+	if err != nil {
+		return err
+	}
+	x.ExtraProperties = extraProperties
+	x.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (x *XfyunDialectAsrParams) MarshalJSON() ([]byte, error) {
+	type embed XfyunDialectAsrParams
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*x),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, x.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, x.ExtraProperties)
+}
+
+func (x *XfyunDialectAsrParams) String() string {
+	if len(x.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(x.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(x); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", x)
 }
 
 var (
@@ -12215,6 +15237,7 @@ type StartAgentsRequestPropertiesAvatar struct {
 	// - `liveavatar`: LiveAvatar (Beta)
 	// - `anam`: Anam (Beta)
 	// - `generic`: Generic (Beta)
+	// - `sensetime`: SenseTime Avatar
 	Vendor *StartAgentsRequestPropertiesAvatarVendor `json:"vendor,omitempty" url:"vendor,omitempty"`
 	// The configuration parameters for the avatar vendor. See [AI Avatar Overview](https://docs.agora.io/en/conversational-ai/models/avatar/overview) for details.
 	Params map[string]interface{} `json:"params,omitempty" url:"params,omitempty"`
@@ -12323,6 +15346,7 @@ func (s *StartAgentsRequestPropertiesAvatar) String() string {
 // - `liveavatar`: LiveAvatar (Beta)
 // - `anam`: Anam (Beta)
 // - `generic`: Generic (Beta)
+// - `sensetime`: SenseTime Avatar
 type StartAgentsRequestPropertiesAvatarVendor string
 
 const (
@@ -12332,6 +15356,8 @@ const (
 	StartAgentsRequestPropertiesAvatarVendorAnam       StartAgentsRequestPropertiesAvatarVendor = "anam"
 	// Generic avatar (Beta)
 	StartAgentsRequestPropertiesAvatarVendorGeneric StartAgentsRequestPropertiesAvatarVendor = "generic"
+	// SenseTime Avatar
+	StartAgentsRequestPropertiesAvatarVendorSensetime StartAgentsRequestPropertiesAvatarVendor = "sensetime"
 	// Deprecated: HeyGen has renamed to LiveAvatar. Use `liveavatar` instead.
 	StartAgentsRequestPropertiesAvatarVendorHeygen StartAgentsRequestPropertiesAvatarVendor = "heygen"
 )
@@ -12346,6 +15372,8 @@ func NewStartAgentsRequestPropertiesAvatarVendorFromString(s string) (StartAgent
 		return StartAgentsRequestPropertiesAvatarVendorAnam, nil
 	case "generic":
 		return StartAgentsRequestPropertiesAvatarVendorGeneric, nil
+	case "sensetime":
+		return StartAgentsRequestPropertiesAvatarVendorSensetime, nil
 	case "heygen":
 		return StartAgentsRequestPropertiesAvatarVendorHeygen, nil
 	}

@@ -12,7 +12,7 @@ import (
 
 type turnDetectionLanguage string
 
-const defaultTurnDetectionLanguage turnDetectionLanguage = turnDetectionLanguage(Agora.AsrLanguageEnUs)
+const defaultTurnDetectionLanguage turnDetectionLanguage = "en-US"
 
 func isTurnDetectionLanguage(language string) bool {
 	_, err := Agora.NewAsrLanguageFromString(language)
@@ -21,7 +21,7 @@ func isTurnDetectionLanguage(language string) bool {
 
 func validateTurnDetectionLanguage(language string) {
 	if !isTurnDetectionLanguage(string(language)) {
-		panic(fmt.Sprintf("invalid interaction language: %s", language))
+		panic(fmt.Sprintf("invalid turn_detection.language: %s", language))
 	}
 }
 
@@ -800,13 +800,15 @@ func (a *Agent) ToPropertiesMap(opts ToPropertiesOptions) (map[string]interface{
 		}
 	}
 
-	propsMap := map[string]interface{}{
-		"channel":       opts.Channel,
-		"token":         token,
-		"agent_rtc_uid": opts.AgentUID,
+	if len(opts.RemoteUIDs) == 0 {
+		return nil, fmt.Errorf("AgentSessionOptions.RemoteUIDs is required and must contain at least one UID")
 	}
-	if opts.RemoteUIDs != nil {
-		propsMap["remote_rtc_uids"] = opts.RemoteUIDs
+
+	propsMap := map[string]interface{}{
+		"channel":         opts.Channel,
+		"token":           token,
+		"agent_rtc_uid":   opts.AgentUID,
+		"remote_rtc_uids": opts.RemoteUIDs,
 	}
 	if opts.IdleTimeout != nil {
 		propsMap["idle_timeout"] = *opts.IdleTimeout
@@ -906,12 +908,12 @@ func (a *Agent) ToPropertiesMap(opts ToPropertiesOptions) (map[string]interface{
 		}
 	}
 
-	if a.stt != nil || !allowMissingCategories["asr"] {
-		propsMap["asr"] = a.resolveAsrConfig()
-	}
 	turnDetection, err := a.resolveTurnDetectionConfig()
 	if err != nil {
 		return nil, err
+	}
+	if a.stt != nil || !allowMissingCategories["asr"] {
+		propsMap["asr"] = a.resolveAsrConfig(turnDetection)
 	}
 	propsMap["turn_detection"] = turnDetection
 
@@ -932,15 +934,15 @@ func (a *Agent) ToPropertiesMap(opts ToPropertiesOptions) (map[string]interface{
 	return propsMap, nil
 }
 
-func (a *Agent) resolveAsrConfig() map[string]interface{} {
+func (a *Agent) resolveAsrConfig(turnDetection map[string]interface{}) map[string]interface{} {
 	asrConfig := cloneConfig(a.stt)
 	if asrConfig == nil {
 		asrConfig = map[string]interface{}{"vendor": "ares"}
 	}
-	delete(asrConfig, "language")
 	if len(asrConfig) == 0 {
 		asrConfig["vendor"] = "ares"
 	}
+	asrConfig["language"] = turnDetection["language"]
 	return asrConfig
 }
 
@@ -959,11 +961,7 @@ func (a *Agent) resolveTurnDetectionConfig() (map[string]interface{}, error) {
 		language = existing
 	}
 	if language == "" {
-		if existing, ok := a.stt["language"].(string); ok && isTurnDetectionLanguage(existing) {
-			language = existing
-		} else {
-			language = string(defaultTurnDetectionLanguage)
-		}
+		language = string(defaultTurnDetectionLanguage)
 	}
 	validateTurnDetectionLanguage(language)
 	turnDetection["language"] = language
@@ -988,24 +986,34 @@ func (a *Agent) buildMllmConfigMap() map[string]interface{} {
 func (a *Agent) buildLlmConfigMap() map[string]interface{} {
 	llmConfig := cloneConfig(a.llm)
 	if a.instructions != "" {
-		llmConfig["system_messages"] = []map[string]interface{}{
-			{"role": "system", "content": a.instructions},
+		if _, exists := llmConfig["system_messages"]; !exists {
+			llmConfig["system_messages"] = []map[string]interface{}{
+				{"role": "system", "content": a.instructions},
+			}
 		}
 	}
 	if a.greeting != "" {
-		llmConfig["greeting_message"] = a.greeting
+		if _, exists := llmConfig["greeting_message"]; !exists {
+			llmConfig["greeting_message"] = a.greeting
+		}
 	}
 	if a.failureMessage != "" {
-		llmConfig["failure_message"] = a.failureMessage
+		if _, exists := llmConfig["failure_message"]; !exists {
+			llmConfig["failure_message"] = a.failureMessage
+		}
 	}
 	if a.maxHistory != nil {
-		llmConfig["max_history"] = *a.maxHistory
+		if _, exists := llmConfig["max_history"]; !exists {
+			llmConfig["max_history"] = *a.maxHistory
+		}
 	}
 	if a.greetingConfigs != nil {
-		if value, err := structToMap(a.greetingConfigs); err == nil {
-			llmConfig["greeting_configs"] = value
-		} else {
-			llmConfig["greeting_configs"] = a.greetingConfigs
+		if _, exists := llmConfig["greeting_configs"]; !exists {
+			if value, err := structToMap(a.greetingConfigs); err == nil {
+				llmConfig["greeting_configs"] = value
+			} else {
+				llmConfig["greeting_configs"] = a.greetingConfigs
+			}
 		}
 	}
 	return llmConfig

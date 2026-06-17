@@ -14,6 +14,19 @@ func TestTTSVendorParamsMatchGeneratedCoreShapes(t *testing.T) {
 		want   map[string]interface{}
 	}{
 		{
+			name: "microsoft",
+			params: NewMicrosoftTTS(MicrosoftTTSOptions{
+				Key:       "ms-key",
+				Region:    "eastus",
+				VoiceName: "en-US-JennyNeural",
+			}).ToConfig()["params"].(map[string]interface{}),
+			want: map[string]interface{}{
+				"key":        "ms-key",
+				"region":     "eastus",
+				"voice_name": "en-US-JennyNeural",
+			},
+		},
+		{
 			name: "amazon",
 			params: NewAmazonTTS(AmazonTTSOptions{
 				AccessKey: "access",

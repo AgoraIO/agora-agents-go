@@ -150,9 +150,7 @@ func (s *AgentSession) convoAIRequestOpts(ctx context.Context) ([]option.Request
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate ConvoAI token for app-credentials auth mode: %w", err)
 	}
-	h := make(http.Header)
-	h.Set("Authorization", "agora token="+token)
-	return []option.RequestOption{option.WithHTTPHeader(h)}, nil
+	return []option.RequestOption{option.WithToken(token)}, nil
 }
 
 func (s *AgentSession) ID() string {

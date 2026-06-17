@@ -143,9 +143,7 @@ func (c *AgoraClient) StopAgent(ctx context.Context, agentID string) error {
 		if err != nil {
 			return fmt.Errorf("agentkit: failed to generate token for StopAgent: %w", err)
 		}
-		h := make(http.Header)
-		h.Set("Authorization", "agora token="+token)
-		reqOpts = []option.RequestOption{option.WithHTTPHeader(h)}
+		reqOpts = []option.RequestOption{option.WithToken(token)}
 	}
 
 	err := c.Agents.Stop(ctx, &Agora.StopAgentsRequest{

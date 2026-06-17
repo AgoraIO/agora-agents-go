@@ -1,6 +1,9 @@
 package vendors
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestGroqSerializesAsOpenAICompatible(t *testing.T) {
 	config := NewGroq(GroqOptions{
@@ -72,7 +75,7 @@ func TestAzureOpenAIIncludesRequiredModelParam(t *testing.T) {
 	}
 }
 
-func TestVertexAILLMIncludesProjectRouting(t *testing.T) {
+func TestVertexAILLMBuildsCorrectURLAndExcludesProjectFromParams(t *testing.T) {
 	config := NewVertexAILLM(VertexAILLMOptions{
 		GeminiOptions: GeminiOptions{
 			APIKey: "vertex-token",
@@ -86,8 +89,15 @@ func TestVertexAILLMIncludesProjectRouting(t *testing.T) {
 	if config["style"] != "gemini" {
 		t.Fatalf("unexpected style: %v", config["style"])
 	}
-	if params["project_id"] != "project" || params["location"] != "us-central1" {
-		t.Fatalf("unexpected params: %#v", params)
+	url, _ := config["url"].(string)
+	if !strings.Contains(url, "project") || !strings.Contains(url, "us-central1") {
+		t.Fatalf("URL does not contain project routing: %v", url)
+	}
+	if _, ok := params["project_id"]; ok {
+		t.Fatalf("project_id should not be in params, got: %#v", params)
+	}
+	if _, ok := params["location"]; ok {
+		t.Fatalf("location should not be in params, got: %#v", params)
 	}
 }
 

@@ -616,25 +616,26 @@ func (m *MiniMaxTTS) GetSampleRate() *SampleRate {
 }
 
 func (m *MiniMaxTTS) ToConfig() map[string]interface{} {
-	params := map[string]interface{}{
-		"model": m.options.Model,
-	}
+	params := map[string]interface{}{}
 	if m.options.Key != "" {
 		params["key"] = m.options.Key
-	}
-	if m.options.GroupID != "" {
 		params["group_id"] = m.options.GroupID
+		params["model"] = m.options.Model
+		params["url"] = m.options.URL
 	}
 	if m.options.VoiceID != "" {
 		params["voice_setting"] = map[string]interface{}{"voice_id": m.options.VoiceID}
-	}
-	if m.options.URL != "" {
-		params["url"] = m.options.URL
 	}
 
 	config := map[string]interface{}{
 		"vendor": "minimax",
 		"params": params,
+	}
+	if m.options.Key == "" {
+		// Preset path: model is not sent in params but stored as a top-level hint so
+		// preset inference can identify which managed preset to use. Stripped by
+		// stripInferredTTSFields before the POST body is finalized.
+		config["_minimax_preset_model"] = m.options.Model
 	}
 	if m.options.SkipPatterns != nil {
 		config["skip_patterns"] = m.options.SkipPatterns

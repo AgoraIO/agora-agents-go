@@ -37,6 +37,35 @@ sampleRate := vendors.SampleRate24kHz // or 16kHz, depending on your provider
 agent := agentkit.NewAgent(
     agentkit.WithName("generic-avatar"),
 ).WithLlm(
+    vendors.NewOpenAI(vendors.OpenAIOptions{APIKey: "<openai_key>"}),
+).WithTts(
+    vendors.NewElevenLabsTTS(vendors.ElevenLabsTTSOptions{
+        Key:        "<elevenlabs_key>",
+        ModelID:    "eleven_turbo_v2_5",
+        VoiceID:    "<voice_id>",
+        // Choose the sample rate required by your generic avatar provider.
+        SampleRate: &sampleRate,
+    }),
+).WithAvatar(
+    vendors.NewGenericAvatar(vendors.GenericAvatarOptions{
+        APIKey:     "<avatar_vendor_key>",
+        APIBaseURL: "https://avatar.example.com",
+        AvatarID:   "<avatar_id>",
+        AgoraUID:   "2001", // distinct from session AgentUID
+    }),
+)
+```
+
+For Generic avatars, `agora_appid`, `agora_channel`, and `agora_token` are filled from the session when omitted. For LiveAvatar and HeyGen, AgentKit auto-generates only `agora_token` when `agora_uid` is set and `agora_token` is omitted.
+
+## Generic Avatar Example
+
+```go
+sampleRate := vendors.SampleRate24kHz // or 16kHz, depending on your provider
+
+agent := agentkit.NewAgent(
+    agentkit.WithName("generic-avatar"),
+).WithLlm(
     vendors.NewOpenAI(vendors.OpenAIOptions{
         APIKey:  "<openai_key>",
         BaseURL: "https://api.openai.com/v1/chat/completions",

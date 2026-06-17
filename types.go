@@ -181,6 +181,460 @@ func (a AgentErrorResponseReason) Ptr() *AgentErrorResponseReason {
 	return &a
 }
 
+// SenseTime Avatar configuration parameters.
+var (
+	sensetimeAvatarParamsFieldAgoraToken = big.NewInt(1 << 0)
+	sensetimeAvatarParamsFieldAgoraUID   = big.NewInt(1 << 1)
+	sensetimeAvatarParamsFieldAppID      = big.NewInt(1 << 2)
+	sensetimeAvatarParamsFieldAppKey     = big.NewInt(1 << 3)
+	sensetimeAvatarParamsFieldSceneList  = big.NewInt(1 << 4)
+)
+
+type SensetimeAvatarParams struct {
+	// Agora token used by the avatar service.
+	AgoraToken string `json:"agora_token" url:"agora_token"`
+	// Numeric Agora UID string used by the avatar service.
+	AgoraUID string `json:"agora_uid" url:"agora_uid"`
+	// SenseTime application ID.
+	AppID string `json:"appId" url:"appId"`
+	// SenseTime application key.
+	AppKey string `json:"app_key" url:"app_key"`
+	// SenseTime scene configuration list.
+	SceneList []*SensetimeAvatarParamsSceneListItem `json:"sceneList" url:"sceneList"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (s *SensetimeAvatarParams) GetAgoraToken() string {
+	if s == nil {
+		return ""
+	}
+	return s.AgoraToken
+}
+
+func (s *SensetimeAvatarParams) GetAgoraUID() string {
+	if s == nil {
+		return ""
+	}
+	return s.AgoraUID
+}
+
+func (s *SensetimeAvatarParams) GetAppID() string {
+	if s == nil {
+		return ""
+	}
+	return s.AppID
+}
+
+func (s *SensetimeAvatarParams) GetAppKey() string {
+	if s == nil {
+		return ""
+	}
+	return s.AppKey
+}
+
+func (s *SensetimeAvatarParams) GetSceneList() []*SensetimeAvatarParamsSceneListItem {
+	if s == nil {
+		return nil
+	}
+	return s.SceneList
+}
+
+func (s *SensetimeAvatarParams) GetExtraProperties() map[string]interface{} {
+	return s.ExtraProperties
+}
+
+func (s *SensetimeAvatarParams) require(field *big.Int) {
+	if s.explicitFields == nil {
+		s.explicitFields = big.NewInt(0)
+	}
+	s.explicitFields.Or(s.explicitFields, field)
+}
+
+// SetAgoraToken sets the AgoraToken field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *SensetimeAvatarParams) SetAgoraToken(agoraToken string) {
+	s.AgoraToken = agoraToken
+	s.require(sensetimeAvatarParamsFieldAgoraToken)
+}
+
+// SetAgoraUID sets the AgoraUID field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *SensetimeAvatarParams) SetAgoraUID(agoraUID string) {
+	s.AgoraUID = agoraUID
+	s.require(sensetimeAvatarParamsFieldAgoraUID)
+}
+
+// SetAppID sets the AppID field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *SensetimeAvatarParams) SetAppID(appID string) {
+	s.AppID = appID
+	s.require(sensetimeAvatarParamsFieldAppID)
+}
+
+// SetAppKey sets the AppKey field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *SensetimeAvatarParams) SetAppKey(appKey string) {
+	s.AppKey = appKey
+	s.require(sensetimeAvatarParamsFieldAppKey)
+}
+
+// SetSceneList sets the SceneList field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *SensetimeAvatarParams) SetSceneList(sceneList []*SensetimeAvatarParamsSceneListItem) {
+	s.SceneList = sceneList
+	s.require(sensetimeAvatarParamsFieldSceneList)
+}
+
+func (s *SensetimeAvatarParams) UnmarshalJSON(data []byte) error {
+	type embed SensetimeAvatarParams
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*s),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*s = SensetimeAvatarParams(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *s)
+	if err != nil {
+		return err
+	}
+	s.ExtraProperties = extraProperties
+	s.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (s *SensetimeAvatarParams) MarshalJSON() ([]byte, error) {
+	type embed SensetimeAvatarParams
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*s),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, s.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, s.ExtraProperties)
+}
+
+func (s *SensetimeAvatarParams) String() string {
+	if len(s.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(s.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(s); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", s)
+}
+
+var (
+	sensetimeAvatarParamsSceneListItemFieldDigitalRole = big.NewInt(1 << 0)
+)
+
+type SensetimeAvatarParamsSceneListItem struct {
+	DigitalRole *SensetimeAvatarParamsSceneListItemDigitalRole `json:"digital_role,omitempty" url:"digital_role,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (s *SensetimeAvatarParamsSceneListItem) GetDigitalRole() *SensetimeAvatarParamsSceneListItemDigitalRole {
+	if s == nil {
+		return nil
+	}
+	return s.DigitalRole
+}
+
+func (s *SensetimeAvatarParamsSceneListItem) GetExtraProperties() map[string]interface{} {
+	return s.ExtraProperties
+}
+
+func (s *SensetimeAvatarParamsSceneListItem) require(field *big.Int) {
+	if s.explicitFields == nil {
+		s.explicitFields = big.NewInt(0)
+	}
+	s.explicitFields.Or(s.explicitFields, field)
+}
+
+// SetDigitalRole sets the DigitalRole field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *SensetimeAvatarParamsSceneListItem) SetDigitalRole(digitalRole *SensetimeAvatarParamsSceneListItemDigitalRole) {
+	s.DigitalRole = digitalRole
+	s.require(sensetimeAvatarParamsSceneListItemFieldDigitalRole)
+}
+
+func (s *SensetimeAvatarParamsSceneListItem) UnmarshalJSON(data []byte) error {
+	type embed SensetimeAvatarParamsSceneListItem
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*s),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*s = SensetimeAvatarParamsSceneListItem(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *s)
+	if err != nil {
+		return err
+	}
+	s.ExtraProperties = extraProperties
+	s.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (s *SensetimeAvatarParamsSceneListItem) MarshalJSON() ([]byte, error) {
+	type embed SensetimeAvatarParamsSceneListItem
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*s),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, s.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, s.ExtraProperties)
+}
+
+func (s *SensetimeAvatarParamsSceneListItem) String() string {
+	if len(s.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(s.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(s); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", s)
+}
+
+var (
+	sensetimeAvatarParamsSceneListItemDigitalRoleFieldFaceFeatureID = big.NewInt(1 << 0)
+	sensetimeAvatarParamsSceneListItemDigitalRoleFieldPosition      = big.NewInt(1 << 1)
+	sensetimeAvatarParamsSceneListItemDigitalRoleFieldURL           = big.NewInt(1 << 2)
+)
+
+type SensetimeAvatarParamsSceneListItemDigitalRole struct {
+	// SenseTime face feature identifier.
+	FaceFeatureID *string                                                `json:"face_feature_id,omitempty" url:"face_feature_id,omitempty"`
+	Position      *SensetimeAvatarParamsSceneListItemDigitalRolePosition `json:"position,omitempty" url:"position,omitempty"`
+	// Avatar model package URL.
+	URL *string `json:"url,omitempty" url:"url,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (s *SensetimeAvatarParamsSceneListItemDigitalRole) GetFaceFeatureID() *string {
+	if s == nil {
+		return nil
+	}
+	return s.FaceFeatureID
+}
+
+func (s *SensetimeAvatarParamsSceneListItemDigitalRole) GetPosition() *SensetimeAvatarParamsSceneListItemDigitalRolePosition {
+	if s == nil {
+		return nil
+	}
+	return s.Position
+}
+
+func (s *SensetimeAvatarParamsSceneListItemDigitalRole) GetURL() *string {
+	if s == nil {
+		return nil
+	}
+	return s.URL
+}
+
+func (s *SensetimeAvatarParamsSceneListItemDigitalRole) GetExtraProperties() map[string]interface{} {
+	return s.ExtraProperties
+}
+
+func (s *SensetimeAvatarParamsSceneListItemDigitalRole) require(field *big.Int) {
+	if s.explicitFields == nil {
+		s.explicitFields = big.NewInt(0)
+	}
+	s.explicitFields.Or(s.explicitFields, field)
+}
+
+// SetFaceFeatureID sets the FaceFeatureID field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *SensetimeAvatarParamsSceneListItemDigitalRole) SetFaceFeatureID(faceFeatureID *string) {
+	s.FaceFeatureID = faceFeatureID
+	s.require(sensetimeAvatarParamsSceneListItemDigitalRoleFieldFaceFeatureID)
+}
+
+// SetPosition sets the Position field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *SensetimeAvatarParamsSceneListItemDigitalRole) SetPosition(position *SensetimeAvatarParamsSceneListItemDigitalRolePosition) {
+	s.Position = position
+	s.require(sensetimeAvatarParamsSceneListItemDigitalRoleFieldPosition)
+}
+
+// SetURL sets the URL field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *SensetimeAvatarParamsSceneListItemDigitalRole) SetURL(url *string) {
+	s.URL = url
+	s.require(sensetimeAvatarParamsSceneListItemDigitalRoleFieldURL)
+}
+
+func (s *SensetimeAvatarParamsSceneListItemDigitalRole) UnmarshalJSON(data []byte) error {
+	type embed SensetimeAvatarParamsSceneListItemDigitalRole
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*s),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*s = SensetimeAvatarParamsSceneListItemDigitalRole(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *s)
+	if err != nil {
+		return err
+	}
+	s.ExtraProperties = extraProperties
+	s.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (s *SensetimeAvatarParamsSceneListItemDigitalRole) MarshalJSON() ([]byte, error) {
+	type embed SensetimeAvatarParamsSceneListItemDigitalRole
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*s),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, s.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, s.ExtraProperties)
+}
+
+func (s *SensetimeAvatarParamsSceneListItemDigitalRole) String() string {
+	if len(s.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(s.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(s); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", s)
+}
+
+var (
+	sensetimeAvatarParamsSceneListItemDigitalRolePositionFieldX = big.NewInt(1 << 0)
+	sensetimeAvatarParamsSceneListItemDigitalRolePositionFieldY = big.NewInt(1 << 1)
+)
+
+type SensetimeAvatarParamsSceneListItemDigitalRolePosition struct {
+	// Avatar x position.
+	X *float64 `json:"x,omitempty" url:"x,omitempty"`
+	// Avatar y position.
+	Y *float64 `json:"y,omitempty" url:"y,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (s *SensetimeAvatarParamsSceneListItemDigitalRolePosition) GetX() *float64 {
+	if s == nil {
+		return nil
+	}
+	return s.X
+}
+
+func (s *SensetimeAvatarParamsSceneListItemDigitalRolePosition) GetY() *float64 {
+	if s == nil {
+		return nil
+	}
+	return s.Y
+}
+
+func (s *SensetimeAvatarParamsSceneListItemDigitalRolePosition) GetExtraProperties() map[string]interface{} {
+	return s.ExtraProperties
+}
+
+func (s *SensetimeAvatarParamsSceneListItemDigitalRolePosition) require(field *big.Int) {
+	if s.explicitFields == nil {
+		s.explicitFields = big.NewInt(0)
+	}
+	s.explicitFields.Or(s.explicitFields, field)
+}
+
+// SetX sets the X field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *SensetimeAvatarParamsSceneListItemDigitalRolePosition) SetX(x *float64) {
+	s.X = x
+	s.require(sensetimeAvatarParamsSceneListItemDigitalRolePositionFieldX)
+}
+
+// SetY sets the Y field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *SensetimeAvatarParamsSceneListItemDigitalRolePosition) SetY(y *float64) {
+	s.Y = y
+	s.require(sensetimeAvatarParamsSceneListItemDigitalRolePositionFieldY)
+}
+
+func (s *SensetimeAvatarParamsSceneListItemDigitalRolePosition) UnmarshalJSON(data []byte) error {
+	type embed SensetimeAvatarParamsSceneListItemDigitalRolePosition
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*s),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*s = SensetimeAvatarParamsSceneListItemDigitalRolePosition(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *s)
+	if err != nil {
+		return err
+	}
+	s.ExtraProperties = extraProperties
+	s.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (s *SensetimeAvatarParamsSceneListItemDigitalRolePosition) MarshalJSON() ([]byte, error) {
+	type embed SensetimeAvatarParamsSceneListItemDigitalRolePosition
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*s),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, s.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, s.ExtraProperties)
+}
+
+func (s *SensetimeAvatarParamsSceneListItemDigitalRolePosition) String() string {
+	if len(s.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(s.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(s); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", s)
+}
+
 // Error response returned when a Telephony or Phone Number Management API request fails.
 //
 // The response body includes `error_type` and `description` fields (not the Agent Management `detail`/`reason` shape).

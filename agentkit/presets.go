@@ -130,6 +130,9 @@ func ResolveSessionPresetsMap(presets []string, properties map[string]interface{
 			stripInferredTTSFields(props["tts"], preset)
 		}
 	}
+	if tts := asMap(props["tts"]); tts != nil {
+		delete(tts, "_minimax_preset_model")
+	}
 	omitEmptyProviderFields(props)
 
 	combined := append(append([]string{}, explicit...), inferred...)
@@ -181,7 +184,7 @@ func inferASRPreset(value interface{}) (string, bool) {
 		return "", false
 	}
 	params := asMap(asr["params"])
-	if hasNonEmptyString(params, "api_key") {
+	if hasNonEmptyString(params, "key") {
 		return "", false
 	}
 	switch normalizeModelName(params["model"]) {
@@ -243,7 +246,12 @@ func inferTTSPreset(value interface{}) (string, bool) {
 		if hasNonEmptyString(params, "key") {
 			return "", false
 		}
-		switch normalizeModelName(params["model"]) {
+		// Model is no longer in params for the preset path; fall back to the top-level hint.
+		model := normalizeModelName(params["model"])
+		if model == "" {
+			model = normalizeModelName(tts["_minimax_preset_model"])
+		}
+		switch model {
 		case "speech-2.6-turbo", "speech_2_6_turbo":
 			return AgentPresets.Tts.MiniMaxSpeech26Turbo, true
 		case "speech-2.8-turbo", "speech_2_8_turbo":
@@ -304,6 +312,7 @@ func stripInferredTTSFields(value interface{}, preset string) {
 		delete(params, "group_id")
 		delete(params, "model")
 		delete(params, "url")
+		delete(tts, "_minimax_preset_model")
 	}
 	if len(params) == 0 {
 		tts["params"] = map[string]interface{}{}

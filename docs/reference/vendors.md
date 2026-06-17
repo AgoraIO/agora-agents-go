@@ -499,6 +499,7 @@ Panics if `APIKey` is empty unless `Model` is one of the supported Agora-managed
 | `APIKey`           | `string`                 | BYOK only | Deepgram API key. Optional only for Agora-managed `nova-2` and `nova-3`. |
 | `Model`            | `string`                 | No       | Model (e.g., `"nova-2"`) |
 | `Language`         | `string`                 | No       | Language code            |
+| `Keyterm`          | `string`                 | No       | Boost specialized terms and brands; serialized as `asr.params.keyterm` |
 | `SmartFormat`      | `*bool`                  | No       | Enable smart formatting  |
 | `Punctuation`      | `*bool`                  | No       | Enable punctuation       |
 | `AdditionalParams` | `map[string]interface{}` | No       | Additional vendor params |
@@ -610,7 +611,6 @@ Ares is an Agora built-in STT service — no external API key required.
 
 | Field              | Type                     | Required | Description              |
 | ------------------ | ------------------------ | -------- | ------------------------ |
-| `Language`         | `string`                 | No       | Language code            |
 | `AdditionalParams` | `map[string]interface{}` | No       | Additional vendor params |
 
 ### NewSarvamSTT

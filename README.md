@@ -22,7 +22,7 @@ go get github.com/AgoraIO/agora-agents-go/v2@v2.0.0
 ## Quick Start
 
 Start with the `Agent` builder: create a client with app credentials, choose your ASR, LLM, and TTS providers, then start a session. Omit vendor API keys for supported Agora-managed models, or provide keys when you want BYOK.
-Set Agora interaction language with `TurnDetectionConfig.Language`; provider-specific STT language values remain under `asr.params`.
+Set Agora interaction language with `TurnDetectionConfig.Language`; provider-specific STT language values remain under `asr.params`. Ares uses only the REST `asr.language` value sourced from `TurnDetectionConfig.Language`.
 
 ```go
 package main

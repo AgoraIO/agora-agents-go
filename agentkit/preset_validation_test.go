@@ -94,11 +94,16 @@ func TestSessionStartInfersHyphenatedMiniMaxManagedPresetModel(t *testing.T) {
 
 	assert.Equal(t, "openai_gpt_4o_mini,minimax_speech_2_6_turbo", payload["preset"])
 	properties := payload["properties"].(map[string]interface{})
-	assert.Equal(
-		t,
-		map[string]interface{}{"voice_id": "English_captivating_female1"},
-		properties["tts"].(map[string]interface{})["params"].(map[string]interface{})["voice_setting"],
-	)
+	ttsParams := properties["tts"].(map[string]interface{})["params"].(map[string]interface{})
+	// voice_setting.voice_id must be present for both preset and BYOK paths
+	assert.Equal(t, map[string]interface{}{"voice_id": "English_captivating_female1"}, ttsParams["voice_setting"])
+	// model, key, group_id, url must be absent from the POST body for the managed preset path
+	assert.NotContains(t, ttsParams, "model")
+	assert.NotContains(t, ttsParams, "key")
+	assert.NotContains(t, ttsParams, "group_id")
+	assert.NotContains(t, ttsParams, "url")
+	// _minimax_preset_model hint must be stripped before wire
+	assert.NotContains(t, properties["tts"].(map[string]interface{}), "_minimax_preset_model")
 }
 
 func TestMiniMaxSpeech02TurboRequiresBYOK(t *testing.T) {
