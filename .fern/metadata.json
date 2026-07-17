@@ -1,9 +1,9 @@
 {
-  "cliVersion": "5.0.0",
+  "cliVersion": "5.59.0",
   "generatorName": "fernapi/fern-go-sdk",
   "generatorVersion": "1.16.5",
   "generatorConfig": {
     "packageName": "Agora"
   },
-  "originGitCommit": "b55cdf73dddbda3aa248668eefd04d21d60ee675"
+  "originGitCommit": "f168d571c2aee1449f24daa2e314b45862fb093f"
 }

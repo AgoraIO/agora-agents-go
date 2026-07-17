@@ -4220,18 +4220,18 @@ func (f *FishAudioTtsParams) String() string {
 
 // Generic OpenAI-compatible Text-to-Speech configuration.
 var (
-	genericTtsFieldURL          = big.NewInt(1 << 0)
-	genericTtsFieldHeaders      = big.NewInt(1 << 1)
-	genericTtsFieldParams       = big.NewInt(1 << 2)
-	genericTtsFieldSkipPatterns = big.NewInt(1 << 3)
+	genericHTTPTtsFieldURL          = big.NewInt(1 << 0)
+	genericHTTPTtsFieldHeaders      = big.NewInt(1 << 1)
+	genericHTTPTtsFieldParams       = big.NewInt(1 << 2)
+	genericHTTPTtsFieldSkipPatterns = big.NewInt(1 << 3)
 )
 
-type GenericTts struct {
+type GenericHTTPTts struct {
 	// Callback address of the generic TTS service.
 	URL string `json:"url" url:"url"`
 	// Custom headers to include in requests to the generic TTS service.
-	Headers map[string]string `json:"headers" url:"headers"`
-	Params  *GenericTtsParams `json:"params" url:"params"`
+	Headers map[string]string     `json:"headers,omitempty" url:"headers,omitempty"`
+	Params  *GenericHTTPTtsParams `json:"params" url:"params"`
 	// Controls whether the TTS module skips bracketed content when reading LLM response text.
 	SkipPatterns []int `json:"skip_patterns,omitempty" url:"skip_patterns,omitempty"`
 
@@ -4242,39 +4242,39 @@ type GenericTts struct {
 	rawJSON         json.RawMessage
 }
 
-func (g *GenericTts) GetURL() string {
+func (g *GenericHTTPTts) GetURL() string {
 	if g == nil {
 		return ""
 	}
 	return g.URL
 }
 
-func (g *GenericTts) GetHeaders() map[string]string {
+func (g *GenericHTTPTts) GetHeaders() map[string]string {
 	if g == nil {
 		return nil
 	}
 	return g.Headers
 }
 
-func (g *GenericTts) GetParams() *GenericTtsParams {
+func (g *GenericHTTPTts) GetParams() *GenericHTTPTtsParams {
 	if g == nil {
 		return nil
 	}
 	return g.Params
 }
 
-func (g *GenericTts) GetSkipPatterns() []int {
+func (g *GenericHTTPTts) GetSkipPatterns() []int {
 	if g == nil {
 		return nil
 	}
 	return g.SkipPatterns
 }
 
-func (g *GenericTts) GetExtraProperties() map[string]interface{} {
+func (g *GenericHTTPTts) GetExtraProperties() map[string]interface{} {
 	return g.extraProperties
 }
 
-func (g *GenericTts) require(field *big.Int) {
+func (g *GenericHTTPTts) require(field *big.Int) {
 	if g.explicitFields == nil {
 		g.explicitFields = big.NewInt(0)
 	}
@@ -4283,39 +4283,39 @@ func (g *GenericTts) require(field *big.Int) {
 
 // SetURL sets the URL field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (g *GenericTts) SetURL(url string) {
+func (g *GenericHTTPTts) SetURL(url string) {
 	g.URL = url
-	g.require(genericTtsFieldURL)
+	g.require(genericHTTPTtsFieldURL)
 }
 
 // SetHeaders sets the Headers field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (g *GenericTts) SetHeaders(headers map[string]string) {
+func (g *GenericHTTPTts) SetHeaders(headers map[string]string) {
 	g.Headers = headers
-	g.require(genericTtsFieldHeaders)
+	g.require(genericHTTPTtsFieldHeaders)
 }
 
 // SetParams sets the Params field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (g *GenericTts) SetParams(params *GenericTtsParams) {
+func (g *GenericHTTPTts) SetParams(params *GenericHTTPTtsParams) {
 	g.Params = params
-	g.require(genericTtsFieldParams)
+	g.require(genericHTTPTtsFieldParams)
 }
 
 // SetSkipPatterns sets the SkipPatterns field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (g *GenericTts) SetSkipPatterns(skipPatterns []int) {
+func (g *GenericHTTPTts) SetSkipPatterns(skipPatterns []int) {
 	g.SkipPatterns = skipPatterns
-	g.require(genericTtsFieldSkipPatterns)
+	g.require(genericHTTPTtsFieldSkipPatterns)
 }
 
-func (g *GenericTts) UnmarshalJSON(data []byte) error {
-	type unmarshaler GenericTts
+func (g *GenericHTTPTts) UnmarshalJSON(data []byte) error {
+	type unmarshaler GenericHTTPTts
 	var value unmarshaler
 	if err := json.Unmarshal(data, &value); err != nil {
 		return err
 	}
-	*g = GenericTts(value)
+	*g = GenericHTTPTts(value)
 	extraProperties, err := internal.ExtractExtraProperties(data, *g)
 	if err != nil {
 		return err
@@ -4325,8 +4325,8 @@ func (g *GenericTts) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (g *GenericTts) MarshalJSON() ([]byte, error) {
-	type embed GenericTts
+func (g *GenericHTTPTts) MarshalJSON() ([]byte, error) {
+	type embed GenericHTTPTts
 	var marshaler = struct {
 		embed
 	}{
@@ -4336,7 +4336,7 @@ func (g *GenericTts) MarshalJSON() ([]byte, error) {
 	return json.Marshal(explicitMarshaler)
 }
 
-func (g *GenericTts) String() string {
+func (g *GenericHTTPTts) String() string {
 	if len(g.rawJSON) > 0 {
 		if value, err := internal.StringifyJSON(g.rawJSON); err == nil {
 			return value
@@ -4350,22 +4350,22 @@ func (g *GenericTts) String() string {
 
 // Generic TTS configuration parameters.
 var (
-	genericTtsParamsFieldAPIKey         = big.NewInt(1 << 0)
-	genericTtsParamsFieldModel          = big.NewInt(1 << 1)
-	genericTtsParamsFieldVoice          = big.NewInt(1 << 2)
-	genericTtsParamsFieldSpeed          = big.NewInt(1 << 3)
-	genericTtsParamsFieldSampleRate     = big.NewInt(1 << 4)
-	genericTtsParamsFieldResponseFormat = big.NewInt(1 << 5)
-	genericTtsParamsFieldInstruction    = big.NewInt(1 << 6)
+	genericHTTPTtsParamsFieldAPIKey         = big.NewInt(1 << 0)
+	genericHTTPTtsParamsFieldModel          = big.NewInt(1 << 1)
+	genericHTTPTtsParamsFieldVoice          = big.NewInt(1 << 2)
+	genericHTTPTtsParamsFieldSpeed          = big.NewInt(1 << 3)
+	genericHTTPTtsParamsFieldSampleRate     = big.NewInt(1 << 4)
+	genericHTTPTtsParamsFieldResponseFormat = big.NewInt(1 << 5)
+	genericHTTPTtsParamsFieldInstruction    = big.NewInt(1 << 6)
 )
 
-type GenericTtsParams struct {
+type GenericHTTPTtsParams struct {
 	// API key for the generic TTS service.
 	APIKey *string `json:"api_key,omitempty" url:"api_key,omitempty"`
 	// TTS model name.
-	Model string `json:"model" url:"model"`
+	Model *string `json:"model,omitempty" url:"model,omitempty"`
 	// Voice name.
-	Voice string `json:"voice" url:"voice"`
+	Voice *string `json:"voice,omitempty" url:"voice,omitempty"`
 	// Speech rate.
 	Speed *float64 `json:"speed,omitempty" url:"speed,omitempty"`
 	// Output audio sample rate in Hz.
@@ -4383,53 +4383,53 @@ type GenericTtsParams struct {
 	rawJSON json.RawMessage
 }
 
-func (g *GenericTtsParams) GetAPIKey() *string {
+func (g *GenericHTTPTtsParams) GetAPIKey() *string {
 	if g == nil {
 		return nil
 	}
 	return g.APIKey
 }
 
-func (g *GenericTtsParams) GetModel() string {
+func (g *GenericHTTPTtsParams) GetModel() *string {
 	if g == nil {
-		return ""
+		return nil
 	}
 	return g.Model
 }
 
-func (g *GenericTtsParams) GetVoice() string {
+func (g *GenericHTTPTtsParams) GetVoice() *string {
 	if g == nil {
-		return ""
+		return nil
 	}
 	return g.Voice
 }
 
-func (g *GenericTtsParams) GetSpeed() *float64 {
+func (g *GenericHTTPTtsParams) GetSpeed() *float64 {
 	if g == nil {
 		return nil
 	}
 	return g.Speed
 }
 
-func (g *GenericTtsParams) GetSampleRate() *int {
+func (g *GenericHTTPTtsParams) GetSampleRate() *int {
 	if g == nil {
 		return nil
 	}
 	return g.SampleRate
 }
 
-func (g *GenericTtsParams) GetInstruction() *string {
+func (g *GenericHTTPTtsParams) GetInstruction() *string {
 	if g == nil {
 		return nil
 	}
 	return g.Instruction
 }
 
-func (g *GenericTtsParams) GetExtraProperties() map[string]interface{} {
+func (g *GenericHTTPTtsParams) GetExtraProperties() map[string]interface{} {
 	return g.ExtraProperties
 }
 
-func (g *GenericTtsParams) require(field *big.Int) {
+func (g *GenericHTTPTtsParams) require(field *big.Int) {
 	if g.explicitFields == nil {
 		g.explicitFields = big.NewInt(0)
 	}
@@ -4438,55 +4438,55 @@ func (g *GenericTtsParams) require(field *big.Int) {
 
 // SetAPIKey sets the APIKey field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (g *GenericTtsParams) SetAPIKey(apiKey *string) {
+func (g *GenericHTTPTtsParams) SetAPIKey(apiKey *string) {
 	g.APIKey = apiKey
-	g.require(genericTtsParamsFieldAPIKey)
+	g.require(genericHTTPTtsParamsFieldAPIKey)
 }
 
 // SetModel sets the Model field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (g *GenericTtsParams) SetModel(model string) {
+func (g *GenericHTTPTtsParams) SetModel(model *string) {
 	g.Model = model
-	g.require(genericTtsParamsFieldModel)
+	g.require(genericHTTPTtsParamsFieldModel)
 }
 
 // SetVoice sets the Voice field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (g *GenericTtsParams) SetVoice(voice string) {
+func (g *GenericHTTPTtsParams) SetVoice(voice *string) {
 	g.Voice = voice
-	g.require(genericTtsParamsFieldVoice)
+	g.require(genericHTTPTtsParamsFieldVoice)
 }
 
 // SetSpeed sets the Speed field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (g *GenericTtsParams) SetSpeed(speed *float64) {
+func (g *GenericHTTPTtsParams) SetSpeed(speed *float64) {
 	g.Speed = speed
-	g.require(genericTtsParamsFieldSpeed)
+	g.require(genericHTTPTtsParamsFieldSpeed)
 }
 
 // SetSampleRate sets the SampleRate field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (g *GenericTtsParams) SetSampleRate(sampleRate *int) {
+func (g *GenericHTTPTtsParams) SetSampleRate(sampleRate *int) {
 	g.SampleRate = sampleRate
-	g.require(genericTtsParamsFieldSampleRate)
+	g.require(genericHTTPTtsParamsFieldSampleRate)
 }
 
 // SetResponseFormat sets the ResponseFormat field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (g *GenericTtsParams) SetResponseFormat(responseFormat *string) {
+func (g *GenericHTTPTtsParams) SetResponseFormat(responseFormat *string) {
 	g.ResponseFormat = responseFormat
-	g.require(genericTtsParamsFieldResponseFormat)
+	g.require(genericHTTPTtsParamsFieldResponseFormat)
 }
 
 // SetInstruction sets the Instruction field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (g *GenericTtsParams) SetInstruction(instruction *string) {
+func (g *GenericHTTPTtsParams) SetInstruction(instruction *string) {
 	g.Instruction = instruction
-	g.require(genericTtsParamsFieldInstruction)
+	g.require(genericHTTPTtsParamsFieldInstruction)
 }
 
-func (g *GenericTtsParams) UnmarshalJSON(data []byte) error {
-	type embed GenericTtsParams
+func (g *GenericHTTPTtsParams) UnmarshalJSON(data []byte) error {
+	type embed GenericHTTPTtsParams
 	var unmarshaler = struct {
 		embed
 	}{
@@ -4495,7 +4495,7 @@ func (g *GenericTtsParams) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &unmarshaler); err != nil {
 		return err
 	}
-	*g = GenericTtsParams(unmarshaler.embed)
+	*g = GenericHTTPTtsParams(unmarshaler.embed)
 	extraProperties, err := internal.ExtractExtraProperties(data, *g)
 	if err != nil {
 		return err
@@ -4505,8 +4505,8 @@ func (g *GenericTtsParams) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (g *GenericTtsParams) MarshalJSON() ([]byte, error) {
-	type embed GenericTtsParams
+func (g *GenericHTTPTtsParams) MarshalJSON() ([]byte, error) {
+	type embed GenericHTTPTtsParams
 	var marshaler = struct {
 		embed
 	}{
@@ -4516,7 +4516,7 @@ func (g *GenericTtsParams) MarshalJSON() ([]byte, error) {
 	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, g.ExtraProperties)
 }
 
-func (g *GenericTtsParams) String() string {
+func (g *GenericHTTPTtsParams) String() string {
 	if len(g.rawJSON) > 0 {
 		if value, err := internal.StringifyJSON(g.rawJSON); err == nil {
 			return value
@@ -11516,7 +11516,7 @@ type Tts struct {
 	Google          *GoogleTts
 	Amazon          *AmazonTts
 	Sarvam          *SarvamTts
-	Generic         *GenericTts
+	GenericHTTP     *GenericHTTPTts
 	Xai             *XAiTts
 	Deepgram        *DeepgramTts
 	Cosyvoice       *CosyvoiceTts
@@ -11629,11 +11629,11 @@ func (t *Tts) GetSarvam() *SarvamTts {
 	return t.Sarvam
 }
 
-func (t *Tts) GetGeneric() *GenericTts {
+func (t *Tts) GetGenericHTTP() *GenericHTTPTts {
 	if t == nil {
 		return nil
 	}
-	return t.Generic
+	return t.GenericHTTP
 }
 
 func (t *Tts) GetXai() *XAiTts {
@@ -11767,12 +11767,12 @@ func (t *Tts) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		t.Sarvam = value
-	case "generic":
-		value := new(GenericTts)
+	case "generic_http":
+		value := new(GenericHTTPTts)
 		if err := json.Unmarshal(data, &value); err != nil {
 			return err
 		}
-		t.Generic = value
+		t.GenericHTTP = value
 	case "xai":
 		value := new(XAiTts)
 		if err := json.Unmarshal(data, &value); err != nil {
@@ -11853,8 +11853,8 @@ func (t Tts) MarshalJSON() ([]byte, error) {
 	if t.Sarvam != nil {
 		return internal.MarshalJSONWithExtraProperty(t.Sarvam, "vendor", "sarvam")
 	}
-	if t.Generic != nil {
-		return internal.MarshalJSONWithExtraProperty(t.Generic, "vendor", "generic")
+	if t.GenericHTTP != nil {
+		return internal.MarshalJSONWithExtraProperty(t.GenericHTTP, "vendor", "generic_http")
 	}
 	if t.Xai != nil {
 		return internal.MarshalJSONWithExtraProperty(t.Xai, "vendor", "xai")
@@ -11889,7 +11889,7 @@ type TtsVisitor interface {
 	VisitGoogle(*GoogleTts) error
 	VisitAmazon(*AmazonTts) error
 	VisitSarvam(*SarvamTts) error
-	VisitGeneric(*GenericTts) error
+	VisitGenericHTTP(*GenericHTTPTts) error
 	VisitXai(*XAiTts) error
 	VisitDeepgram(*DeepgramTts) error
 	VisitCosyvoice(*CosyvoiceTts) error
@@ -11940,8 +11940,8 @@ func (t *Tts) Accept(visitor TtsVisitor) error {
 	if t.Sarvam != nil {
 		return visitor.VisitSarvam(t.Sarvam)
 	}
-	if t.Generic != nil {
-		return visitor.VisitGeneric(t.Generic)
+	if t.GenericHTTP != nil {
+		return visitor.VisitGenericHTTP(t.GenericHTTP)
 	}
 	if t.Xai != nil {
 		return visitor.VisitXai(t.Xai)
@@ -12008,8 +12008,8 @@ func (t *Tts) validate() error {
 	if t.Sarvam != nil {
 		fields = append(fields, "sarvam")
 	}
-	if t.Generic != nil {
-		fields = append(fields, "generic")
+	if t.GenericHTTP != nil {
+		fields = append(fields, "generic_http")
 	}
 	if t.Xai != nil {
 		fields = append(fields, "xai")
