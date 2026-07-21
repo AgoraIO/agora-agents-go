@@ -9748,12 +9748,15 @@ func (o *OpenAiTtsParams) String() string {
 
 // Rime Text-to-Speech configuration (Beta).
 var (
-	rimeTtsFieldParams       = big.NewInt(1 << 0)
-	rimeTtsFieldSkipPatterns = big.NewInt(1 << 1)
+	rimeTtsFieldCredentialMode = big.NewInt(1 << 0)
+	rimeTtsFieldParams         = big.NewInt(1 << 1)
+	rimeTtsFieldSkipPatterns   = big.NewInt(1 << 2)
 )
 
 type RimeTts struct {
-	Params *RimeTtsParams `json:"params" url:"params"`
+	// Credential mode. When provided, must be "managed" (Agora managed mode) or "byok" (BYOK mode).
+	CredentialMode *RimeTtsCredentialMode `json:"credential_mode,omitempty" url:"credential_mode,omitempty"`
+	Params         *RimeTtsParams         `json:"params" url:"params"`
 	// Controls whether the TTS module skips bracketed content when reading LLM response text.
 	SkipPatterns []int `json:"skip_patterns,omitempty" url:"skip_patterns,omitempty"`
 
@@ -9762,6 +9765,13 @@ type RimeTts struct {
 
 	extraProperties map[string]interface{}
 	rawJSON         json.RawMessage
+}
+
+func (r *RimeTts) GetCredentialMode() *RimeTtsCredentialMode {
+	if r == nil {
+		return nil
+	}
+	return r.CredentialMode
 }
 
 func (r *RimeTts) GetParams() *RimeTtsParams {
@@ -9787,6 +9797,13 @@ func (r *RimeTts) require(field *big.Int) {
 		r.explicitFields = big.NewInt(0)
 	}
 	r.explicitFields.Or(r.explicitFields, field)
+}
+
+// SetCredentialMode sets the CredentialMode field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (r *RimeTts) SetCredentialMode(credentialMode *RimeTtsCredentialMode) {
+	r.CredentialMode = credentialMode
+	r.require(rimeTtsFieldCredentialMode)
 }
 
 // SetParams sets the Params field and marks it as non-optional;
@@ -9842,6 +9859,29 @@ func (r *RimeTts) String() string {
 	return fmt.Sprintf("%#v", r)
 }
 
+// Credential mode. When provided, must be "managed" (Agora managed mode) or "byok" (BYOK mode).
+type RimeTtsCredentialMode string
+
+const (
+	RimeTtsCredentialModeManaged RimeTtsCredentialMode = "managed"
+	RimeTtsCredentialModeByok    RimeTtsCredentialMode = "byok"
+)
+
+func NewRimeTtsCredentialModeFromString(s string) (RimeTtsCredentialMode, error) {
+	switch s {
+	case "managed":
+		return RimeTtsCredentialModeManaged, nil
+	case "byok":
+		return RimeTtsCredentialModeByok, nil
+	}
+	var t RimeTtsCredentialMode
+	return "", fmt.Errorf("%s is not a valid %T", s, t)
+}
+
+func (r RimeTtsCredentialMode) Ptr() *RimeTtsCredentialMode {
+	return &r
+}
+
 // Rime TTS configuration parameters.
 var (
 	rimeTtsParamsFieldAPIKey  = big.NewInt(1 << 0)
@@ -9852,9 +9892,9 @@ var (
 
 type RimeTtsParams struct {
 	// Rime API key
-	APIKey string `json:"api_key" url:"api_key"`
+	APIKey *string `json:"api_key,omitempty" url:"api_key,omitempty"`
 	// Rime speaker ID
-	Speaker string `json:"speaker" url:"speaker"`
+	Speaker *string `json:"speaker,omitempty" url:"speaker,omitempty"`
 	// Rime TTS model ID
 	ModelID string `json:"modelId" url:"modelId"`
 	// WebSocket URL for the Rime streaming API
@@ -9868,16 +9908,16 @@ type RimeTtsParams struct {
 	rawJSON json.RawMessage
 }
 
-func (r *RimeTtsParams) GetAPIKey() string {
+func (r *RimeTtsParams) GetAPIKey() *string {
 	if r == nil {
-		return ""
+		return nil
 	}
 	return r.APIKey
 }
 
-func (r *RimeTtsParams) GetSpeaker() string {
+func (r *RimeTtsParams) GetSpeaker() *string {
 	if r == nil {
-		return ""
+		return nil
 	}
 	return r.Speaker
 }
@@ -9909,14 +9949,14 @@ func (r *RimeTtsParams) require(field *big.Int) {
 
 // SetAPIKey sets the APIKey field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (r *RimeTtsParams) SetAPIKey(apiKey string) {
+func (r *RimeTtsParams) SetAPIKey(apiKey *string) {
 	r.APIKey = apiKey
 	r.require(rimeTtsParamsFieldAPIKey)
 }
 
 // SetSpeaker sets the Speaker field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (r *RimeTtsParams) SetSpeaker(speaker string) {
+func (r *RimeTtsParams) SetSpeaker(speaker *string) {
 	r.Speaker = speaker
 	r.require(rimeTtsParamsFieldSpeaker)
 }
