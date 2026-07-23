@@ -29,6 +29,9 @@ func NewOpenAIRealtime(opts OpenAIRealtimeOptions) *OpenAIRealtime {
 	if opts.Model == "" {
 		opts.Model = "gpt-4o-realtime-preview"
 	}
+	if opts.URL == "" {
+		opts.URL = "wss://api.openai.com/v1/realtime"
+	}
 	return &OpenAIRealtime{options: opts}
 }
 
@@ -55,9 +58,7 @@ func (o *OpenAIRealtime) ToConfig() map[string]interface{} {
 	config := map[string]interface{}{
 		"vendor":  "openai",
 		"api_key": o.options.APIKey,
-	}
-	if o.options.URL != "" {
-		config["url"] = o.options.URL
+		"url":     o.options.URL,
 	}
 	if params != nil {
 		config["params"] = params

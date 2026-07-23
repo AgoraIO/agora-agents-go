@@ -770,7 +770,7 @@ Panics if `APIKey` is empty.
 | ----------------- | ---------- | -------- | --------------------------- | -------------------------------------------------- |
 | `APIKey`          | `string`   | Yes      | —                           | OpenAI API key                                     |
 | `Model`           | `string`   | No       | `"gpt-4o-realtime-preview"` | Model identifier                                   |
-| `URL`             | `string`   | No       | —                           | Custom realtime WebSocket URL                      |
+| `URL`             | `string`   | No       | `"wss://api.openai.com/v1/realtime"` | Realtime WebSocket URL                  |
 | `GreetingMessage` | `string`                   | No       | —                           | Initial greeting                                   |
 | `FailureMessage`  | `string`                   | No       | —                           | Fallback message                                   |
 | `InputModalities` | `[]string`                 | No       | —                           | Input modalities                                   |
