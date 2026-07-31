@@ -1092,7 +1092,89 @@ func (a *AresAsr) String() string {
 }
 
 // ARES ASR configuration parameters.
-type AresAsrParams = map[string]interface{}
+var (
+	aresAsrParamsFieldKeywords = big.NewInt(1 << 0)
+)
+
+type AresAsrParams struct {
+	// A list of hotwords to improve ASR accuracy.
+	Keywords []string `json:"keywords,omitempty" url:"keywords,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (a *AresAsrParams) GetKeywords() []string {
+	if a == nil {
+		return nil
+	}
+	return a.Keywords
+}
+
+func (a *AresAsrParams) GetExtraProperties() map[string]interface{} {
+	return a.ExtraProperties
+}
+
+func (a *AresAsrParams) require(field *big.Int) {
+	if a.explicitFields == nil {
+		a.explicitFields = big.NewInt(0)
+	}
+	a.explicitFields.Or(a.explicitFields, field)
+}
+
+// SetKeywords sets the Keywords field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (a *AresAsrParams) SetKeywords(keywords []string) {
+	a.Keywords = keywords
+	a.require(aresAsrParamsFieldKeywords)
+}
+
+func (a *AresAsrParams) UnmarshalJSON(data []byte) error {
+	type embed AresAsrParams
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*a),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*a = AresAsrParams(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *a)
+	if err != nil {
+		return err
+	}
+	a.ExtraProperties = extraProperties
+	a.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (a *AresAsrParams) MarshalJSON() ([]byte, error) {
+	type embed AresAsrParams
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*a),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, a.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, a.ExtraProperties)
+}
+
+func (a *AresAsrParams) String() string {
+	if len(a.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(a.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(a); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", a)
+}
 
 type Asr struct {
 	Vendor        string
@@ -3909,9 +3991,8 @@ var (
 )
 
 type FengmingAsr struct {
-	Language *AsrLanguage `json:"language,omitempty" url:"language,omitempty"`
-	// Agora Fengming ASR configuration parameters.
-	Params map[string]interface{} `json:"params,omitempty" url:"params,omitempty"`
+	Language *AsrLanguage       `json:"language,omitempty" url:"language,omitempty"`
+	Params   *FengmingAsrParams `json:"params,omitempty" url:"params,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
 	explicitFields *big.Int `json:"-" url:"-"`
@@ -3928,7 +4009,7 @@ func (f *FengmingAsr) GetLanguage() *AsrLanguage {
 	return f.Language
 }
 
-func (f *FengmingAsr) GetParams() map[string]interface{} {
+func (f *FengmingAsr) GetParams() *FengmingAsrParams {
 	if f == nil {
 		return nil
 	}
@@ -3955,7 +4036,7 @@ func (f *FengmingAsr) SetLanguage(language *AsrLanguage) {
 
 // SetParams sets the Params field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (f *FengmingAsr) SetParams(params map[string]interface{}) {
+func (f *FengmingAsr) SetParams(params *FengmingAsrParams) {
 	f.Params = params
 	f.require(fengmingAsrFieldParams)
 }
@@ -3992,6 +4073,91 @@ func (f *FengmingAsr) MarshalJSON() ([]byte, error) {
 }
 
 func (f *FengmingAsr) String() string {
+	if len(f.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(f.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(f); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", f)
+}
+
+// Agora Fengming ASR configuration parameters.
+var (
+	fengmingAsrParamsFieldKeywords = big.NewInt(1 << 0)
+)
+
+type FengmingAsrParams struct {
+	// A list of hotwords to improve ASR accuracy.
+	Keywords []string `json:"keywords,omitempty" url:"keywords,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (f *FengmingAsrParams) GetKeywords() []string {
+	if f == nil {
+		return nil
+	}
+	return f.Keywords
+}
+
+func (f *FengmingAsrParams) GetExtraProperties() map[string]interface{} {
+	return f.ExtraProperties
+}
+
+func (f *FengmingAsrParams) require(field *big.Int) {
+	if f.explicitFields == nil {
+		f.explicitFields = big.NewInt(0)
+	}
+	f.explicitFields.Or(f.explicitFields, field)
+}
+
+// SetKeywords sets the Keywords field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (f *FengmingAsrParams) SetKeywords(keywords []string) {
+	f.Keywords = keywords
+	f.require(fengmingAsrParamsFieldKeywords)
+}
+
+func (f *FengmingAsrParams) UnmarshalJSON(data []byte) error {
+	type embed FengmingAsrParams
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*f),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*f = FengmingAsrParams(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *f)
+	if err != nil {
+		return err
+	}
+	f.ExtraProperties = extraProperties
+	f.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (f *FengmingAsrParams) MarshalJSON() ([]byte, error) {
+	type embed FengmingAsrParams
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*f),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, f.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, f.ExtraProperties)
+}
+
+func (f *FengmingAsrParams) String() string {
 	if len(f.rawJSON) > 0 {
 		if value, err := internal.StringifyJSON(f.rawJSON); err == nil {
 			return value
@@ -7936,12 +8102,13 @@ var (
 	mllmFieldLocation             = big.NewInt(1 << 5)
 	mllmFieldMessages             = big.NewInt(1 << 6)
 	mllmFieldParams               = big.NewInt(1 << 7)
-	mllmFieldInputModalities      = big.NewInt(1 << 8)
-	mllmFieldOutputModalities     = big.NewInt(1 << 9)
-	mllmFieldGreetingMessage      = big.NewInt(1 << 10)
-	mllmFieldFailureMessage       = big.NewInt(1 << 11)
-	mllmFieldVendor               = big.NewInt(1 << 12)
-	mllmFieldTurnDetection        = big.NewInt(1 << 13)
+	mllmFieldMaxHistory           = big.NewInt(1 << 8)
+	mllmFieldInputModalities      = big.NewInt(1 << 9)
+	mllmFieldOutputModalities     = big.NewInt(1 << 10)
+	mllmFieldGreetingMessage      = big.NewInt(1 << 11)
+	mllmFieldFailureMessage       = big.NewInt(1 << 12)
+	mllmFieldVendor               = big.NewInt(1 << 13)
+	mllmFieldTurnDetection        = big.NewInt(1 << 14)
 )
 
 type Mllm struct {
@@ -7960,6 +8127,8 @@ type Mllm struct {
 	// Array of conversation items used for short-term memory management.
 	Messages []map[string]interface{} `json:"messages,omitempty" url:"messages,omitempty"`
 	Params   *MllmParams              `json:"params,omitempty" url:"params,omitempty"`
+	// The number of conversation history messages cached in the MLLM. Applicable to Azure OpenAI Realtime API only.
+	MaxHistory *int `json:"max_history,omitempty" url:"max_history,omitempty"`
 	// MLLM input modalities.
 	InputModalities []string `json:"input_modalities,omitempty" url:"input_modalities,omitempty"`
 	// MLLM output modalities.
@@ -8034,6 +8203,13 @@ func (m *Mllm) GetParams() *MllmParams {
 		return nil
 	}
 	return m.Params
+}
+
+func (m *Mllm) GetMaxHistory() *int {
+	if m == nil {
+		return nil
+	}
+	return m.MaxHistory
 }
 
 func (m *Mllm) GetInputModalities() []string {
@@ -8143,6 +8319,13 @@ func (m *Mllm) SetMessages(messages []map[string]interface{}) {
 func (m *Mllm) SetParams(params *MllmParams) {
 	m.Params = params
 	m.require(mllmFieldParams)
+}
+
+// SetMaxHistory sets the MaxHistory field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *Mllm) SetMaxHistory(maxHistory *int) {
+	m.MaxHistory = maxHistory
+	m.require(mllmFieldMaxHistory)
 }
 
 // SetInputModalities sets the InputModalities field and marks it as non-optional;
@@ -9300,21 +9483,27 @@ type MllmVendor string
 
 const (
 	MllmVendorOpenai   MllmVendor = "openai"
+	MllmVendorAzure    MllmVendor = "azure"
 	MllmVendorGemini   MllmVendor = "gemini"
 	MllmVendorVertexai MllmVendor = "vertexai"
 	MllmVendorXai      MllmVendor = "xai"
+	MllmVendorQwenOmni MllmVendor = "qwen_omni"
 )
 
 func NewMllmVendorFromString(s string) (MllmVendor, error) {
 	switch s {
 	case "openai":
 		return MllmVendorOpenai, nil
+	case "azure":
+		return MllmVendorAzure, nil
 	case "gemini":
 		return MllmVendorGemini, nil
 	case "vertexai":
 		return MllmVendorVertexai, nil
 	case "xai":
 		return MllmVendorXai, nil
+	case "qwen_omni":
+		return MllmVendorQwenOmni, nil
 	}
 	var t MllmVendor
 	return "", fmt.Errorf("%s is not a valid %T", s, t)
@@ -12028,6 +12217,7 @@ type Tts struct {
 	Stepfun         *StepfunTts
 	Gradium         *GradiumTts
 	Mistral         *MistralTts
+	Typecast        *TypecastTts
 }
 
 func (t *Tts) GetVendor() string {
@@ -12191,6 +12381,13 @@ func (t *Tts) GetMistral() *MistralTts {
 	return t.Mistral
 }
 
+func (t *Tts) GetTypecast() *TypecastTts {
+	if t == nil {
+		return nil
+	}
+	return t.Typecast
+}
+
 func (t *Tts) UnmarshalJSON(data []byte) error {
 	var unmarshaler struct {
 		Vendor string `json:"vendor"`
@@ -12335,6 +12532,12 @@ func (t *Tts) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		t.Mistral = value
+	case "typecast":
+		value := new(TypecastTts)
+		if err := json.Unmarshal(data, &value); err != nil {
+			return err
+		}
+		t.Typecast = value
 	}
 	return nil
 }
@@ -12409,6 +12612,9 @@ func (t Tts) MarshalJSON() ([]byte, error) {
 	if t.Mistral != nil {
 		return internal.MarshalJSONWithExtraProperty(t.Mistral, "vendor", "mistral")
 	}
+	if t.Typecast != nil {
+		return internal.MarshalJSONWithExtraProperty(t.Typecast, "vendor", "typecast")
+	}
 	return nil, fmt.Errorf("type %T does not define a non-empty union type", t)
 }
 
@@ -12435,6 +12641,7 @@ type TtsVisitor interface {
 	VisitStepfun(*StepfunTts) error
 	VisitGradium(*GradiumTts) error
 	VisitMistral(*MistralTts) error
+	VisitTypecast(*TypecastTts) error
 }
 
 func (t *Tts) Accept(visitor TtsVisitor) error {
@@ -12503,6 +12710,9 @@ func (t *Tts) Accept(visitor TtsVisitor) error {
 	}
 	if t.Mistral != nil {
 		return visitor.VisitMistral(t.Mistral)
+	}
+	if t.Typecast != nil {
+		return visitor.VisitTypecast(t.Typecast)
 	}
 	return fmt.Errorf("type %T does not define a non-empty union type", t)
 }
@@ -12578,6 +12788,9 @@ func (t *Tts) validate() error {
 	if t.Mistral != nil {
 		fields = append(fields, "mistral")
 	}
+	if t.Typecast != nil {
+		fields = append(fields, "typecast")
+	}
 	if len(fields) == 0 {
 		if t.Vendor != "" {
 			return fmt.Errorf("type %T defines a discriminant set to %q but the field is not set", t, t.Vendor)
@@ -12599,6 +12812,221 @@ func (t *Tts) validate() error {
 		}
 	}
 	return nil
+}
+
+// Typecast Text-to-Speech configuration.
+var (
+	typecastTtsFieldParams       = big.NewInt(1 << 0)
+	typecastTtsFieldSkipPatterns = big.NewInt(1 << 1)
+)
+
+type TypecastTts struct {
+	Params *TypecastTtsParams `json:"params" url:"params"`
+	// Controls whether the TTS module skips bracketed content when reading LLM response text.
+	SkipPatterns []int `json:"skip_patterns,omitempty" url:"skip_patterns,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	extraProperties map[string]interface{}
+	rawJSON         json.RawMessage
+}
+
+func (t *TypecastTts) GetParams() *TypecastTtsParams {
+	if t == nil {
+		return nil
+	}
+	return t.Params
+}
+
+func (t *TypecastTts) GetSkipPatterns() []int {
+	if t == nil {
+		return nil
+	}
+	return t.SkipPatterns
+}
+
+func (t *TypecastTts) GetExtraProperties() map[string]interface{} {
+	return t.extraProperties
+}
+
+func (t *TypecastTts) require(field *big.Int) {
+	if t.explicitFields == nil {
+		t.explicitFields = big.NewInt(0)
+	}
+	t.explicitFields.Or(t.explicitFields, field)
+}
+
+// SetParams sets the Params field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (t *TypecastTts) SetParams(params *TypecastTtsParams) {
+	t.Params = params
+	t.require(typecastTtsFieldParams)
+}
+
+// SetSkipPatterns sets the SkipPatterns field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (t *TypecastTts) SetSkipPatterns(skipPatterns []int) {
+	t.SkipPatterns = skipPatterns
+	t.require(typecastTtsFieldSkipPatterns)
+}
+
+func (t *TypecastTts) UnmarshalJSON(data []byte) error {
+	type unmarshaler TypecastTts
+	var value unmarshaler
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	*t = TypecastTts(value)
+	extraProperties, err := internal.ExtractExtraProperties(data, *t)
+	if err != nil {
+		return err
+	}
+	t.extraProperties = extraProperties
+	t.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (t *TypecastTts) MarshalJSON() ([]byte, error) {
+	type embed TypecastTts
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*t),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, t.explicitFields)
+	return json.Marshal(explicitMarshaler)
+}
+
+func (t *TypecastTts) String() string {
+	if len(t.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(t.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(t); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", t)
+}
+
+// Typecast TTS configuration parameters.
+var (
+	typecastTtsParamsFieldAPIKey  = big.NewInt(1 << 0)
+	typecastTtsParamsFieldVoiceID = big.NewInt(1 << 1)
+	typecastTtsParamsFieldModel   = big.NewInt(1 << 2)
+)
+
+type TypecastTtsParams struct {
+	// Typecast API key.
+	APIKey string `json:"api_key" url:"api_key"`
+	// Typecast voice identifier (for example, "tc_60e5426de8b95f1d3000d7b5").
+	VoiceID string `json:"voice_id" url:"voice_id"`
+	// Typecast TTS model name (for example, "ssfm-v30").
+	Model string `json:"model" url:"model"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (t *TypecastTtsParams) GetAPIKey() string {
+	if t == nil {
+		return ""
+	}
+	return t.APIKey
+}
+
+func (t *TypecastTtsParams) GetVoiceID() string {
+	if t == nil {
+		return ""
+	}
+	return t.VoiceID
+}
+
+func (t *TypecastTtsParams) GetModel() string {
+	if t == nil {
+		return ""
+	}
+	return t.Model
+}
+
+func (t *TypecastTtsParams) GetExtraProperties() map[string]interface{} {
+	return t.ExtraProperties
+}
+
+func (t *TypecastTtsParams) require(field *big.Int) {
+	if t.explicitFields == nil {
+		t.explicitFields = big.NewInt(0)
+	}
+	t.explicitFields.Or(t.explicitFields, field)
+}
+
+// SetAPIKey sets the APIKey field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (t *TypecastTtsParams) SetAPIKey(apiKey string) {
+	t.APIKey = apiKey
+	t.require(typecastTtsParamsFieldAPIKey)
+}
+
+// SetVoiceID sets the VoiceID field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (t *TypecastTtsParams) SetVoiceID(voiceID string) {
+	t.VoiceID = voiceID
+	t.require(typecastTtsParamsFieldVoiceID)
+}
+
+// SetModel sets the Model field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (t *TypecastTtsParams) SetModel(model string) {
+	t.Model = model
+	t.require(typecastTtsParamsFieldModel)
+}
+
+func (t *TypecastTtsParams) UnmarshalJSON(data []byte) error {
+	type embed TypecastTtsParams
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*t),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*t = TypecastTtsParams(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *t)
+	if err != nil {
+		return err
+	}
+	t.ExtraProperties = extraProperties
+	t.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (t *TypecastTtsParams) MarshalJSON() ([]byte, error) {
+	type embed TypecastTtsParams
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*t),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, t.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, t.ExtraProperties)
+}
+
+func (t *TypecastTtsParams) String() string {
+	if len(t.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(t.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(t); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", t)
 }
 
 // xAI ASR configuration.
