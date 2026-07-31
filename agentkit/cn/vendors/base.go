@@ -17,5 +17,6 @@ type (
 	LLM    = core.LLMVendor
 	TTS    = core.TTSVendor
 	STT    = core.STTVendor
+	MLLM   = core.MLLMVendor
 	Avatar = core.AvatarVendorConfig
 )

@@ -342,6 +342,47 @@ func (a *AssemblyAISTT) ToConfig() map[string]interface{} {
 	return config
 }
 
+// AresSTTOptions configures the Agora-managed global Ares ASR provider.
+type AresSTTOptions struct {
+	Keywords         []string
+	AdditionalParams map[string]interface{}
+}
+
+// AresSTT is the Agora-managed global ASR provider.
+type AresSTT struct {
+	options AresSTTOptions
+}
+
+// NewAresSTT creates an Ares ASR configuration. Options are optional so callers
+// can select Ares without configuring keyword hints.
+func NewAresSTT(options ...AresSTTOptions) *AresSTT {
+	if len(options) > 1 {
+		panic("NewAresSTT accepts at most one options value")
+	}
+	var opts AresSTTOptions
+	if len(options) == 1 {
+		opts = options[0]
+	}
+	return &AresSTT{options: opts}
+}
+
+// ToConfig returns the Ares configuration expected by the API.
+func (a *AresSTT) ToConfig() map[string]interface{} {
+	params := make(map[string]interface{}, len(a.options.AdditionalParams)+1)
+	for key, value := range a.options.AdditionalParams {
+		params[key] = value
+	}
+	if a.options.Keywords != nil {
+		params["keywords"] = a.options.Keywords
+	}
+
+	config := map[string]interface{}{"vendor": "ares"}
+	if len(params) > 0 {
+		config["params"] = params
+	}
+	return config
+}
+
 type SarvamSTTOptions struct {
 	APIKey           string
 	Language         string

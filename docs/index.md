@@ -14,13 +14,13 @@ Source: [github.com/AgoraIO/agora-agents-go](https://github.com/AgoraIO/agora-ag
 
 **Cascading flow** uses ASR -> LLM -> TTS and supports the broadest set of vendor combinations.
 
-**MLLM flow** uses a multimodal model such as OpenAI Realtime or Gemini Live for end-to-end audio.
+**MLLM flow** uses a multimodal model such as global OpenAI/Azure Realtime or mainland China Qwen Omni for end-to-end audio.
 
 ## Start here
 
 - Start with [Quick Start](./getting-started/quick-start.md). It shows the baseline app-credentials setup and starts a cascading ASR -> LLM -> TTS agent.
 - Use [CN AgentKit](./guides/cn-agentkit.md) when you want the mainland China facade (`agentkit/cn`) for `option.AreaCN` routing.
-- Use [MLLM Flow](./guides/mllm-flow.md) when your agent uses one realtime multimodal model, such as OpenAI Realtime or Gemini Live.
+- Use [MLLM Flow](./guides/mllm-flow.md) when your agent uses one realtime multimodal model, including Qwen Omni through the CN facade.
 - Use [Cascading Flow](./guides/cascading-flow.md) for more examples of the default ASR -> LLM -> TTS flow, including provider-specific configuration.
 
 ## How the SDK is organized
@@ -52,7 +52,7 @@ Requires Go 1.21 or later.
 | [AgentSession](./concepts/session.md) | State machine, lifecycle methods, events |
 | [Vendors](./concepts/vendors.md) | LLM, TTS, STT, MLLM, and Avatar provider catalog |
 | [Cascading Flow](./guides/cascading-flow.md) | Step-by-step ASR -> LLM -> TTS |
-| [MLLM Flow](./guides/mllm-flow.md) | OpenAI Realtime, Gemini Live, Vertex AI, and xAI Grok |
+| [MLLM Flow](./guides/mllm-flow.md) | Global OpenAI/Azure/Gemini/Vertex/xAI and mainland China Qwen Omni |
 | [Avatars](./guides/avatars.md) | LiveAvatar, Generic, Anam, Akool, SenseTime (CN), and deprecated HeyGen |
 | [Regional Routing](./guides/regional-routing.md) | Area enum, domain pool, failover |
 | [Error Handling](./guides/error-handling.md) | API errors and Go error handling patterns |

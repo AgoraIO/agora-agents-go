@@ -3,6 +3,7 @@ package agentkit
 import (
 	"testing"
 
+	Agora "github.com/AgoraIO/agora-agents-go/v2"
 	"github.com/AgoraIO/agora-agents-go/v2/agentkit/vendors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1323,6 +1324,51 @@ func TestMLLMVendorShapes(t *testing.T) {
 		assert.Equal(t, "xai", mllm["vendor"])
 		assert.Equal(t, true, mllm["enable"])
 		assert.Equal(t, "xai-key", mllm["api_key"])
+	})
+
+	t.Run("AzureOpenAIRealtime", func(t *testing.T) {
+		maxHistory := 20
+		messages := []map[string]interface{}{
+			{
+				"role":    "user",
+				"content": "can you please count to 3 after greeting。",
+			},
+		}
+		turnDetection := &Agora.MllmTurnDetection{
+			Mode: Agora.MllmTurnDetectionModeServerVad.Ptr(),
+		}
+		agent := NewAgent(testAgoraClient()).
+			WithMllm(vendors.NewAzureOpenAIRealtime(vendors.AzureOpenAIRealtimeOptions{
+				APIKey:           "APIKEY",
+				URL:              "AZURE_URL",
+				Model:            "gpt-realtime-2",
+				Voice:            "alloy",
+				Instructions:     "You are a Conversational AI Agent, developed by Agora.",
+				Messages:         messages,
+				OutputModalities: []string{"audio"},
+				MaxHistory:       &maxHistory,
+				GreetingMessage:  "Hey There Sir",
+				TurnDetection:    turnDetection,
+			}))
+		props, err := agent.ToPropertiesMap(mllmOpts)
+		require.NoError(t, err)
+		mllm := props["mllm"].(map[string]interface{})
+		assert.Equal(t, map[string]interface{}{
+			"enable":   true,
+			"url":      "AZURE_URL",
+			"api_key":  "APIKEY",
+			"messages": messages,
+			"params": map[string]interface{}{
+				"instructions": "You are a Conversational AI Agent, developed by Agora.",
+				"model":        "gpt-realtime-2",
+				"voice":        "alloy",
+			},
+			"output_modalities": []string{"audio"},
+			"max_history":       20,
+			"greeting_message":  "Hey There Sir",
+			"vendor":            "azure",
+			"turn_detection":    turnDetection,
+		}, mllm)
 	})
 }
 

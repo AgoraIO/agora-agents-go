@@ -577,6 +577,29 @@ Panics if `APIKey` is empty. Available only in `github.com/AgoraIO/agora-agents-
 | `AdditionalParams` | `map[string]interface{}` | No | Additional provider parameters forwarded under `tts.params` |
 | `SkipPatterns` | `[]int` | No | Patterns to skip |
 
+### NewTypecastTTS
+
+Package: `github.com/AgoraIO/agora-agents-go/v2/agentkit/vendors`
+
+<!-- snippet: fragment -->
+```go
+func NewTypecastTTS(opts TypecastTTSOptions) *TypecastTTS
+```
+
+Panics if `APIKey`, `VoiceID`, or `Model` is empty. Typecast is available from the global/default vendor package.
+
+Named fields are written after `AdditionalParams`, so `APIKey`, `VoiceID`, and `Model` take precedence over matching passthrough keys.
+
+#### TypecastTTSOptions
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `APIKey` | `string` | Yes | Typecast API key; serialized as `tts.params.api_key` |
+| `VoiceID` | `string` | Yes | Typecast voice identifier; serialized as `tts.params.voice_id` |
+| `Model` | `string` | Yes | Typecast model identifier; serialized as `tts.params.model` |
+| `AdditionalParams` | `map[string]interface{}` | No | Additional provider parameters forwarded under `tts.params` |
+| `SkipPatterns` | `[]int` | No | Patterns to skip |
+
 ---
 
 ## STT Vendors
@@ -715,6 +738,26 @@ Panics if `APIKey` or `Language` is empty.
 | `URI` | `string` | No | AssemblyAI streaming WebSocket URL |
 | `AdditionalParams` | `map[string]interface{}` | No | Additional vendor params |
 
+### NewAresSTT
+
+Package: `github.com/AgoraIO/agora-agents-go/v2/agentkit/vendors`
+
+<!-- snippet: fragment -->
+```go
+func NewAresSTT(options ...AresSTTOptions) *AresSTT
+```
+
+Options are optional, so both `NewAresSTT()` and `NewAresSTT(AresSTTOptions{...})` are supported. More than one options value causes a panic. Ares is the Agora-managed default ASR provider for the global AgentKit facade.
+
+REST `asr.language` still comes from `TurnDetectionConfig.Language`. `Keywords` is serialized as `asr.params.keywords` and takes precedence over a `keywords` entry in `AdditionalParams`.
+
+#### AresSTTOptions
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `Keywords` | `[]string` | No | Hotwords used to improve ASR accuracy |
+| `AdditionalParams` | `map[string]interface{}` | No | Additional Ares parameters forwarded under `asr.params` |
+
 ### NewSarvamSTT
 
 <!-- snippet: fragment -->
@@ -778,6 +821,34 @@ Panics if `APIKey` is empty.
 | `Messages`        | `[]map[string]interface{}` | No       | —                           | Conversation messages for short-term memory        |
 | `Params`          | `map[string]interface{}`   | No       | —                           | Additional realtime params such as `voice`         |
 | `TurnDetection`   | `*Agora.MllmTurnDetection` | No | — | MLLM turn detection configuration; overrides top-level turn detection |
+
+### NewAzureOpenAIRealtime
+
+Package: `github.com/AgoraIO/agora-agents-go/v2/agentkit/vendors`
+
+<!-- snippet: fragment -->
+```go
+func NewAzureOpenAIRealtime(opts AzureOpenAIRealtimeOptions) *AzureOpenAIRealtime
+```
+
+Panics if `APIKey` or `URL` is empty, or if `TurnDetection` is nil. Azure OpenAI Realtime is a global MLLM provider and emits `mllm.vendor = "azure"`.
+
+`MaxHistory` is serialized at `mllm.max_history`, not inside `mllm.params`. The generated API limits this field to Azure OpenAI Realtime; the cascading agent-level `WithMaxHistory` option configures `llm.max_history` and is unrelated.
+
+#### AzureOpenAIRealtimeOptions
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `APIKey` | `string` | Yes | — | Azure OpenAI API key |
+| `URL` | `string` | Yes | — | Complete Azure Realtime WebSocket URL, including resource, API version, and deployment |
+| `Model` | `string` | No | — | Model identifier under `mllm.params.model` |
+| `Voice` | `string` | No | — | Voice identifier under `mllm.params.voice` |
+| `Instructions` | `string` | No | — | System instructions under `mllm.params.instructions` |
+| `GreetingMessage` | `string` | No | — | Initial greeting |
+| `MaxHistory` | `*int` | No | — | Azure-only conversation history limit at `mllm.max_history` |
+| `OutputModalities` | `[]string` | No | — | Output modalities |
+| `Messages` | `[]map[string]interface{}` | No | — | Conversation messages for short-term memory |
+| `TurnDetection` | `*Agora.MllmTurnDetection` | Yes | — | Required MLLM turn detection configuration; overrides top-level turn detection |
 
 ### NewGeminiLive
 
@@ -873,6 +944,54 @@ func NewVertexAI(opts VertexAIOptions) *VertexAI
 | `OutputModalities` | `[]string`                | No       | —                        | Output modalities                               |
 | `AdditionalParams` | `map[string]interface{}`  | No       | —                        | Additional Vertex/Gemini params                 |
 | `TurnDetection`    | `*Agora.MllmTurnDetection` | No | — | MLLM turn detection configuration; overrides top-level turn detection |
+
+## CN STT and MLLM Vendors
+
+The following constructors live in `github.com/AgoraIO/agora-agents-go/v2/agentkit/cn/vendors` and are used with `agentkit/cn.Agent`.
+
+### NewQwenOmni
+
+<!-- snippet: fragment -->
+```go
+func NewQwenOmni(opts QwenOmniOptions) *QwenOmni
+```
+
+Panics if `APIKey` or `Model` is empty, or if `TurnDetection` is nil. Qwen Omni is a mainland China MLLM provider and emits `mllm.vendor = "qwen_omni"`. When `URL` is omitted, AgentKit uses the mainland China DashScope endpoint `wss://dashscope.aliyuncs.com/api-ws/v1/realtime`.
+
+#### QwenOmniOptions
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `APIKey` | `string` | Yes | — | DashScope API key |
+| `Model` | `string` | Yes | — | Qwen Omni realtime model identifier |
+| `URL` | `string` | No | Mainland China DashScope realtime endpoint | Realtime WebSocket URL |
+| `Voice` | `string` | No | — | Voice identifier under `mllm.params.voice` |
+| `Instructions` | `string` | No | — | System instructions under `mllm.params.instructions` |
+| `GreetingMessage` | `string` | No | — | Initial greeting |
+| `FailureMessage` | `string` | No | — | Fallback message |
+| `InputModalities` | `[]string` | No | — | Input modalities |
+| `OutputModalities` | `[]string` | No | — | Output modalities |
+| `Messages` | `[]map[string]interface{}` | No | — | Conversation messages for short-term memory |
+| `Params` | `map[string]interface{}` | No | — | Additional realtime parameters |
+| `TurnDetection` | `*Agora.MllmTurnDetection` | Yes | — | Required MLLM turn detection configuration; overrides top-level turn detection |
+
+### NewFengmingSTT
+
+<!-- snippet: fragment -->
+```go
+func NewFengmingSTT(options ...FengmingSTTOptions) *FengmingSTT
+```
+
+Options are optional, preserving the existing `NewFengmingSTT()` call. More than one options value causes a panic. Fengming is the Agora-managed default ASR provider for the mainland China AgentKit facade.
+
+REST `asr.language` still comes from `TurnDetectionConfig.Language`. `Keywords` is serialized as `asr.params.keywords` and takes precedence over a `keywords` entry in `AdditionalParams`.
+
+#### FengmingSTTOptions
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `Keywords` | `[]string` | No | Hotwords used to improve ASR accuracy |
+| `AdditionalParams` | `map[string]interface{}` | No | Additional Fengming parameters forwarded under `asr.params` |
 
 ---
 

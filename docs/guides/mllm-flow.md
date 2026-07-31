@@ -10,7 +10,7 @@ The MLLM flow uses a single multimodal model to process audio input and generate
 
 ## Enabling MLLM Mode
 
-Call `WithMllm(vendor)` to enable MLLM mode. The builder sets `mllm.enable = true` automatically.
+Call `WithMllm(vendor)` to enable MLLM mode. The builder sets `mllm.enable = true` automatically. Use `agentkit` plus `agentkit/vendors` for global providers, and `agentkit/cn` plus `agentkit/cn/vendors` for mainland China Qwen Omni.
 
 ```go
 agent := agentkit.NewAgent(client).WithMllm(vendor)
@@ -85,9 +85,62 @@ agent := agentkit.NewAgent(client).WithMllm(
 )
 ```
 
+## Azure OpenAI Realtime (Global)
+
+Azure OpenAI Realtime is exposed only by the global vendor package. `URL` is the complete Azure Realtime WebSocket URL for your resource and deployment. `MaxHistory` maps to the Azure-only top-level `mllm.max_history` field.
+
+```go
+maxHistory := 20
+messages := []map[string]interface{}{
+    {
+        "role":    "user",
+        "content": "Can you please count to 3 after greeting?",
+    },
+}
+agent := agentkit.NewAgent(client).WithMllm(
+    vendors.NewAzureOpenAIRealtime(vendors.AzureOpenAIRealtimeOptions{
+        APIKey:           "<azure_openai_key>",
+        URL:              "wss://<resource>.openai.azure.com/openai/realtime?api-version=<version>&deployment=<deployment>",
+        Model:            "gpt-realtime-2",
+        Voice:            "alloy",
+        Instructions:     "You are a Conversational AI Agent, developed by Agora.",
+        Messages:         messages,
+        OutputModalities: []string{"audio"},
+        MaxHistory:       &maxHistory,
+        GreetingMessage:  "Hey There Sir",
+        TurnDetection: &Agora.MllmTurnDetection{
+            Mode: Agora.MllmTurnDetectionModeServerVad.Ptr(),
+        },
+    }),
+)
+```
+
+## Qwen Omni (Mainland China)
+
+Qwen Omni is exposed only by `agentkit/cn/vendors`. Its default URL is the mainland China DashScope endpoint.
+
+```go
+import (
+    Agora "github.com/AgoraIO/agora-agents-go/v2"
+    agentkit "github.com/AgoraIO/agora-agents-go/v2/agentkit/cn"
+    vendors "github.com/AgoraIO/agora-agents-go/v2/agentkit/cn/vendors"
+)
+
+agent := agentkit.NewAgent(client).WithMllm(
+    vendors.NewQwenOmni(vendors.QwenOmniOptions{
+        APIKey: "<dashscope_key>",
+        Model:  "qwen3-omni-flash-realtime",
+        Voice:  "Momo",
+        TurnDetection: &Agora.MllmTurnDetection{
+            Mode: Agora.MllmTurnDetectionModeServerVad.Ptr(),
+        },
+    }),
+)
+```
+
 ## MLLM with Turn Detection
 
-Configure MLLM turn detection on the MLLM vendor with `TurnDetection`. When set, `mllm.turn_detection` overrides the top-level `turn_detection` object.
+Configure MLLM turn detection on the MLLM vendor with `TurnDetection`. It is required by Azure OpenAI Realtime and Qwen Omni. When set, `mllm.turn_detection` overrides the top-level `turn_detection` object.
 
 Example:
 

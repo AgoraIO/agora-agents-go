@@ -86,6 +86,79 @@ func (o *OpenAIRealtime) ToConfig() map[string]interface{} {
 	return config
 }
 
+// AzureOpenAIRealtimeOptions configures Azure OpenAI Realtime MLLM.
+type AzureOpenAIRealtimeOptions struct {
+	APIKey           string
+	URL              string
+	Messages         []map[string]interface{}
+	Instructions     string
+	Model            string
+	Voice            string
+	OutputModalities []string
+	MaxHistory       *int
+	GreetingMessage  string
+	TurnDetection    *Agora.MllmTurnDetection
+}
+
+// AzureOpenAIRealtime is the global Azure OpenAI Realtime MLLM vendor.
+type AzureOpenAIRealtime struct {
+	options AzureOpenAIRealtimeOptions
+}
+
+// NewAzureOpenAIRealtime creates an Azure OpenAI Realtime MLLM configuration.
+func NewAzureOpenAIRealtime(opts AzureOpenAIRealtimeOptions) *AzureOpenAIRealtime {
+	if opts.APIKey == "" {
+		panic("AzureOpenAIRealtime requires APIKey")
+	}
+	if opts.URL == "" {
+		panic("AzureOpenAIRealtime requires URL")
+	}
+	if opts.TurnDetection == nil {
+		panic("AzureOpenAIRealtime requires TurnDetection")
+	}
+	return &AzureOpenAIRealtime{options: opts}
+}
+
+// ToConfig returns the Azure OpenAI Realtime configuration expected by the API.
+func (a *AzureOpenAIRealtime) ToConfig() map[string]interface{} {
+	var params map[string]interface{}
+	if a.options.Model != "" || a.options.Voice != "" || a.options.Instructions != "" {
+		params = map[string]interface{}{}
+		if a.options.Model != "" {
+			params["model"] = a.options.Model
+		}
+		if a.options.Voice != "" {
+			params["voice"] = a.options.Voice
+		}
+		if a.options.Instructions != "" {
+			params["instructions"] = a.options.Instructions
+		}
+	}
+
+	config := map[string]interface{}{
+		"vendor":         "azure",
+		"api_key":        a.options.APIKey,
+		"url":            a.options.URL,
+		"turn_detection": a.options.TurnDetection,
+	}
+	if params != nil {
+		config["params"] = params
+	}
+	if a.options.MaxHistory != nil {
+		config["max_history"] = *a.options.MaxHistory
+	}
+	if a.options.GreetingMessage != "" {
+		config["greeting_message"] = a.options.GreetingMessage
+	}
+	if a.options.OutputModalities != nil {
+		config["output_modalities"] = a.options.OutputModalities
+	}
+	if a.options.Messages != nil {
+		config["messages"] = a.options.Messages
+	}
+	return config
+}
+
 // XaiGrokOptions configures the xAI Grok MLLM vendor (mllm.vendor "xai").
 // Future xAI ASR/TTS wrappers should be named XaiSTT and XaiTTS, not XaiRealtime.
 type XaiGrokOptions struct {
