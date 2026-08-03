@@ -732,6 +732,80 @@ func TestGenericTTSURLValidation(t *testing.T) {
 	}
 }
 
+func TestTypecastTTSMatchesGeneratedUnion(t *testing.T) {
+	config := NewTypecastTTS(TypecastTTSOptions{
+		APIKey:  "typecast-key",
+		VoiceID: "voice-id",
+		Model:   "ssfm-v30",
+		AdditionalParams: map[string]interface{}{
+			"api_key":      "override-key",
+			"custom_param": true,
+		},
+		SkipPatterns: []int{1, 2},
+	}).ToConfig()
+
+	if got := config["vendor"]; got != "typecast" {
+		t.Fatalf("vendor = %v, want typecast", got)
+	}
+	params := config["params"].(map[string]interface{})
+	if got := params["api_key"]; got != "typecast-key" {
+		t.Fatalf("api_key = %v, want typecast-key", got)
+	}
+	if got := params["voice_id"]; got != "voice-id" {
+		t.Fatalf("voice_id = %v, want voice-id", got)
+	}
+	if got := params["model"]; got != "ssfm-v30" {
+		t.Fatalf("model = %v, want ssfm-v30", got)
+	}
+
+	payload, err := json.Marshal(config)
+	if err != nil {
+		t.Fatalf("marshal Typecast config: %v", err)
+	}
+	var generated Agora.Tts
+	if err := json.Unmarshal(payload, &generated); err != nil {
+		t.Fatalf("unmarshal Typecast config: %v", err)
+	}
+	if generated.Typecast == nil || generated.Typecast.Params == nil {
+		t.Fatalf("generated Typecast vendor is nil: %#v", generated)
+	}
+	if generated.Typecast.Params.GetExtraProperties()["custom_param"] != true {
+		t.Fatalf("generated params lost custom_param: %#v", generated.Typecast.Params)
+	}
+}
+
+func TestTypecastTTSValidation(t *testing.T) {
+	tests := []struct {
+		name      string
+		opts      TypecastTTSOptions
+		wantPanic string
+	}{
+		{
+			name:      "API key required",
+			opts:      TypecastTTSOptions{VoiceID: "voice", Model: "model"},
+			wantPanic: "TypecastTTS requires APIKey",
+		},
+		{
+			name:      "voice ID required",
+			opts:      TypecastTTSOptions{APIKey: "key", Model: "model"},
+			wantPanic: "TypecastTTS requires VoiceID",
+		},
+		{
+			name:      "model required",
+			opts:      TypecastTTSOptions{APIKey: "key", VoiceID: "voice"},
+			wantPanic: "TypecastTTS requires Model",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assertPanic(t, tt.wantPanic, func() {
+				NewTypecastTTS(tt.opts)
+			})
+		})
+	}
+}
+
 func ptrInt(v int) *int {
 	return &v
 }

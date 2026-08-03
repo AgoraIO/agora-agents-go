@@ -1,14 +1,45 @@
 package vendors
 
-type FengmingSTT struct{}
-
-func NewFengmingSTT() *FengmingSTT {
-	return &FengmingSTT{}
+// FengmingSTTOptions configures the Agora-managed mainland China Fengming ASR provider.
+type FengmingSTTOptions struct {
+	Keywords         []string
+	AdditionalParams map[string]interface{}
 }
 
+// FengmingSTT is the Agora-managed mainland China ASR provider.
+type FengmingSTT struct {
+	options *FengmingSTTOptions
+}
+
+// NewFengmingSTT creates a Fengming ASR configuration. Options are optional to
+// preserve the existing no-argument call.
+func NewFengmingSTT(options ...FengmingSTTOptions) *FengmingSTT {
+	if len(options) > 1 {
+		panic("NewFengmingSTT accepts at most one options value")
+	}
+	if len(options) == 0 {
+		return &FengmingSTT{}
+	}
+	return &FengmingSTT{options: &options[0]}
+}
+
+// ToConfig returns the Fengming configuration expected by the API.
 func (f *FengmingSTT) ToConfig() map[string]interface{} {
-	config := map[string]interface{}{
-		"vendor": "fengming",
+	config := map[string]interface{}{"vendor": "fengming"}
+	if f == nil || f.options == nil {
+		return config
+	}
+
+	params := make(map[string]interface{}, len(f.options.AdditionalParams)+1)
+	for key, value := range f.options.AdditionalParams {
+		params[key] = value
+	}
+	if f.options.Keywords != nil {
+		params["keywords"] = f.options.Keywords
+	}
+
+	if len(params) > 0 {
+		config["params"] = params
 	}
 	return config
 }

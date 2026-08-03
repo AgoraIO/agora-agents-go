@@ -85,6 +85,7 @@ agent := agentkit.NewAgent(client).WithLlm(llm)
 | `NewXaiTTS` | `XaiTTSOptions` | `APIKey`, `Language` |
 | `NewGradiumTTS` | `GradiumTTSOptions` | `APIKey` |
 | `NewMistralTTS` | `MistralTTSOptions` | `APIKey` |
+| `NewTypecastTTS` | `TypecastTTSOptions` | `APIKey`, `VoiceID`, `Model` |
 
 `NewGenericTTS` is available in both `agentkit/vendors` and `agentkit/cn/vendors`. The required `URL` must be an absolute HTTP or HTTPS URL; other schemes are currently rejected. Supported URLs serialize with `vendor: "generic_http"`. All other fields are optional, and `AdditionalParams` forwards provider-specific values under `tts.params`; explicitly set named fields take precedence over matching additional parameters.
 
@@ -128,6 +129,7 @@ Use `TurnDetectionConfig.Language` for Agora interaction language; it defaults t
 | `NewGoogleSTT` | `GoogleSTTOptions` | `ProjectID`, `Location`, `ADCCredentialsString`, `Language` |
 | `NewAmazonSTT` | `AmazonSTTOptions` | `AccessKey`, `SecretKey`, `Region`, `Language` |
 | `NewAssemblyAISTT` | `AssemblyAISTTOptions` | `APIKey`, `Language` |
+| `NewAresSTT` | `AresSTTOptions` | None; optional `Keywords` |
 | `NewSarvamSTT` | `SarvamSTTOptions` | `APIKey`, `Language` |
 | `NewXaiSTT` | `XaiSTTOptions` | `APIKey` |
 
@@ -147,6 +149,7 @@ agent = agent.WithStt(stt)
 | Constructor | Options Struct | Required Fields | Default Model |
 |---|---|---|---|
 | `NewOpenAIRealtime` | `OpenAIRealtimeOptions` | `APIKey` | `gpt-4o-realtime-preview` |
+| `NewAzureOpenAIRealtime` (global) | `AzureOpenAIRealtimeOptions` | `APIKey`, `URL`, `TurnDetection` | — |
 | `NewXaiGrok` | `XaiGrokOptions` | `APIKey`, `Model` | — |
 | `NewGeminiLive` | `GeminiLiveOptions` | `APIKey`, `Model` | — |
 | `NewVertexAI` | `VertexAIOptions` | `ProjectID` | `gemini-2.0-flash-exp` |
@@ -189,13 +192,19 @@ Use with `agentkit/cn.Agent`. CN LLM constructors share `OpenAIOptions` shape an
 | `NewDeepSeek` | `deepseek` | `APIKey`, `Model`, `BaseURL` |
 | `NewTencentLLM` | `tencent` | `APIKey`, `Model`, `BaseURL` |
 
+### CN MLLM
+
+| Constructor | Wire `vendor` | Required fields | Default URL |
+|---|---|---|---|
+| `NewQwenOmni` | `qwen_omni` | `APIKey`, `Model`, `TurnDetection` | `wss://dashscope.aliyuncs.com/api-ws/v1/realtime` |
+
 ### CN STT
 
 REST `asr.language` comes from `TurnDetectionConfig.Language` (default `en-US`), not from CN STT constructors. When `agentkit/cn` omits `WithStt()`, AgentKit falls back to `asr.vendor = "fengming"`. Provider-specific language values go under `asr.params` when set.
 
 | Constructor | Wire `vendor` | Required fields |
 |---|---|---|
-| `NewFengmingSTT()` | `fengming` | none |
+| `NewFengmingSTT()` / `NewFengmingSTT(FengmingSTTOptions)` | `fengming` | none; optional `Keywords` |
 | `NewTencentSTT` | `tencent` | `Key`, `AppID`, `Secret` |
 | `NewMicrosoftSTT` | `microsoft` | `Key`, `Region`, `Language` (in `params.language`) |
 | `NewXfyunSTT` | `xfyun` | `APIKey`, `AppID`, `APISecret`; `Language` optional in `params` |

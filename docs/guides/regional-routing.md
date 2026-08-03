@@ -47,6 +47,15 @@ func main() {
 | `agentkit/cn` | Mainland China facade; sets `option.AreaCN` on the client |
 | `agentkit/cn/vendors` | Mainland China vendor constructors |
 
+MLLM constructors follow the same boundary:
+
+| MLLM | Package | Agora routing |
+|---|---|---|
+| Azure OpenAI Realtime | `agentkit/vendors.NewAzureOpenAIRealtime` | Global `agentkit` client with `AreaUS`, `AreaEU`, or `AreaAP` as appropriate |
+| Qwen Omni | `agentkit/cn/vendors.NewQwenOmni` | Mainland China `agentkit/cn` client, which uses `AreaCN` |
+
+`Area` selects the Agora control-plane route. The vendor package selects the provider catalog for that route, so do not combine the global Azure constructor with the CN facade or the CN Qwen Omni constructor with the global facade.
+
 Global/default example:
 
 ```go

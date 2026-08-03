@@ -149,6 +149,11 @@ func (a *Agent) WithTts(vendor agentcore.TTSVendor) *Agent {
 	return &Agent{base: a.base.ApplyTTSConfig(vendor.ToConfig(), vendor.GetSampleRate())}
 }
 
+// WithMllm configures a mainland China MLLM vendor such as Qwen Omni.
+func (a *Agent) WithMllm(vendor agentcore.MLLMVendor) *Agent {
+	return &Agent{base: a.base.ApplyMLLMConfig(vendor.ToConfig())}
+}
+
 func (a *Agent) WithAvatar(vendor agentcore.AvatarVendorConfig) *Agent {
 	requiredSR := agentcore.SampleRate(vendor.RequiredSampleRate())
 	avatarConfig := vendor.ToConfig()

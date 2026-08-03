@@ -1034,3 +1034,56 @@ func (m *MistralTTS) ToConfig() map[string]interface{} {
 	}
 	return config
 }
+
+// TypecastTTSOptions configures the Typecast text-to-speech provider.
+type TypecastTTSOptions struct {
+	APIKey           string
+	VoiceID          string
+	Model            string
+	AdditionalParams map[string]interface{}
+	SkipPatterns     []int
+}
+
+// TypecastTTS is a global Typecast text-to-speech provider configuration.
+type TypecastTTS struct {
+	options TypecastTTSOptions
+}
+
+// NewTypecastTTS creates a Typecast text-to-speech provider configuration.
+func NewTypecastTTS(opts TypecastTTSOptions) *TypecastTTS {
+	if opts.APIKey == "" {
+		panic("TypecastTTS requires APIKey")
+	}
+	if opts.VoiceID == "" {
+		panic("TypecastTTS requires VoiceID")
+	}
+	if opts.Model == "" {
+		panic("TypecastTTS requires Model")
+	}
+	return &TypecastTTS{options: opts}
+}
+
+// GetSampleRate returns nil because Typecast does not expose a sample-rate option.
+func (t *TypecastTTS) GetSampleRate() *SampleRate {
+	return nil
+}
+
+// ToConfig returns the Typecast configuration expected by the generated API types.
+func (t *TypecastTTS) ToConfig() map[string]interface{} {
+	params := make(map[string]interface{}, len(t.options.AdditionalParams)+3)
+	for key, value := range t.options.AdditionalParams {
+		params[key] = value
+	}
+	params["api_key"] = t.options.APIKey
+	params["voice_id"] = t.options.VoiceID
+	params["model"] = t.options.Model
+
+	config := map[string]interface{}{
+		"vendor": "typecast",
+		"params": params,
+	}
+	if t.options.SkipPatterns != nil {
+		config["skip_patterns"] = t.options.SkipPatterns
+	}
+	return config
+}

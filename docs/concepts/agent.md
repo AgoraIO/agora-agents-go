@@ -117,7 +117,7 @@ agent := agentkit.NewAgent(client).WithLlm(
 | `WithRtc(rtc *RtcConfig)` | Pointer to config | Set RTC configuration |
 | `WithFillerWords(fw *FillerWordsConfig)` | Pointer to config | Set filler words configuration |
 
-Note: `WithInstructions`, `WithGreeting`, `WithFailureMessage`, and `WithMaxHistory` are compatibility shims. New code should configure those values on the LLM or MLLM vendor because that matches the core request schema.
+Note: `WithInstructions`, `WithGreeting`, `WithFailureMessage`, and `WithMaxHistory` are compatibility shims. New code should configure instructions and messages on the LLM or MLLM vendor. `WithMaxHistory` applies only to the cascading LLM; Azure MLLM history uses `AzureOpenAIRealtimeOptions.MaxHistory`.
 
 ## Session name
 

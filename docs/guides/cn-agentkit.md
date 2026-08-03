@@ -65,6 +65,22 @@ func main() {
 
 When `WithStt()` is omitted on `agentkit/cn.Agent`, the request falls back to `asr.vendor = "fengming"` automatically.
 
+Qwen Omni MLLM is available only from the CN vendor package and uses the mainland DashScope WebSocket endpoint by default:
+
+```go
+import Agora "github.com/AgoraIO/agora-agents-go/v2"
+
+agent := agentkit.NewAgent(client).WithMllm(
+    vendors.NewQwenOmni(vendors.QwenOmniOptions{
+        APIKey: "your-dashscope-key",
+        Model:  "qwen3-omni-flash-realtime",
+        TurnDetection: &Agora.MllmTurnDetection{
+            Mode: Agora.MllmTurnDetectionModeServerVad.Ptr(),
+        },
+    }),
+)
+```
+
 ## Package Layout
 
 - Global/default package: `github.com/AgoraIO/agora-agents-go/v2/agentkit`
@@ -76,14 +92,13 @@ When `WithStt()` is omitted on `agentkit/cn.Agent`, the request falls back to `a
 
 The CN facade currently supports:
 
-- Cascading ASR / LLM / TTS flows
-- `WithStt`, `WithLlm`, `WithTts`, and `WithAvatar` on `cn.Agent`
-- CN-specific STT, LLM, TTS, and avatar vendors from `agentkit/cn/vendors`
+- Cascading ASR / LLM / TTS flows and Qwen Omni MLLM flows
+- `WithStt`, `WithLlm`, `WithTts`, `WithMllm`, and `WithAvatar` on `cn.Agent`
+- CN-specific STT, LLM, TTS, MLLM, and avatar vendors from `agentkit/cn/vendors`
 - Session-level options via `NewAgent(client, opts...)` such as `WithTurnDetectionConfig`, `WithInterruptionConfig`, `WithAdvancedFeatures`, `WithParameters`, `WithGeofence`, `WithRtc`, and `WithFillerWords`
 
 The CN facade does **not** support:
 
-- `WithMllm` or MLLM vendors
 - Chain methods such as `WithTurnDetection`, `WithSal`, or `WithLabels` on `cn.Agent` (use the matching `AgentOption` on `NewAgent` instead where available)
 - `WithSalConfig`, `WithGreetingConfigs`, or `WithLabels` as `AgentOption` helpers
 - `AgentPresets` or `ResolveSessionPresets*` helpers
@@ -95,7 +110,8 @@ For CN TTS vendors, `AdditionalParams map[string]interface{}` and `SkipPatterns 
 | Capability | Global `agentkit` | `agentkit/cn` |
 |---|---|---|
 | Client options | `AgoraClientOptions` with `Area` | `ClientOptions` (fixed `AreaCN`) |
-| Vendor chaining | `WithStt`, `WithLlm`, `WithTts`, `WithMllm`, `WithAvatar` | `WithStt`, `WithLlm`, `WithTts`, `WithAvatar` |
+| Vendor chaining | `WithStt`, `WithLlm`, `WithTts`, `WithMllm`, `WithAvatar` | `WithStt`, `WithLlm`, `WithTts`, `WithMllm`, `WithAvatar` |
+| MLLM vendors | OpenAI Realtime, Azure OpenAI Realtime, Gemini Live, Vertex AI, xAI Grok | Qwen Omni |
 | Avatar vendors | LiveAvatar, Generic, Anam, Akool, HeyGen | SenseTime only |
 | Turn detection | `WithTurnDetectionConfig` or `WithTurnDetection` | `WithTurnDetectionConfig` on `NewAgent` only |
 
