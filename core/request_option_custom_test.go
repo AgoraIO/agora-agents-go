@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewPoolUsesInternalFixedBaseURL(t *testing.T) {
+func TestNewPoolUsesConfiguredBaseURL(t *testing.T) {
 	tests := []struct {
 		name     string
 		area     Area
@@ -39,7 +39,7 @@ func TestNewPoolUsesInternalFixedBaseURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv(internalAPIBaseURLEnv, "https://api-test.agora.io/")
+			t.Setenv(apiBaseURLEnv, "https://api-test.agora.io/")
 
 			pool, err := NewPool(tt.area)
 			require.NoError(t, err)
@@ -48,8 +48,8 @@ func TestNewPoolUsesInternalFixedBaseURL(t *testing.T) {
 	}
 }
 
-func TestFixedBaseURLDisablesDynamicRouting(t *testing.T) {
-	t.Setenv(internalAPIBaseURLEnv, "https://api-test.agora.io")
+func TestConfiguredBaseURLDisablesDynamicRouting(t *testing.T) {
+	t.Setenv(apiBaseURLEnv, "https://api-test.agora.io")
 
 	pool, err := NewPool(AreaUS)
 	require.NoError(t, err)
@@ -94,7 +94,7 @@ func TestNewPoolAcceptsConfiguredBaseURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv(internalAPIBaseURLEnv, tt.baseURL)
+			t.Setenv(apiBaseURLEnv, tt.baseURL)
 
 			pool, err := NewPool(AreaUS)
 			require.NoError(t, err)
@@ -103,8 +103,8 @@ func TestNewPoolAcceptsConfiguredBaseURL(t *testing.T) {
 	}
 }
 
-func TestNewPoolWithoutInternalBaseURLKeepsRegionalRouting(t *testing.T) {
-	t.Setenv(internalAPIBaseURLEnv, "")
+func TestNewPoolWithoutConfiguredBaseURLKeepsRegionalRouting(t *testing.T) {
+	t.Setenv(apiBaseURLEnv, "")
 
 	pool, err := NewPool(AreaUS)
 	require.NoError(t, err)
@@ -122,8 +122,8 @@ func TestNewPoolWithoutInternalBaseURLKeepsRegionalRouting(t *testing.T) {
 	)
 }
 
-func TestAreaRequestOptionUsesInternalFixedBaseURL(t *testing.T) {
-	t.Setenv(internalAPIBaseURLEnv, "https://api-test.agora.io")
+func TestAreaRequestOptionUsesConfiguredBaseURL(t *testing.T) {
+	t.Setenv(apiBaseURLEnv, "https://api-test.agora.io")
 
 	options := NewRequestOptions(NewAreaRequestOption(AreaCN))
 

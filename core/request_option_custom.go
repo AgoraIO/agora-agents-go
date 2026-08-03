@@ -39,7 +39,7 @@ const (
 	CNConvoAICNAPIPathSuffix   = "/cn/api/conversational-ai-agent"
 )
 
-const internalAPIBaseURLEnv = "AGORA_AGENTS_INTERNAL_API_BASE_URL"
+const apiBaseURLEnv = "AGORA_AGENTS_API_BASE_URL"
 
 const (
 	USWestRegionDomainPrefix = "api-us-west-1"
@@ -180,7 +180,7 @@ type Pool struct {
 	currentDomain         string
 	regionPrefixes        []string
 	currentRegionPrefixes []string
-	fixedBaseURL          string
+	configuredBaseURL     string
 	locker                *sync.Mutex
 
 	resolver   Resolver
@@ -195,17 +195,17 @@ func NewPool(domainArea Area) (*Pool, error) {
 		return nil, errors.New("invalid domain area")
 	}
 
-	fixedBaseURL, err := internalFixedBaseURL(domainArea)
+	configuredBaseURL, err := configuredBaseURL(domainArea)
 	if err != nil {
 		return nil, err
 	}
 
 	p := &Pool{
-		domainArea:     domainArea,
-		domainSuffixes: RegionDomain[domainArea].MajorDomainSuffixes,
-		fixedBaseURL:   fixedBaseURL,
-		resolver:       newResolverImpl(),
-		locker:         &sync.Mutex{},
+		domainArea:        domainArea,
+		domainSuffixes:    RegionDomain[domainArea].MajorDomainSuffixes,
+		configuredBaseURL: configuredBaseURL,
+		resolver:          newResolverImpl(),
+		locker:            &sync.Mutex{},
 	}
 
 	p.regionPrefixes = append(p.regionPrefixes, RegionDomain[domainArea].RegionDomainPrefixes...)
@@ -221,7 +221,7 @@ func (p *Pool) domainNeedUpdate() bool {
 
 // SelectBestDomain uses DNS resolution to select the best available domain
 func (p *Pool) SelectBestDomain(ctx context.Context) error {
-	if p.fixedBaseURL != "" {
+	if p.configuredBaseURL != "" {
 		return nil
 	}
 
@@ -244,7 +244,7 @@ func (p *Pool) SelectBestDomain(ctx context.Context) error {
 
 // NextRegion cycles to the next region prefix in the pool
 func (p *Pool) NextRegion() {
-	if p.fixedBaseURL != "" {
+	if p.configuredBaseURL != "" {
 		return
 	}
 
@@ -269,8 +269,8 @@ func (p *Pool) GetCurrentURL() string {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
-	if p.fixedBaseURL != "" {
-		return p.fixedBaseURL
+	if p.configuredBaseURL != "" {
+		return p.configuredBaseURL
 	}
 
 	currentRegion := p.currentRegionPrefixes[0]
@@ -278,15 +278,15 @@ func (p *Pool) GetCurrentURL() string {
 	return fmt.Sprintf("https://%s.%s%s", currentRegion, currentDomain, convoAIAPIPathSuffix(p.domainArea))
 }
 
-func internalFixedBaseURL(area Area) (string, error) {
-	rawBaseURL := strings.TrimSpace(os.Getenv(internalAPIBaseURLEnv))
+func configuredBaseURL(area Area) (string, error) {
+	rawBaseURL := strings.TrimSpace(os.Getenv(apiBaseURLEnv))
 	if rawBaseURL == "" {
 		return "", nil
 	}
 
 	parsedURL, err := url.Parse(rawBaseURL)
 	if err != nil {
-		return "", fmt.Errorf("invalid %s: %w", internalAPIBaseURLEnv, err)
+		return "", fmt.Errorf("invalid %s: %w", apiBaseURLEnv, err)
 	}
 
 	return parsedURL.JoinPath(convoAIAPIPathSuffix(area)).String(), nil
