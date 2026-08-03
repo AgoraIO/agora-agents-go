@@ -5,6 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/url"
+	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -35,6 +38,8 @@ const (
 	GlobalConvoAIAPIPathSuffix = "/api/conversational-ai-agent"
 	CNConvoAICNAPIPathSuffix   = "/cn/api/conversational-ai-agent"
 )
+
+const apiBaseURLEnv = "AGORA_AGENTS_API_BASE_URL"
 
 const (
 	USWestRegionDomainPrefix = "api-us-west-1"
@@ -175,6 +180,7 @@ type Pool struct {
 	currentDomain         string
 	regionPrefixes        []string
 	currentRegionPrefixes []string
+	configuredBaseURL     string
 	locker                *sync.Mutex
 
 	resolver   Resolver
@@ -188,11 +194,18 @@ func NewPool(domainArea Area) (*Pool, error) {
 	if _, ok := RegionDomain[domainArea]; !ok {
 		return nil, errors.New("invalid domain area")
 	}
+
+	configuredBaseURL, err := configuredBaseURL(domainArea)
+	if err != nil {
+		return nil, err
+	}
+
 	p := &Pool{
-		domainArea:     domainArea,
-		domainSuffixes: RegionDomain[domainArea].MajorDomainSuffixes,
-		resolver:       newResolverImpl(),
-		locker:         &sync.Mutex{},
+		domainArea:        domainArea,
+		domainSuffixes:    RegionDomain[domainArea].MajorDomainSuffixes,
+		configuredBaseURL: configuredBaseURL,
+		resolver:          newResolverImpl(),
+		locker:            &sync.Mutex{},
 	}
 
 	p.regionPrefixes = append(p.regionPrefixes, RegionDomain[domainArea].RegionDomainPrefixes...)
@@ -208,6 +221,10 @@ func (p *Pool) domainNeedUpdate() bool {
 
 // SelectBestDomain uses DNS resolution to select the best available domain
 func (p *Pool) SelectBestDomain(ctx context.Context) error {
+	if p.configuredBaseURL != "" {
+		return nil
+	}
+
 	if !p.domainNeedUpdate() {
 		return nil
 	}
@@ -227,6 +244,10 @@ func (p *Pool) SelectBestDomain(ctx context.Context) error {
 
 // NextRegion cycles to the next region prefix in the pool
 func (p *Pool) NextRegion() {
+	if p.configuredBaseURL != "" {
+		return
+	}
+
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
@@ -248,13 +269,34 @@ func (p *Pool) GetCurrentURL() string {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 
+	if p.configuredBaseURL != "" {
+		return p.configuredBaseURL
+	}
+
 	currentRegion := p.currentRegionPrefixes[0]
 	currentDomain := p.currentDomain
-	apiPathSuffix := GlobalConvoAIAPIPathSuffix
-	if p.domainArea == AreaCN {
-		apiPathSuffix = CNConvoAICNAPIPathSuffix
+	return fmt.Sprintf("https://%s.%s%s", currentRegion, currentDomain, convoAIAPIPathSuffix(p.domainArea))
+}
+
+func configuredBaseURL(area Area) (string, error) {
+	rawBaseURL := strings.TrimSpace(os.Getenv(apiBaseURLEnv))
+	if rawBaseURL == "" {
+		return "", nil
 	}
-	return fmt.Sprintf("https://%s.%s%s", currentRegion, currentDomain, apiPathSuffix)
+
+	parsedURL, err := url.Parse(rawBaseURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid %s: %w", apiBaseURLEnv, err)
+	}
+
+	return parsedURL.JoinPath(convoAIAPIPathSuffix(area)).String(), nil
+}
+
+func convoAIAPIPathSuffix(area Area) string {
+	if area == AreaCN {
+		return CNConvoAICNAPIPathSuffix
+	}
+	return GlobalConvoAIAPIPathSuffix
 }
 
 // AreaRequestOption implements the RequestOption interface for area-based URL selection
