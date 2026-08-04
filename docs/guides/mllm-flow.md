@@ -117,11 +117,10 @@ agent := agentkit.NewAgent(client).WithMllm(
 
 ## Qwen Omni (Mainland China)
 
-Qwen Omni is exposed only by `agentkit/cn/vendors`. Its default URL is the mainland China DashScope endpoint.
+Qwen Omni is exposed only by `agentkit/cn/vendors`. `URL` is required and must be the complete realtime WebSocket endpoint.
 
 ```go
 import (
-    Agora "github.com/AgoraIO/agora-agents-go/v2"
     agentkit "github.com/AgoraIO/agora-agents-go/v2/agentkit/cn"
     vendors "github.com/AgoraIO/agora-agents-go/v2/agentkit/cn/vendors"
 )
@@ -130,17 +129,15 @@ agent := agentkit.NewAgent(client).WithMllm(
     vendors.NewQwenOmni(vendors.QwenOmniOptions{
         APIKey: "<dashscope_key>",
         Model:  "qwen3-omni-flash-realtime",
+        URL:    "wss://dashscope.aliyuncs.com/api-ws/v1/realtime",
         Voice:  "Momo",
-        TurnDetection: &Agora.MllmTurnDetection{
-            Mode: Agora.MllmTurnDetectionModeServerVad.Ptr(),
-        },
     }),
 )
 ```
 
 ## MLLM with Turn Detection
 
-Configure MLLM turn detection on the MLLM vendor with `TurnDetection`. It is required by Azure OpenAI Realtime and Qwen Omni. When set, `mllm.turn_detection` overrides the top-level `turn_detection` object.
+Configure MLLM turn detection on the MLLM vendor with `TurnDetection`. It is required by Azure OpenAI Realtime and optional for Qwen Omni. When set, `mllm.turn_detection` overrides the top-level `turn_detection` object.
 
 Example:
 

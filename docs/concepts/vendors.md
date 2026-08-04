@@ -196,7 +196,7 @@ Use with `agentkit/cn.Agent`. CN LLM constructors share `OpenAIOptions` shape an
 
 | Constructor | Wire `vendor` | Required fields | Default URL |
 |---|---|---|---|
-| `NewQwenOmni` | `qwen_omni` | `APIKey`, `Model`, `TurnDetection` | `wss://dashscope.aliyuncs.com/api-ws/v1/realtime` |
+| `NewQwenOmni` | `qwen_omni` | `APIKey`, `Model`, `URL` | None |
 
 ### CN STT
 

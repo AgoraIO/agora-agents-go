@@ -2,8 +2,6 @@ package vendors
 
 import Agora "github.com/AgoraIO/agora-agents-go/v2"
 
-const qwenOmniDefaultURL = "wss://dashscope.aliyuncs.com/api-ws/v1/realtime"
-
 // QwenOmniOptions configures the mainland China Qwen Omni Realtime MLLM provider.
 type QwenOmniOptions struct {
 	APIKey           string
@@ -33,11 +31,8 @@ func NewQwenOmni(opts QwenOmniOptions) *QwenOmni {
 	if opts.Model == "" {
 		panic("QwenOmni requires Model")
 	}
-	if opts.TurnDetection == nil {
-		panic("QwenOmni requires TurnDetection")
-	}
 	if opts.URL == "" {
-		opts.URL = qwenOmniDefaultURL
+		panic("QwenOmni requires URL")
 	}
 	return &QwenOmni{options: opts}
 }
@@ -56,11 +51,10 @@ func (q *QwenOmni) ToConfig() map[string]interface{} {
 	}
 
 	config := map[string]interface{}{
-		"vendor":         "qwen_omni",
-		"api_key":        q.options.APIKey,
-		"url":            q.options.URL,
-		"params":         params,
-		"turn_detection": q.options.TurnDetection,
+		"vendor":  "qwen_omni",
+		"api_key": q.options.APIKey,
+		"url":     q.options.URL,
+		"params":  params,
 	}
 	if q.options.GreetingMessage != "" {
 		config["greeting_message"] = q.options.GreetingMessage
@@ -76,6 +70,9 @@ func (q *QwenOmni) ToConfig() map[string]interface{} {
 	}
 	if q.options.Messages != nil {
 		config["messages"] = q.options.Messages
+	}
+	if q.options.TurnDetection != nil {
+		config["turn_detection"] = q.options.TurnDetection
 	}
 	return config
 }

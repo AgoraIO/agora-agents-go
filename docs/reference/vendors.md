@@ -956,7 +956,7 @@ The following constructors live in `github.com/AgoraIO/agora-agents-go/v2/agentk
 func NewQwenOmni(opts QwenOmniOptions) *QwenOmni
 ```
 
-Panics if `APIKey` or `Model` is empty, or if `TurnDetection` is nil. Qwen Omni is a mainland China MLLM provider and emits `mllm.vendor = "qwen_omni"`. When `URL` is omitted, AgentKit uses the mainland China DashScope endpoint `wss://dashscope.aliyuncs.com/api-ws/v1/realtime`.
+Panics if `APIKey`, `Model`, or `URL` is empty. Qwen Omni is a mainland China MLLM provider and emits `mllm.vendor = "qwen_omni"`. `TurnDetection` is optional and is omitted from the request when unset.
 
 #### QwenOmniOptions
 
@@ -964,7 +964,7 @@ Panics if `APIKey` or `Model` is empty, or if `TurnDetection` is nil. Qwen Omni 
 |---|---|---|---|---|
 | `APIKey` | `string` | Yes | — | DashScope API key |
 | `Model` | `string` | Yes | — | Qwen Omni realtime model identifier |
-| `URL` | `string` | No | Mainland China DashScope realtime endpoint | Realtime WebSocket URL |
+| `URL` | `string` | Yes | — | Complete realtime WebSocket URL |
 | `Voice` | `string` | No | — | Voice identifier under `mllm.params.voice` |
 | `Instructions` | `string` | No | — | System instructions under `mllm.params.instructions` |
 | `GreetingMessage` | `string` | No | — | Initial greeting |
@@ -972,8 +972,8 @@ Panics if `APIKey` or `Model` is empty, or if `TurnDetection` is nil. Qwen Omni 
 | `InputModalities` | `[]string` | No | — | Input modalities |
 | `OutputModalities` | `[]string` | No | — | Output modalities |
 | `Messages` | `[]map[string]interface{}` | No | — | Conversation messages for short-term memory |
-| `Params` | `map[string]interface{}` | No | — | Additional realtime parameters |
-| `TurnDetection` | `*Agora.MllmTurnDetection` | Yes | — | Required MLLM turn detection configuration; overrides top-level turn detection |
+| `Params` | `map[string]interface{}` | No | — | Additional realtime parameters; explicit entries override typed defaults |
+| `TurnDetection` | `*Agora.MllmTurnDetection` | No | — | Optional MLLM turn detection configuration; overrides top-level turn detection |
 
 ### NewFengmingSTT
 

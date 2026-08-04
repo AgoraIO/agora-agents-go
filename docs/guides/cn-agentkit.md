@@ -65,18 +65,14 @@ func main() {
 
 When `WithStt()` is omitted on `agentkit/cn.Agent`, the request falls back to `asr.vendor = "fengming"` automatically.
 
-Qwen Omni MLLM is available only from the CN vendor package and uses the mainland DashScope WebSocket endpoint by default:
+Qwen Omni MLLM is available only from the CN vendor package. Its realtime WebSocket `URL` is required, while `TurnDetection` is optional:
 
 ```go
-import Agora "github.com/AgoraIO/agora-agents-go/v2"
-
 agent := agentkit.NewAgent(client).WithMllm(
     vendors.NewQwenOmni(vendors.QwenOmniOptions{
         APIKey: "your-dashscope-key",
         Model:  "qwen3-omni-flash-realtime",
-        TurnDetection: &Agora.MllmTurnDetection{
-            Mode: Agora.MllmTurnDetectionModeServerVad.Ptr(),
-        },
+        URL:    "wss://dashscope.aliyuncs.com/api-ws/v1/realtime",
     }),
 )
 ```
