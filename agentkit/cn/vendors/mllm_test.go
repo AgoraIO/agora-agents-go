@@ -14,6 +14,7 @@ func TestQwenOmniMatchesGeneratedMLLM(t *testing.T) {
 	config := NewQwenOmni(QwenOmniOptions{
 		APIKey:       "dashscope-key",
 		Model:        "qwen3-omni-flash-realtime",
+		URL:          "wss://dashscope.example.com/realtime",
 		Voice:        "Momo",
 		Instructions: "Be concise.",
 		Params: map[string]interface{}{
@@ -26,8 +27,8 @@ func TestQwenOmniMatchesGeneratedMLLM(t *testing.T) {
 	if got := config["vendor"]; got != "qwen_omni" {
 		t.Fatalf("vendor = %v, want qwen_omni", got)
 	}
-	if got := config["url"]; got != qwenOmniDefaultURL {
-		t.Fatalf("url = %v, want %s", got, qwenOmniDefaultURL)
+	if got := config["url"]; got != "wss://dashscope.example.com/realtime" {
+		t.Fatalf("url = %v, want wss://dashscope.example.com/realtime", got)
 	}
 	params := config["params"].(map[string]interface{})
 	if got := params["model"]; got != "qwen-omni-custom" {
@@ -82,12 +83,12 @@ func TestQwenOmniValidation(t *testing.T) {
 			wantPanic: "QwenOmni requires Model",
 		},
 		{
-			name: "turn detection required",
+			name: "URL required",
 			opts: QwenOmniOptions{
 				APIKey: "dashscope-key",
 				Model:  "qwen3-omni-flash-realtime",
 			},
-			wantPanic: "QwenOmni requires TurnDetection",
+			wantPanic: "QwenOmni requires URL",
 		},
 	}
 
@@ -100,5 +101,17 @@ func TestQwenOmniValidation(t *testing.T) {
 			}()
 			NewQwenOmni(tt.opts)
 		})
+	}
+}
+
+func TestQwenOmniTurnDetectionIsOptional(t *testing.T) {
+	config := NewQwenOmni(QwenOmniOptions{
+		APIKey: "dashscope-key",
+		Model:  "qwen3-omni-flash-realtime",
+		URL:    "wss://dashscope.example.com/realtime",
+	}).ToConfig()
+
+	if _, ok := config["turn_detection"]; ok {
+		t.Fatal("turn_detection should be omitted when not configured")
 	}
 }
