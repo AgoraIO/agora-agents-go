@@ -735,7 +735,7 @@ Panics if `APIKey` or `Language` is empty.
 |---|---|---|---|
 | `APIKey` | `string` | Yes | AssemblyAI API key |
 | `Language` | `string` | Yes | AssemblyAI language code |
-| `URI` | `string` | No | AssemblyAI streaming WebSocket URL |
+| `WsURL` | `string` | No | AssemblyAI streaming WebSocket URL, serialized as `ws_url` |
 | `AdditionalParams` | `map[string]interface{}` | No | Additional vendor params |
 
 ### NewAresSTT

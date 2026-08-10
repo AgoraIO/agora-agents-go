@@ -670,7 +670,7 @@ func TestBYOKASRVendorShapes(t *testing.T) {
 			WithStt(vendors.NewAssemblyAISTT(vendors.AssemblyAISTTOptions{
 				APIKey:   "aai-key",
 				Language: "en-US",
-				URI:      "wss://example.com/ws",
+				WsURL:    "wss://example.com/ws",
 			}))
 		props, err := agent.ToPropertiesMap(asrOpts())
 		require.NoError(t, err)
@@ -679,7 +679,7 @@ func TestBYOKASRVendorShapes(t *testing.T) {
 		p := asr["params"].(map[string]interface{})
 		assert.Equal(t, "aai-key", p["api_key"])
 		assert.Equal(t, "en-US", p["language"])
-		assert.Equal(t, "wss://example.com/ws", p["uri"])
+		assert.Equal(t, "wss://example.com/ws", p["ws_url"])
 	})
 
 	t.Run("Speechmatics", func(t *testing.T) {

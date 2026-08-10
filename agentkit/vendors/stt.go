@@ -304,7 +304,7 @@ func (a *AmazonSTT) ToConfig() map[string]interface{} {
 type AssemblyAISTTOptions struct {
 	APIKey           string
 	Language         string
-	URI              string
+	WsURL            string
 	AdditionalParams map[string]interface{}
 }
 
@@ -331,8 +331,8 @@ func (a *AssemblyAISTT) ToConfig() map[string]interface{} {
 	if a.options.Language != "" {
 		params["language"] = a.options.Language
 	}
-	if a.options.URI != "" {
-		params["uri"] = a.options.URI
+	if a.options.WsURL != "" {
+		params["ws_url"] = a.options.WsURL
 	}
 
 	config := map[string]interface{}{
