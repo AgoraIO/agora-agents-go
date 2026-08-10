@@ -30,5 +30,587 @@ generations:
     cli_version: unknown
     generator_versions:
       fernapi/fern-go-sdk: 1.16.5
-current_generation: 2da018dfbd224e2a4437e82b093c4b1f00b1938b
-patches: []
+  - commit_sha: b059f4336ce2b4ed7eed91c55857cb2aa6a17f6c
+    tree_hash: c1bd67d0c183b7c6a4818886b57ca79e4e191424
+    timestamp: 2026-08-10T06:40:11.896Z
+    cli_version: unknown
+    generator_versions:
+      fernapi/fern-go-sdk: 1.16.5
+current_generation: b059f4336ce2b4ed7eed91c55857cb2aa6a17f6c
+patches:
+  - id: patch-69644e80
+    content_hash: sha256:47e5dc31d5823a159b4c7abafc86d8b4ade17fd80b73df7b3e4d44bf17204f55
+    original_commit: 69644e80506fa1c57bdb6b9a5dc5767a78f333ad
+    original_message: "feat(core): add tests for Pool and RequestOptions with fixed base URL handling"
+    original_author: seymourtang <tangxianmeng@live.com>
+    base_generation: b059f4336ce2b4ed7eed91c55857cb2aa6a17f6c
+    files:
+      - core/request_option_custom_test.go
+    patch_content: |
+      diff --git a/core/request_option_custom_test.go b/core/request_option_custom_test.go
+      new file mode 100644
+      index 0000000..f525b2a
+      --- /dev/null
+      +++ b/core/request_option_custom_test.go
+      @@ -0,0 +1,135 @@
+      +package core
+      +
+      +import (
+      +	"context"
+      +	"errors"
+      +	"testing"
+      +
+      +	"github.com/stretchr/testify/assert"
+      +	"github.com/stretchr/testify/require"
+      +)
+      +
+      +func TestNewPoolUsesConfiguredBaseURL(t *testing.T) {
+      +	tests := []struct {
+      +		name     string
+      +		area     Area
+      +		expected string
+      +	}{
+      +		{
+      +			name:     "US area",
+      +			area:     AreaUS,
+      +			expected: "https://api-test.agora.io/api/conversational-ai-agent",
+      +		},
+      +		{
+      +			name:     "EU area",
+      +			area:     AreaEU,
+      +			expected: "https://api-test.agora.io/api/conversational-ai-agent",
+      +		},
+      +		{
+      +			name:     "AP area",
+      +			area:     AreaAP,
+      +			expected: "https://api-test.agora.io/api/conversational-ai-agent",
+      +		},
+      +		{
+      +			name:     "CN area",
+      +			area:     AreaCN,
+      +			expected: "https://api-test.agora.io/cn/api/conversational-ai-agent",
+      +		},
+      +	}
+      +
+      +	for _, tt := range tests {
+      +		t.Run(tt.name, func(t *testing.T) {
+      +			t.Setenv(apiBaseURLEnv, "https://api-test.agora.io/")
+      +
+      +			pool, err := NewPool(tt.area)
+      +			require.NoError(t, err)
+      +			assert.Equal(t, tt.expected, pool.GetCurrentURL())
+      +		})
+      +	}
+      +}
+      +
+      +func TestConfiguredBaseURLDisablesDynamicRouting(t *testing.T) {
+      +	t.Setenv(apiBaseURLEnv, "https://api-test.agora.io")
+      +
+      +	pool, err := NewPool(AreaUS)
+      +	require.NoError(t, err)
+      +
+      +	resolverCalled := false
+      +	pool.resolver = ResolverFunc(func(context.Context, []string, string) (string, error) {
+      +		resolverCalled = true
+      +		return "", errors.New("resolver should not be called")
+      +	})
+      +
+      +	expected := "https://api-test.agora.io/api/conversational-ai-agent"
+      +	for i := 0; i < 3; i++ {
+      +		pool.NextRegion()
+      +		require.NoError(t, pool.SelectBestDomain(context.Background()))
+      +		assert.Equal(t, expected, pool.GetCurrentURL())
+      +	}
+      +	assert.False(t, resolverCalled)
+      +}
+      +
+      +func TestNewPoolAcceptsConfiguredBaseURL(t *testing.T) {
+      +	tests := []struct {
+      +		name     string
+      +		baseURL  string
+      +		expected string
+      +	}{
+      +		{
+      +			name:     "custom HTTPS host",
+      +			baseURL:  "https://staging.example.com/",
+      +			expected: "https://staging.example.com/api/conversational-ai-agent",
+      +		},
+      +		{
+      +			name:     "HTTP localhost with port",
+      +			baseURL:  "http://localhost:8080",
+      +			expected: "http://localhost:8080/api/conversational-ai-agent",
+      +		},
+      +		{
+      +			name:     "existing URL components",
+      +			baseURL:  "https://user:password@staging.example.com/gateway?debug=true#section",
+      +			expected: "https://user:password@staging.example.com/gateway/api/conversational-ai-agent?debug=true#section",
+      +		},
+      +	}
+      +
+      +	for _, tt := range tests {
+      +		t.Run(tt.name, func(t *testing.T) {
+      +			t.Setenv(apiBaseURLEnv, tt.baseURL)
+      +
+      +			pool, err := NewPool(AreaUS)
+      +			require.NoError(t, err)
+      +			assert.Equal(t, tt.expected, pool.GetCurrentURL())
+      +		})
+      +	}
+      +}
+      +
+      +func TestNewPoolWithoutConfiguredBaseURLKeepsRegionalRouting(t *testing.T) {
+      +	t.Setenv(apiBaseURLEnv, "")
+      +
+      +	pool, err := NewPool(AreaUS)
+      +	require.NoError(t, err)
+      +	assert.Equal(
+      +		t,
+      +		"https://api-us-west-1.agora.io/api/conversational-ai-agent",
+      +		pool.GetCurrentURL(),
+      +	)
+      +
+      +	pool.NextRegion()
+      +	assert.Equal(
+      +		t,
+      +		"https://api-us-east-1.agora.io/api/conversational-ai-agent",
+      +		pool.GetCurrentURL(),
+      +	)
+      +}
+      +
+      +func TestAreaRequestOptionUsesConfiguredBaseURL(t *testing.T) {
+      +	t.Setenv(apiBaseURLEnv, "https://api-test.agora.io")
+      +
+      +	options := NewRequestOptions(NewAreaRequestOption(AreaCN))
+      +
+      +	assert.Equal(
+      +		t,
+      +		"https://api-test.agora.io/cn/api/conversational-ai-agent",
+      +		options.BaseURL,
+      +	)
+      +}
+    theirs_snapshot:
+      core/request_option_custom_test.go: |
+        package core
+
+        import (
+        	"context"
+        	"errors"
+        	"testing"
+
+        	"github.com/stretchr/testify/assert"
+        	"github.com/stretchr/testify/require"
+        )
+
+        func TestNewPoolUsesConfiguredBaseURL(t *testing.T) {
+        	tests := []struct {
+        		name     string
+        		area     Area
+        		expected string
+        	}{
+        		{
+        			name:     "US area",
+        			area:     AreaUS,
+        			expected: "https://api-test.agora.io/api/conversational-ai-agent",
+        		},
+        		{
+        			name:     "EU area",
+        			area:     AreaEU,
+        			expected: "https://api-test.agora.io/api/conversational-ai-agent",
+        		},
+        		{
+        			name:     "AP area",
+        			area:     AreaAP,
+        			expected: "https://api-test.agora.io/api/conversational-ai-agent",
+        		},
+        		{
+        			name:     "CN area",
+        			area:     AreaCN,
+        			expected: "https://api-test.agora.io/cn/api/conversational-ai-agent",
+        		},
+        	}
+
+        	for _, tt := range tests {
+        		t.Run(tt.name, func(t *testing.T) {
+        			t.Setenv(apiBaseURLEnv, "https://api-test.agora.io/")
+
+        			pool, err := NewPool(tt.area)
+        			require.NoError(t, err)
+        			assert.Equal(t, tt.expected, pool.GetCurrentURL())
+        		})
+        	}
+        }
+
+        func TestConfiguredBaseURLDisablesDynamicRouting(t *testing.T) {
+        	t.Setenv(apiBaseURLEnv, "https://api-test.agora.io")
+
+        	pool, err := NewPool(AreaUS)
+        	require.NoError(t, err)
+
+        	resolverCalled := false
+        	pool.resolver = ResolverFunc(func(context.Context, []string, string) (string, error) {
+        		resolverCalled = true
+        		return "", errors.New("resolver should not be called")
+        	})
+
+        	expected := "https://api-test.agora.io/api/conversational-ai-agent"
+        	for i := 0; i < 3; i++ {
+        		pool.NextRegion()
+        		require.NoError(t, pool.SelectBestDomain(context.Background()))
+        		assert.Equal(t, expected, pool.GetCurrentURL())
+        	}
+        	assert.False(t, resolverCalled)
+        }
+
+        func TestNewPoolAcceptsConfiguredBaseURL(t *testing.T) {
+        	tests := []struct {
+        		name     string
+        		baseURL  string
+        		expected string
+        	}{
+        		{
+        			name:     "custom HTTPS host",
+        			baseURL:  "https://staging.example.com/",
+        			expected: "https://staging.example.com/api/conversational-ai-agent",
+        		},
+        		{
+        			name:     "HTTP localhost with port",
+        			baseURL:  "http://localhost:8080",
+        			expected: "http://localhost:8080/api/conversational-ai-agent",
+        		},
+        		{
+        			name:     "existing URL components",
+        			baseURL:  "https://user:password@staging.example.com/gateway?debug=true#section",
+        			expected: "https://user:password@staging.example.com/gateway/api/conversational-ai-agent?debug=true#section",
+        		},
+        	}
+
+        	for _, tt := range tests {
+        		t.Run(tt.name, func(t *testing.T) {
+        			t.Setenv(apiBaseURLEnv, tt.baseURL)
+
+        			pool, err := NewPool(AreaUS)
+        			require.NoError(t, err)
+        			assert.Equal(t, tt.expected, pool.GetCurrentURL())
+        		})
+        	}
+        }
+
+        func TestNewPoolWithoutConfiguredBaseURLKeepsRegionalRouting(t *testing.T) {
+        	t.Setenv(apiBaseURLEnv, "")
+
+        	pool, err := NewPool(AreaUS)
+        	require.NoError(t, err)
+        	assert.Equal(
+        		t,
+        		"https://api-us-west-1.agora.io/api/conversational-ai-agent",
+        		pool.GetCurrentURL(),
+        	)
+
+        	pool.NextRegion()
+        	assert.Equal(
+        		t,
+        		"https://api-us-east-1.agora.io/api/conversational-ai-agent",
+        		pool.GetCurrentURL(),
+        	)
+        }
+
+        func TestAreaRequestOptionUsesConfiguredBaseURL(t *testing.T) {
+        	t.Setenv(apiBaseURLEnv, "https://api-test.agora.io")
+
+        	options := NewRequestOptions(NewAreaRequestOption(AreaCN))
+
+        	assert.Equal(
+        		t,
+        		"https://api-test.agora.io/cn/api/conversational-ai-agent",
+        		options.BaseURL,
+        	)
+        }
+    user_owned: true
+  - id: patch-eb09f0ee
+    content_hash: sha256:47e5dc31d5823a159b4c7abafc86d8b4ade17fd80b73df7b3e4d44bf17204f55
+    original_commit: eb09f0ee6aec94edb1cf24a833a35d98a9a35580
+    original_message: "refactor(core): rename internal API base URL to configured base URL"
+    original_author: seymourtang <tangxianmeng@live.com>
+    base_generation: b059f4336ce2b4ed7eed91c55857cb2aa6a17f6c
+    files:
+      - core/request_option_custom_test.go
+    patch_content: |
+      diff --git a/core/request_option_custom_test.go b/core/request_option_custom_test.go
+      new file mode 100644
+      index 0000000..f525b2a
+      --- /dev/null
+      +++ b/core/request_option_custom_test.go
+      @@ -0,0 +1,135 @@
+      +package core
+      +
+      +import (
+      +	"context"
+      +	"errors"
+      +	"testing"
+      +
+      +	"github.com/stretchr/testify/assert"
+      +	"github.com/stretchr/testify/require"
+      +)
+      +
+      +func TestNewPoolUsesConfiguredBaseURL(t *testing.T) {
+      +	tests := []struct {
+      +		name     string
+      +		area     Area
+      +		expected string
+      +	}{
+      +		{
+      +			name:     "US area",
+      +			area:     AreaUS,
+      +			expected: "https://api-test.agora.io/api/conversational-ai-agent",
+      +		},
+      +		{
+      +			name:     "EU area",
+      +			area:     AreaEU,
+      +			expected: "https://api-test.agora.io/api/conversational-ai-agent",
+      +		},
+      +		{
+      +			name:     "AP area",
+      +			area:     AreaAP,
+      +			expected: "https://api-test.agora.io/api/conversational-ai-agent",
+      +		},
+      +		{
+      +			name:     "CN area",
+      +			area:     AreaCN,
+      +			expected: "https://api-test.agora.io/cn/api/conversational-ai-agent",
+      +		},
+      +	}
+      +
+      +	for _, tt := range tests {
+      +		t.Run(tt.name, func(t *testing.T) {
+      +			t.Setenv(apiBaseURLEnv, "https://api-test.agora.io/")
+      +
+      +			pool, err := NewPool(tt.area)
+      +			require.NoError(t, err)
+      +			assert.Equal(t, tt.expected, pool.GetCurrentURL())
+      +		})
+      +	}
+      +}
+      +
+      +func TestConfiguredBaseURLDisablesDynamicRouting(t *testing.T) {
+      +	t.Setenv(apiBaseURLEnv, "https://api-test.agora.io")
+      +
+      +	pool, err := NewPool(AreaUS)
+      +	require.NoError(t, err)
+      +
+      +	resolverCalled := false
+      +	pool.resolver = ResolverFunc(func(context.Context, []string, string) (string, error) {
+      +		resolverCalled = true
+      +		return "", errors.New("resolver should not be called")
+      +	})
+      +
+      +	expected := "https://api-test.agora.io/api/conversational-ai-agent"
+      +	for i := 0; i < 3; i++ {
+      +		pool.NextRegion()
+      +		require.NoError(t, pool.SelectBestDomain(context.Background()))
+      +		assert.Equal(t, expected, pool.GetCurrentURL())
+      +	}
+      +	assert.False(t, resolverCalled)
+      +}
+      +
+      +func TestNewPoolAcceptsConfiguredBaseURL(t *testing.T) {
+      +	tests := []struct {
+      +		name     string
+      +		baseURL  string
+      +		expected string
+      +	}{
+      +		{
+      +			name:     "custom HTTPS host",
+      +			baseURL:  "https://staging.example.com/",
+      +			expected: "https://staging.example.com/api/conversational-ai-agent",
+      +		},
+      +		{
+      +			name:     "HTTP localhost with port",
+      +			baseURL:  "http://localhost:8080",
+      +			expected: "http://localhost:8080/api/conversational-ai-agent",
+      +		},
+      +		{
+      +			name:     "existing URL components",
+      +			baseURL:  "https://user:password@staging.example.com/gateway?debug=true#section",
+      +			expected: "https://user:password@staging.example.com/gateway/api/conversational-ai-agent?debug=true#section",
+      +		},
+      +	}
+      +
+      +	for _, tt := range tests {
+      +		t.Run(tt.name, func(t *testing.T) {
+      +			t.Setenv(apiBaseURLEnv, tt.baseURL)
+      +
+      +			pool, err := NewPool(AreaUS)
+      +			require.NoError(t, err)
+      +			assert.Equal(t, tt.expected, pool.GetCurrentURL())
+      +		})
+      +	}
+      +}
+      +
+      +func TestNewPoolWithoutConfiguredBaseURLKeepsRegionalRouting(t *testing.T) {
+      +	t.Setenv(apiBaseURLEnv, "")
+      +
+      +	pool, err := NewPool(AreaUS)
+      +	require.NoError(t, err)
+      +	assert.Equal(
+      +		t,
+      +		"https://api-us-west-1.agora.io/api/conversational-ai-agent",
+      +		pool.GetCurrentURL(),
+      +	)
+      +
+      +	pool.NextRegion()
+      +	assert.Equal(
+      +		t,
+      +		"https://api-us-east-1.agora.io/api/conversational-ai-agent",
+      +		pool.GetCurrentURL(),
+      +	)
+      +}
+      +
+      +func TestAreaRequestOptionUsesConfiguredBaseURL(t *testing.T) {
+      +	t.Setenv(apiBaseURLEnv, "https://api-test.agora.io")
+      +
+      +	options := NewRequestOptions(NewAreaRequestOption(AreaCN))
+      +
+      +	assert.Equal(
+      +		t,
+      +		"https://api-test.agora.io/cn/api/conversational-ai-agent",
+      +		options.BaseURL,
+      +	)
+      +}
+    theirs_snapshot:
+      core/request_option_custom_test.go: |
+        package core
+
+        import (
+        	"context"
+        	"errors"
+        	"testing"
+
+        	"github.com/stretchr/testify/assert"
+        	"github.com/stretchr/testify/require"
+        )
+
+        func TestNewPoolUsesConfiguredBaseURL(t *testing.T) {
+        	tests := []struct {
+        		name     string
+        		area     Area
+        		expected string
+        	}{
+        		{
+        			name:     "US area",
+        			area:     AreaUS,
+        			expected: "https://api-test.agora.io/api/conversational-ai-agent",
+        		},
+        		{
+        			name:     "EU area",
+        			area:     AreaEU,
+        			expected: "https://api-test.agora.io/api/conversational-ai-agent",
+        		},
+        		{
+        			name:     "AP area",
+        			area:     AreaAP,
+        			expected: "https://api-test.agora.io/api/conversational-ai-agent",
+        		},
+        		{
+        			name:     "CN area",
+        			area:     AreaCN,
+        			expected: "https://api-test.agora.io/cn/api/conversational-ai-agent",
+        		},
+        	}
+
+        	for _, tt := range tests {
+        		t.Run(tt.name, func(t *testing.T) {
+        			t.Setenv(apiBaseURLEnv, "https://api-test.agora.io/")
+
+        			pool, err := NewPool(tt.area)
+        			require.NoError(t, err)
+        			assert.Equal(t, tt.expected, pool.GetCurrentURL())
+        		})
+        	}
+        }
+
+        func TestConfiguredBaseURLDisablesDynamicRouting(t *testing.T) {
+        	t.Setenv(apiBaseURLEnv, "https://api-test.agora.io")
+
+        	pool, err := NewPool(AreaUS)
+        	require.NoError(t, err)
+
+        	resolverCalled := false
+        	pool.resolver = ResolverFunc(func(context.Context, []string, string) (string, error) {
+        		resolverCalled = true
+        		return "", errors.New("resolver should not be called")
+        	})
+
+        	expected := "https://api-test.agora.io/api/conversational-ai-agent"
+        	for i := 0; i < 3; i++ {
+        		pool.NextRegion()
+        		require.NoError(t, pool.SelectBestDomain(context.Background()))
+        		assert.Equal(t, expected, pool.GetCurrentURL())
+        	}
+        	assert.False(t, resolverCalled)
+        }
+
+        func TestNewPoolAcceptsConfiguredBaseURL(t *testing.T) {
+        	tests := []struct {
+        		name     string
+        		baseURL  string
+        		expected string
+        	}{
+        		{
+        			name:     "custom HTTPS host",
+        			baseURL:  "https://staging.example.com/",
+        			expected: "https://staging.example.com/api/conversational-ai-agent",
+        		},
+        		{
+        			name:     "HTTP localhost with port",
+        			baseURL:  "http://localhost:8080",
+        			expected: "http://localhost:8080/api/conversational-ai-agent",
+        		},
+        		{
+        			name:     "existing URL components",
+        			baseURL:  "https://user:password@staging.example.com/gateway?debug=true#section",
+        			expected: "https://user:password@staging.example.com/gateway/api/conversational-ai-agent?debug=true#section",
+        		},
+        	}
+
+        	for _, tt := range tests {
+        		t.Run(tt.name, func(t *testing.T) {
+        			t.Setenv(apiBaseURLEnv, tt.baseURL)
+
+        			pool, err := NewPool(AreaUS)
+        			require.NoError(t, err)
+        			assert.Equal(t, tt.expected, pool.GetCurrentURL())
+        		})
+        	}
+        }
+
+        func TestNewPoolWithoutConfiguredBaseURLKeepsRegionalRouting(t *testing.T) {
+        	t.Setenv(apiBaseURLEnv, "")
+
+        	pool, err := NewPool(AreaUS)
+        	require.NoError(t, err)
+        	assert.Equal(
+        		t,
+        		"https://api-us-west-1.agora.io/api/conversational-ai-agent",
+        		pool.GetCurrentURL(),
+        	)
+
+        	pool.NextRegion()
+        	assert.Equal(
+        		t,
+        		"https://api-us-east-1.agora.io/api/conversational-ai-agent",
+        		pool.GetCurrentURL(),
+        	)
+        }
+
+        func TestAreaRequestOptionUsesConfiguredBaseURL(t *testing.T) {
+        	t.Setenv(apiBaseURLEnv, "https://api-test.agora.io")
+
+        	options := NewRequestOptions(NewAreaRequestOption(AreaCN))
+
+        	assert.Equal(
+        		t,
+        		"https://api-test.agora.io/cn/api/conversational-ai-agent",
+        		options.BaseURL,
+        	)
+        }
+    user_owned: true
