@@ -178,13 +178,13 @@ func TestSTTVendorParamsMatchDocumentedShapes(t *testing.T) {
 	assemblyAIConfig := vendors.NewAssemblyAISTT(vendors.AssemblyAISTTOptions{
 		APIKey:   "assembly-key",
 		Language: "en-US",
-		URI:      "wss://example.test/ws",
+		WsURL:    "wss://example.test/ws",
 	}).ToConfig()
 	assert.NotContains(t, assemblyAIConfig, "language")
 	assert.Equal(t, map[string]interface{}{
 		"api_key":  "assembly-key",
 		"language": "en-US",
-		"uri":      "wss://example.test/ws",
+		"ws_url":   "wss://example.test/ws",
 	}, assemblyAIConfig["params"])
 
 	xaiSampleRate := vendors.SampleRate24kHz
@@ -209,7 +209,7 @@ func TestAssemblyAIParamsStayNestedAndASRLanguageComesFromTurnDetection(t *testi
 		WithStt(vendors.NewAssemblyAISTT(vendors.AssemblyAISTTOptions{
 			APIKey:   "assembly-key",
 			Language: "en-US",
-			URI:      "wss://example.test/ws",
+			WsURL:    "wss://example.test/ws",
 		})))
 
 	assert.Equal(t, map[string]interface{}{
@@ -218,7 +218,7 @@ func TestAssemblyAIParamsStayNestedAndASRLanguageComesFromTurnDetection(t *testi
 		"params": map[string]interface{}{
 			"api_key":  "assembly-key",
 			"language": "en-US",
-			"uri":      "wss://example.test/ws",
+			"ws_url":   "wss://example.test/ws",
 		},
 	}, props["asr"])
 	assert.Equal(t, map[string]interface{}{"language": "fr-FR"}, props["turn_detection"])
