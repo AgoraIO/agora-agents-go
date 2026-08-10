@@ -1822,7 +1822,7 @@ func (a *AssemblyAiAsr) String() string {
 var (
 	assemblyAiAsrParamsFieldAPIKey   = big.NewInt(1 << 0)
 	assemblyAiAsrParamsFieldLanguage = big.NewInt(1 << 1)
-	assemblyAiAsrParamsFieldURI      = big.NewInt(1 << 2)
+	assemblyAiAsrParamsFieldWsURL    = big.NewInt(1 << 2)
 )
 
 type AssemblyAiAsrParams struct {
@@ -1831,7 +1831,7 @@ type AssemblyAiAsrParams struct {
 	// Language code for speech recognition
 	Language string `json:"language" url:"language"`
 	// WebSocket URL for AssemblyAI's streaming API
-	URI *string `json:"uri,omitempty" url:"uri,omitempty"`
+	WsURL *string `json:"ws_url,omitempty" url:"ws_url,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
 	explicitFields *big.Int `json:"-" url:"-"`
@@ -1855,11 +1855,11 @@ func (a *AssemblyAiAsrParams) GetLanguage() string {
 	return a.Language
 }
 
-func (a *AssemblyAiAsrParams) GetURI() *string {
+func (a *AssemblyAiAsrParams) GetWsURL() *string {
 	if a == nil {
 		return nil
 	}
-	return a.URI
+	return a.WsURL
 }
 
 func (a *AssemblyAiAsrParams) GetExtraProperties() map[string]interface{} {
@@ -1887,11 +1887,11 @@ func (a *AssemblyAiAsrParams) SetLanguage(language string) {
 	a.require(assemblyAiAsrParamsFieldLanguage)
 }
 
-// SetURI sets the URI field and marks it as non-optional;
+// SetWsURL sets the WsURL field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (a *AssemblyAiAsrParams) SetURI(uri *string) {
-	a.URI = uri
-	a.require(assemblyAiAsrParamsFieldURI)
+func (a *AssemblyAiAsrParams) SetWsURL(wsURL *string) {
+	a.WsURL = wsURL
+	a.require(assemblyAiAsrParamsFieldWsURL)
 }
 
 func (a *AssemblyAiAsrParams) UnmarshalJSON(data []byte) error {
