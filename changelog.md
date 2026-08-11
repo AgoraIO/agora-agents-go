@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [v2.6.0] — 2026-08-10
+
+### Added
+
+- **Azure OpenAI Realtime MLLM** — `vendors.NewAzureOpenAIRealtime` configures Azure-hosted realtime sessions (`mllm.vendor`: `"azure"`) with model, voice, instructions, output modalities, and greeting support.
+- **Qwen Omni MLLM (mainland China)** — `cn/vendors.NewQwenOmni` (`mllm.vendor`: `"qwen_omni"`), plus `cn.Agent.WithMllm` and the `cn/vendors.MLLM` alias, so mainland China agents can run realtime MLLM pipelines.
+- **Typecast TTS** — `vendors.NewTypecastTTS` (`tts.vendor`: `"typecast"`) with `SkipPatterns` and passthrough `AdditionalParams`.
+- **Ares ASR** — `vendors.NewAresSTT`, the Agora-managed global ASR provider, with optional `Keywords` hints.
+- **Fengming keyword hints** — `cn/vendors.NewFengmingSTT` now accepts an optional `FengmingSTTOptions` with `Keywords` and `AdditionalParams`; the existing no-argument call still works.
+- **Configurable API base URL** — Setting `AGORA_AGENTS_API_BASE_URL` pins the client to a fixed base URL, bypassing DNS-based domain selection and region cycling. The area-specific Conversational AI path suffix is still appended.
+
+### Changed
+
+- **AssemblyAI ASR** — `AssemblyAISTTOptions.URI` is renamed to `WsURL` and now serializes as `asr.params.ws_url` instead of `asr.params.uri`. Callers setting `URI` must rename the field.
+- **Generated core refresh** — Regenerated core types for the latest Conversational AI schema, adding `AresAsrParams`, `FengmingAsrParams`, `TypecastTts`, and the `azure` and `qwen_omni` MLLM vendors.
+- **MLLM routing docs** — `docs/guides/regional-routing.md` documents the MLLM package boundary: the global Azure constructor belongs to the global `agentkit` client and Qwen Omni to the `agentkit/cn` facade.
+
 ## [v2.2.0] — 2026-06-05
 
 ### Added
