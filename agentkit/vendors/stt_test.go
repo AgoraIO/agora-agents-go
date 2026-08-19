@@ -10,6 +10,63 @@ import (
 
 var _ func(...AresSTTOptions) *AresSTT = NewAresSTT
 
+func TestSpeechmaticsSTTNormalizesCredentialToKey(t *testing.T) {
+	tests := []struct {
+		name string
+		opts SpeechmaticsSTTOptions
+		want string
+	}{
+		{
+			name: "key",
+			opts: SpeechmaticsSTTOptions{Key: "new-key", Language: "en"},
+			want: "new-key",
+		},
+		{
+			name: "deprecated APIKey",
+			opts: SpeechmaticsSTTOptions{APIKey: "legacy-key", Language: "en"},
+			want: "legacy-key",
+		},
+		{
+			name: "key takes precedence",
+			opts: SpeechmaticsSTTOptions{Key: "new-key", APIKey: "legacy-key", Language: "en"},
+			want: "new-key",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			params := NewSpeechmaticsSTT(tt.opts).ToConfig()["params"].(map[string]interface{})
+			if params["key"] != tt.want {
+				t.Fatalf("key = %#v, want %#v", params["key"], tt.want)
+			}
+			if _, exists := params["api_key"]; exists {
+				t.Fatalf("deprecated api_key leaked onto the wire: %#v", params)
+			}
+		})
+	}
+}
+
+func TestGeneratedSpeechmaticsParamsNormalizesDeprecatedAPIKey(t *testing.T) {
+	payload, err := json.Marshal(&Agora.SpeechmaticsAsrParams{
+		APIKey:   "legacy-key",
+		Language: "en",
+	})
+	if err != nil {
+		t.Fatalf("marshal Speechmatics params: %v", err)
+	}
+
+	var params map[string]interface{}
+	if err := json.Unmarshal(payload, &params); err != nil {
+		t.Fatalf("unmarshal Speechmatics params: %v", err)
+	}
+	if params["key"] != "legacy-key" {
+		t.Fatalf("key = %#v, want legacy-key", params["key"])
+	}
+	if _, exists := params["api_key"]; exists {
+		t.Fatalf("deprecated api_key leaked onto the wire: %#v", params)
+	}
+}
+
 func TestAresSTTKeywordsMatchGeneratedASR(t *testing.T) {
 	wantKeywords := []string{"Agora", "ConvoAI"}
 	config := NewAresSTT(AresSTTOptions{
