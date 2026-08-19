@@ -36,14 +36,20 @@ generations:
     cli_version: unknown
     generator_versions:
       fernapi/fern-go-sdk: 1.16.5
-current_generation: b059f4336ce2b4ed7eed91c55857cb2aa6a17f6c
+  - commit_sha: 8a39d6e1450b6f106621492069b73a04657e711a
+    tree_hash: 288c1238323ed612c18d3abef15eb67b6eca95fe
+    timestamp: 2026-08-19T13:29:28.053Z
+    cli_version: unknown
+    generator_versions:
+      fernapi/fern-go-sdk: 1.16.5
+current_generation: 8a39d6e1450b6f106621492069b73a04657e711a
 patches:
   - id: patch-69644e80
     content_hash: sha256:47e5dc31d5823a159b4c7abafc86d8b4ade17fd80b73df7b3e4d44bf17204f55
     original_commit: 69644e80506fa1c57bdb6b9a5dc5767a78f333ad
     original_message: "feat(core): add tests for Pool and RequestOptions with fixed base URL handling"
     original_author: seymourtang <tangxianmeng@live.com>
-    base_generation: b059f4336ce2b4ed7eed91c55857cb2aa6a17f6c
+    base_generation: 8a39d6e1450b6f106621492069b73a04657e711a
     files:
       - core/request_option_custom_test.go
     patch_content: |
@@ -331,7 +337,7 @@ patches:
     original_commit: eb09f0ee6aec94edb1cf24a833a35d98a9a35580
     original_message: "refactor(core): rename internal API base URL to configured base URL"
     original_author: seymourtang <tangxianmeng@live.com>
-    base_generation: b059f4336ce2b4ed7eed91c55857cb2aa6a17f6c
+    base_generation: 8a39d6e1450b6f106621492069b73a04657e711a
     files:
       - core/request_option_custom_test.go
     patch_content: |
