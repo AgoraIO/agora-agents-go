@@ -831,7 +831,7 @@ Package: `github.com/AgoraIO/agora-agents-go/v2/agentkit/vendors`
 func NewAzureOpenAIRealtime(opts AzureOpenAIRealtimeOptions) *AzureOpenAIRealtime
 ```
 
-Panics if `APIKey` or `URL` is empty, or if `TurnDetection` is nil. Azure OpenAI Realtime is a global MLLM provider and emits `mllm.vendor = "azure"`.
+Panics if `APIKey` or `URL` is empty. Azure OpenAI Realtime is a global MLLM provider and emits `mllm.vendor = "azure"`. `TurnDetection` is optional; when unset, `mllm.turn_detection` is omitted from the request.
 
 `MaxHistory` is serialized at `mllm.max_history`, not inside `mllm.params`. The generated API limits this field to Azure OpenAI Realtime; the cascading agent-level `WithMaxHistory` option configures `llm.max_history` and is unrelated.
 
@@ -848,7 +848,7 @@ Panics if `APIKey` or `URL` is empty, or if `TurnDetection` is nil. Azure OpenAI
 | `MaxHistory` | `*int` | No | — | Azure-only conversation history limit at `mllm.max_history` |
 | `OutputModalities` | `[]string` | No | — | Output modalities |
 | `Messages` | `[]map[string]interface{}` | No | — | Conversation messages for short-term memory |
-| `TurnDetection` | `*Agora.MllmTurnDetection` | Yes | — | Required MLLM turn detection configuration; overrides top-level turn detection |
+| `TurnDetection` | `*Agora.MllmTurnDetection` | No | — | Optional MLLM turn detection configuration; when set, overrides top-level turn detection |
 
 ### NewGeminiLive
 

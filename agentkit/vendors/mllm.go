@@ -113,9 +113,6 @@ func NewAzureOpenAIRealtime(opts AzureOpenAIRealtimeOptions) *AzureOpenAIRealtim
 	if opts.URL == "" {
 		panic("AzureOpenAIRealtime requires URL")
 	}
-	if opts.TurnDetection == nil {
-		panic("AzureOpenAIRealtime requires TurnDetection")
-	}
 	return &AzureOpenAIRealtime{options: opts}
 }
 
@@ -136,10 +133,12 @@ func (a *AzureOpenAIRealtime) ToConfig() map[string]interface{} {
 	}
 
 	config := map[string]interface{}{
-		"vendor":         "azure",
-		"api_key":        a.options.APIKey,
-		"url":            a.options.URL,
-		"turn_detection": a.options.TurnDetection,
+		"vendor":  "azure",
+		"api_key": a.options.APIKey,
+		"url":     a.options.URL,
+	}
+	if a.options.TurnDetection != nil {
+		config["turn_detection"] = a.options.TurnDetection
 	}
 	if params != nil {
 		config["params"] = params

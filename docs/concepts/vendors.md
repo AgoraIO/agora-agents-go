@@ -149,7 +149,7 @@ agent = agent.WithStt(stt)
 | Constructor | Options Struct | Required Fields | Default Model |
 |---|---|---|---|
 | `NewOpenAIRealtime` | `OpenAIRealtimeOptions` | `APIKey` | `gpt-4o-realtime-preview` |
-| `NewAzureOpenAIRealtime` (global) | `AzureOpenAIRealtimeOptions` | `APIKey`, `URL`, `TurnDetection` | — |
+| `NewAzureOpenAIRealtime` (global) | `AzureOpenAIRealtimeOptions` | `APIKey`, `URL` | — |
 | `NewXaiGrok` | `XaiGrokOptions` | `APIKey`, `Model` | — |
 | `NewGeminiLive` | `GeminiLiveOptions` | `APIKey`, `Model` | — |
 | `NewVertexAI` | `VertexAIOptions` | `ProjectID` | `gemini-2.0-flash-exp` |
