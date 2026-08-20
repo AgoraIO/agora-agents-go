@@ -90,6 +90,11 @@ Panics if `Model` is empty. Panics if `APIKey` is empty unless `Model` is one of
 | `Headers`         | `map[string]string`        | No       | —                                              | Custom HTTP headers forwarded to the LLM provider |
 | `GreetingConfigs` | `map[string]interface{}`   | No       | —                                              | Greeting playback configuration |
 | `TemplateVariables` | `map[string]string`      | No       | —                                              | Template variables for messages |
+| `McpServers`      | `[]map[string]interface{}` | No       | —                                              | MCP servers exposed to the model |
+| `Tools`           | `[]*Agora.LlmTool`         | No       | —                                              | Inline REST tool definitions exposed to the model |
+
+`McpServers` and `Tools` are tool definitions. Enable tool execution separately
+with `agentkit.WithTools(true)` (or `agent.WithTools(true)`).
 
 ### NewAzureOpenAI
 
@@ -701,6 +706,28 @@ Panics if `ProjectID`, `Location`, `ADCCredentialsString`, or `Language` is empt
 | `Model` | `string` | No | Model identifier |
 | `AdditionalParams` | `map[string]interface{}` | No | Additional vendor params |
 
+### NewGeminiSTT
+
+Package: `github.com/AgoraIO/agora-agents-go/v2/agentkit/vendors` (global)
+
+```go
+func NewGeminiSTT(opts GeminiSTTOptions) *GeminiSTT
+```
+
+Panics if `APIKey` or `Model` is empty. `Keywords` is not applicable to Gemini;
+optional audio settings are serialized under `asr.params`.
+
+#### GeminiSTTOptions
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `APIKey` | `string` | Yes | Gemini API key |
+| `Model` | `string` | Yes | Gemini ASR model |
+| `SampleRate` | `*int` | No | Audio sample rate in Hz |
+| `Language` | `string` | No | Recognition language |
+| `WordTimestamp` | `*bool` | No | Include word-level timestamps |
+| `AdditionalParams` | `map[string]interface{}` | No | Additional Gemini params |
+
 ### NewAmazonSTT
 
 <!-- snippet: fragment -->
@@ -749,7 +776,7 @@ func NewAresSTT(options ...AresSTTOptions) *AresSTT
 
 Options are optional, so both `NewAresSTT()` and `NewAresSTT(AresSTTOptions{...})` are supported. More than one options value causes a panic. Ares is the Agora-managed default ASR provider for the global AgentKit facade.
 
-REST `asr.language` still comes from `TurnDetectionConfig.Language`. `Keywords` is serialized as `asr.params.keywords` and takes precedence over a `keywords` entry in `AdditionalParams`.
+REST `asr.language` still comes from `TurnDetectionConfig.Language`. `Keywords` is serialized as the top-level `asr.keywords` field; a `keywords` entry in `AdditionalParams` is removed when the typed option is set.
 
 #### AresSTTOptions
 
@@ -821,6 +848,20 @@ Panics if `APIKey` is empty.
 | `Messages`        | `[]map[string]interface{}` | No       | —                           | Conversation messages for short-term memory        |
 | `Params`          | `map[string]interface{}`   | No       | —                           | Additional realtime params such as `voice`         |
 | `TurnDetection`   | `*Agora.MllmTurnDetection` | No | — | MLLM turn detection configuration; overrides top-level turn detection |
+
+### NewOpenAIGPTLive
+
+Package: `github.com/AgoraIO/agora-agents-go/v2/agentkit/vendors` (global)
+
+```go
+func NewOpenAIGPTLive(opts OpenAIGPTLiveOptions) *OpenAIGPTLive
+```
+
+Uses the dedicated MLLM vendor identifier `openai_gpt_live`. Panics if
+`APIKey` is empty and defaults `URL` to
+`wss://api.openai.com/v1/live`.
+
+`OpenAIGPTLiveOptions` follows the OpenAI Realtime configuration shape.
 
 ### NewAzureOpenAIRealtime
 
@@ -984,7 +1025,7 @@ func NewFengmingSTT(options ...FengmingSTTOptions) *FengmingSTT
 
 Options are optional, preserving the existing `NewFengmingSTT()` call. More than one options value causes a panic. Fengming is the Agora-managed default ASR provider for the mainland China AgentKit facade.
 
-REST `asr.language` still comes from `TurnDetectionConfig.Language`. `Keywords` is serialized as `asr.params.keywords` and takes precedence over a `keywords` entry in `AdditionalParams`.
+REST `asr.language` still comes from `TurnDetectionConfig.Language`. `Keywords` is serialized as the top-level `asr.keywords` field; a `keywords` entry in `AdditionalParams` is removed when the typed option is set.
 
 #### FengmingSTTOptions
 

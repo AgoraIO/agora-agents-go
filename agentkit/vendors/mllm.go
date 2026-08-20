@@ -86,6 +86,84 @@ func (o *OpenAIRealtime) ToConfig() map[string]interface{} {
 	return config
 }
 
+// OpenAIGPTLiveOptions configures the OpenAI GPT Live MLLM vendor.
+// GPT Live uses the dedicated `openai_gpt_live` vendor identifier while
+// retaining the same realtime connection shape as OpenAI Realtime.
+type OpenAIGPTLiveOptions struct {
+	APIKey                  string
+	Model                   string
+	Voice                   string
+	Instructions            string
+	InputAudioTranscription map[string]interface{}
+	URL                     string
+	GreetingMessage         string
+	FailureMessage          string
+	InputModalities         []string
+	OutputModalities        []string
+	Messages                []map[string]interface{}
+	Params                  map[string]interface{}
+	TurnDetection           *Agora.MllmTurnDetection
+}
+
+// OpenAIGPTLive is the OpenAI GPT Live MLLM vendor.
+type OpenAIGPTLive struct {
+	options OpenAIGPTLiveOptions
+}
+
+func NewOpenAIGPTLive(opts OpenAIGPTLiveOptions) *OpenAIGPTLive {
+	if opts.APIKey == "" {
+		panic("OpenAIGPTLive requires APIKey")
+	}
+	if opts.URL == "" {
+		opts.URL = "wss://api.openai.com/v1/live"
+	}
+	return &OpenAIGPTLive{options: opts}
+}
+
+func (o *OpenAIGPTLive) ToConfig() map[string]interface{} {
+	params := map[string]interface{}{}
+	for key, value := range o.options.Params {
+		params[key] = value
+	}
+	if o.options.Model != "" {
+		params["model"] = o.options.Model
+	}
+	if o.options.Voice != "" {
+		params["voice"] = o.options.Voice
+	}
+	if o.options.Instructions != "" {
+		params["instructions"] = o.options.Instructions
+	}
+	if o.options.InputAudioTranscription != nil {
+		params["input_audio_transcription"] = o.options.InputAudioTranscription
+	}
+	config := map[string]interface{}{
+		"vendor":  "openai_gpt_live",
+		"api_key": o.options.APIKey,
+		"url":     o.options.URL,
+		"params":  params,
+	}
+	if o.options.GreetingMessage != "" {
+		config["greeting_message"] = o.options.GreetingMessage
+	}
+	if o.options.FailureMessage != "" {
+		config["failure_message"] = o.options.FailureMessage
+	}
+	if o.options.InputModalities != nil {
+		config["input_modalities"] = o.options.InputModalities
+	}
+	if o.options.OutputModalities != nil {
+		config["output_modalities"] = o.options.OutputModalities
+	}
+	if o.options.Messages != nil {
+		config["messages"] = o.options.Messages
+	}
+	if o.options.TurnDetection != nil {
+		config["turn_detection"] = o.options.TurnDetection
+	}
+	return config
+}
+
 // AzureOpenAIRealtimeOptions configures Azure OpenAI Realtime MLLM.
 type AzureOpenAIRealtimeOptions struct {
 	APIKey           string

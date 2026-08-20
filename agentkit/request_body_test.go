@@ -545,6 +545,25 @@ func TestRequestBodyScenario8cMLLMVendorGreetingWins(t *testing.T) {
 	assert.Equal(t, "vendor greeting", mllm["greeting_message"])
 }
 
+func TestRequestBodyScenario8dGPTLiveUsesGreetingMessage(t *testing.T) {
+	opts := basePropertiesOpts()
+
+	agent := NewAgent(testAgoraClient()).
+		WithMllm(vendors.NewOpenAIGPTLive(vendors.OpenAIGPTLiveOptions{
+			APIKey: "gpt-live-key",
+			Model:  "gpt-live",
+		})).
+		WithGreeting("agent greeting")
+
+	props, err := agent.ToPropertiesMap(opts)
+	require.NoError(t, err)
+
+	mllm := props["mllm"].(map[string]interface{})
+	assert.Equal(t, "openai_gpt_live", mllm["vendor"])
+	assert.Equal(t, "agent greeting", mllm["greeting_message"])
+	assert.NotContains(t, mllm, "greeting")
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // BYOK ASR Vendor Shapes
 // ─────────────────────────────────────────────────────────────────────────────

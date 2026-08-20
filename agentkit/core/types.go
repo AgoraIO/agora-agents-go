@@ -139,6 +139,20 @@ type (
 	FillerWordsTrigger                = Agora.StartAgentsRequestPropertiesFillerWordsTrigger
 	FillerWordsTriggerFixedTimeConfig = Agora.StartAgentsRequestPropertiesFillerWordsTriggerFixedTimeConfig
 	FillerWordsContent                = Agora.StartAgentsRequestPropertiesFillerWordsContent
+	FillerWordsContentMode            = Agora.StartAgentsRequestPropertiesFillerWordsContentMode
 	FillerWordsContentStaticConfig    = Agora.StartAgentsRequestPropertiesFillerWordsContentStaticConfig
 	FillerWordsContentSelectionRule   = Agora.StartAgentsRequestPropertiesFillerWordsContentStaticConfigSelectionRule
+	FillerWordsContentGeneratedConfig = Agora.StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig
+	FillerWordsGeneratedLlmProvider   = Agora.StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProvider
+)
+
+type (
+	GeminiAsrConfig           = Agora.GeminiAsr
+	GeminiAsrParams           = Agora.GeminiAsrParams
+	LlmTool                   = Agora.LlmTool
+	LlmToolFunction           = Agora.LlmToolFunction
+	LlmToolFunctionParameters = Agora.LlmToolFunctionParameters
+	LlmToolExecution          = Agora.LlmToolExecution
+	LlmToolServer             = Agora.LlmToolServer
+	LlmToolServerMethod       = Agora.LlmToolServerMethod
 )

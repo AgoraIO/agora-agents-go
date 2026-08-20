@@ -47,16 +47,21 @@ var (
 var (
 	FillerWordsSelectionRuleShuffle    = base.FillerWordsSelectionRuleShuffle
 	FillerWordsSelectionRuleRoundRobin = base.FillerWordsSelectionRuleRoundRobin
+	FillerWordsContentModeStatic       = base.FillerWordsContentModeStatic
+	FillerWordsContentModeGenerated    = base.FillerWordsContentModeGenerated
 )
 
 var (
 	ThinkOnListeningActionInject    = base.ThinkOnListeningActionInject
 	ThinkOnListeningActionInterrupt = base.ThinkOnListeningActionInterrupt
 	ThinkOnListeningActionIgnore    = base.ThinkOnListeningActionIgnore
+	ThinkOnListeningActionAppend    = base.ThinkOnListeningActionAppend
 	ThinkOnThinkingActionInterrupt  = base.ThinkOnThinkingActionInterrupt
 	ThinkOnThinkingActionIgnore     = base.ThinkOnThinkingActionIgnore
+	ThinkOnThinkingActionAppend     = base.ThinkOnThinkingActionAppend
 	ThinkOnSpeakingActionInterrupt  = base.ThinkOnSpeakingActionInterrupt
 	ThinkOnSpeakingActionIgnore     = base.ThinkOnSpeakingActionIgnore
+	ThinkOnSpeakingActionAppend     = base.ThinkOnSpeakingActionAppend
 )
 
 var (
