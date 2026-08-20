@@ -119,6 +119,29 @@ func TestAzureOpenAIRealtimeOptionsSurface(t *testing.T) {
 	}
 }
 
+func TestAzureOpenAIRealtimeOmitsOptionalTurnDetection(t *testing.T) {
+	config := NewAzureOpenAIRealtime(AzureOpenAIRealtimeOptions{
+		APIKey: "azure-key",
+		URL:    "wss://azure.example/realtime",
+	}).ToConfig()
+
+	if _, exists := config["turn_detection"]; exists {
+		t.Fatalf("turn_detection should be omitted when unset: %#v", config)
+	}
+
+	payload, err := json.Marshal(config)
+	if err != nil {
+		t.Fatalf("marshal Azure MLLM config: %v", err)
+	}
+	var generated Agora.Mllm
+	if err := json.Unmarshal(payload, &generated); err != nil {
+		t.Fatalf("unmarshal Azure MLLM config: %v", err)
+	}
+	if generated.TurnDetection != nil {
+		t.Fatalf("generated turn_detection = %#v, want nil", generated.TurnDetection)
+	}
+}
+
 func TestAzureOpenAIRealtimeValidation(t *testing.T) {
 	turnDetection := &Agora.MllmTurnDetection{
 		Mode: Agora.MllmTurnDetectionModeServerVad.Ptr(),
@@ -143,14 +166,6 @@ func TestAzureOpenAIRealtimeValidation(t *testing.T) {
 				TurnDetection: turnDetection,
 			},
 			wantPanic: "AzureOpenAIRealtime requires URL",
-		},
-		{
-			name: "turn detection required",
-			opts: AzureOpenAIRealtimeOptions{
-				APIKey: "azure-key",
-				URL:    "wss://azure.example/realtime",
-			},
-			wantPanic: "AzureOpenAIRealtime requires TurnDetection",
 		},
 	}
 
