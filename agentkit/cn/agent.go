@@ -46,8 +46,17 @@ type (
 	FillerWordsTrigger                  = agentcore.FillerWordsTrigger
 	FillerWordsTriggerFixedTimeConfig   = agentcore.FillerWordsTriggerFixedTimeConfig
 	FillerWordsContent                  = agentcore.FillerWordsContent
+	FillerWordsContentMode              = agentcore.FillerWordsContentMode
 	FillerWordsContentStaticConfig      = agentcore.FillerWordsContentStaticConfig
 	FillerWordsContentSelectionRule     = agentcore.FillerWordsContentSelectionRule
+	FillerWordsContentGeneratedConfig   = agentcore.FillerWordsContentGeneratedConfig
+	FillerWordsGeneratedLlmProvider     = agentcore.FillerWordsGeneratedLlmProvider
+	LlmTool                             = agentcore.LlmTool
+	LlmToolFunction                     = agentcore.LlmToolFunction
+	LlmToolFunctionParameters           = agentcore.LlmToolFunctionParameters
+	LlmToolExecution                    = agentcore.LlmToolExecution
+	LlmToolServer                       = agentcore.LlmToolServer
+	LlmToolServerMethod                 = agentcore.LlmToolServerMethod
 	LlmGreetingConfigs                  = agentcore.LlmGreetingConfigs
 	LlmGreetingConfigsMode              = agentcore.LlmGreetingConfigsMode
 	McpServersItem                      = agentcore.McpServersItem

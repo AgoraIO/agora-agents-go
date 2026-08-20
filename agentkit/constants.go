@@ -108,6 +108,12 @@ var (
 
 	// FillerWordsSelectionRuleRoundRobin plays filler words sequentially.
 	FillerWordsSelectionRuleRoundRobin = Agora.StartAgentsRequestPropertiesFillerWordsContentStaticConfigSelectionRuleRoundRobin
+
+	// FillerWordsContentModeStatic uses a predefined list of filler phrases.
+	FillerWordsContentModeStatic = Agora.StartAgentsRequestPropertiesFillerWordsContentModeStatic
+
+	// FillerWordsContentModeGenerated generates filler phrases with a secondary LLM.
+	FillerWordsContentModeGenerated = Agora.StartAgentsRequestPropertiesFillerWordsContentModeGenerated
 )
 
 // =============================================================================
@@ -123,18 +129,26 @@ var (
 
 	// ThinkOnListeningActionIgnore ignores the think request while listening.
 	ThinkOnListeningActionIgnore = Agora.AgentThinkAgentManagementRequestOnListeningActionIgnore
+	ThinkOnListeningActionAppend = Agora.AgentThinkAgentManagementRequestOnListeningActionAppend
 
 	// ThinkOnThinkingActionInterrupt interrupts the current thinking state and starts a new turn.
 	ThinkOnThinkingActionInterrupt = Agora.AgentThinkAgentManagementRequestOnThinkingActionInterrupt
 
 	// ThinkOnThinkingActionIgnore ignores the think request while thinking.
 	ThinkOnThinkingActionIgnore = Agora.AgentThinkAgentManagementRequestOnThinkingActionIgnore
+	ThinkOnThinkingActionAppend = Agora.AgentThinkAgentManagementRequestOnThinkingActionAppend
 
 	// ThinkOnSpeakingActionInterrupt interrupts the current speaking state and starts a new turn.
 	ThinkOnSpeakingActionInterrupt = Agora.AgentThinkAgentManagementRequestOnSpeakingActionInterrupt
 
 	// ThinkOnSpeakingActionIgnore ignores the think request while speaking.
 	ThinkOnSpeakingActionIgnore = Agora.AgentThinkAgentManagementRequestOnSpeakingActionIgnore
+	ThinkOnSpeakingActionAppend = Agora.AgentThinkAgentManagementRequestOnSpeakingActionAppend
+)
+
+var (
+	// MllmVendorOpenaiGptLive selects the OpenAI GPT Live realtime vendor.
+	MllmVendorOpenaiGptLive = Agora.MllmVendorOpenaiGptLive
 )
 
 // =============================================================================

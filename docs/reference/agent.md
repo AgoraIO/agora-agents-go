@@ -134,7 +134,8 @@ Sets advanced feature flags such as RTM or tool invocation.
 func WithTools(enabled bool) AgentOption
 ```
 
-Enables or disables MCP tool invocation by setting `AdvancedFeatures.EnableTools`.
+Enables or disables tool invocation by setting `AdvancedFeatures.EnableTools`.
+Use this together with `Tools` or `McpServers` on the selected LLM vendor options.
 
 ### WithParameters
 
@@ -314,7 +315,7 @@ func (a *Agent) WithAdvancedFeatures(af *AdvancedFeatures) *Agent
 func (a *Agent) WithTools(enabled bool) *Agent
 ```
 
-Enables or disables MCP tool invocation by setting `AdvancedFeatures.EnableTools`.
+Enables or disables tool invocation by setting `AdvancedFeatures.EnableTools`.
 
 ### WithAudioScenario (method)
 

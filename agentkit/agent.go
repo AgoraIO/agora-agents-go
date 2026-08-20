@@ -76,8 +76,19 @@ type AvatarConfig = agentcore.AvatarConfig
 type FillerWordsTrigger = agentcore.FillerWordsTrigger
 type FillerWordsTriggerFixedTimeConfig = agentcore.FillerWordsTriggerFixedTimeConfig
 type FillerWordsContent = agentcore.FillerWordsContent
+type FillerWordsContentMode = agentcore.FillerWordsContentMode
 type FillerWordsContentStaticConfig = agentcore.FillerWordsContentStaticConfig
 type FillerWordsContentSelectionRule = agentcore.FillerWordsContentSelectionRule
+type FillerWordsContentGeneratedConfig = agentcore.FillerWordsContentGeneratedConfig
+type FillerWordsGeneratedLlmProvider = agentcore.FillerWordsGeneratedLlmProvider
+type GeminiAsrConfig = agentcore.GeminiAsrConfig
+type GeminiAsrParams = agentcore.GeminiAsrParams
+type LlmTool = agentcore.LlmTool
+type LlmToolFunction = agentcore.LlmToolFunction
+type LlmToolFunctionParameters = agentcore.LlmToolFunctionParameters
+type LlmToolExecution = agentcore.LlmToolExecution
+type LlmToolServer = agentcore.LlmToolServer
+type LlmToolServerMethod = agentcore.LlmToolServerMethod
 
 const (
 	ParametersAudioScenarioDefault  ParametersAudioScenario = agentcore.ParametersAudioScenarioDefault

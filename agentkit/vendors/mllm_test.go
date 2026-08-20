@@ -165,3 +165,30 @@ func TestAzureOpenAIRealtimeValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestOpenAIGPTLiveUsesDedicatedVendor(t *testing.T) {
+	config := NewOpenAIGPTLive(OpenAIGPTLiveOptions{
+		APIKey:          "live-key",
+		Model:           "gpt-live",
+		GreetingMessage: "hello",
+	}).ToConfig()
+	if config["vendor"] != "openai_gpt_live" {
+		t.Fatalf("vendor = %#v, want openai_gpt_live", config["vendor"])
+	}
+	if config["api_key"] != "live-key" || config["greeting_message"] != "hello" {
+		t.Fatalf("unexpected GPT Live config: %#v", config)
+	}
+	if _, exists := config["greeting"]; exists {
+		t.Fatalf("GPT Live must not emit greeting: %#v", config)
+	}
+}
+
+func TestOpenAIGPTLiveValidationAndDefaults(t *testing.T) {
+	assertPanic(t, "OpenAIGPTLive requires APIKey", func() {
+		NewOpenAIGPTLive(OpenAIGPTLiveOptions{})
+	})
+	config := NewOpenAIGPTLive(OpenAIGPTLiveOptions{APIKey: "key"}).ToConfig()
+	if config["url"] != "wss://api.openai.com/v1/live" {
+		t.Fatalf("default URL = %#v", config["url"])
+	}
+}

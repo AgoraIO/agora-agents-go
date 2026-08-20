@@ -10,7 +10,7 @@ The MLLM flow uses a single multimodal model to process audio input and generate
 
 ## Enabling MLLM Mode
 
-Call `WithMllm(vendor)` to enable MLLM mode. The builder sets `mllm.enable = true` automatically. Use `agentkit` plus `agentkit/vendors` for global providers, and `agentkit/cn` plus `agentkit/cn/vendors` for mainland China Qwen Omni.
+Call `WithMllm(vendor)` to enable MLLM mode. The builder sets `mllm.enable = true` automatically. Use `agentkit` plus `agentkit/vendors` for global providers, including OpenAI GPT Live, and `agentkit/cn` plus `agentkit/cn/vendors` for mainland China Qwen Omni.
 
 ```go
 agent := agentkit.NewAgent(client).WithMllm(vendor)
