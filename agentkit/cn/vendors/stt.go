@@ -30,12 +30,13 @@ func (f *FengmingSTT) ToConfig() map[string]interface{} {
 		return config
 	}
 
-	params := make(map[string]interface{}, len(f.options.AdditionalParams)+1)
+	params := make(map[string]interface{}, len(f.options.AdditionalParams))
 	for key, value := range f.options.AdditionalParams {
 		params[key] = value
 	}
 	if f.options.Keywords != nil {
-		params["keywords"] = f.options.Keywords
+		delete(params, "keywords")
+		config["keywords"] = f.options.Keywords
 	}
 
 	if len(params) > 0 {

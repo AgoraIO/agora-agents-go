@@ -20,9 +20,12 @@ func TestAresSTTKeywordsMatchGeneratedASR(t *testing.T) {
 		},
 	}).ToConfig()
 
+	if !reflect.DeepEqual(config["keywords"], wantKeywords) {
+		t.Fatalf("keywords = %#v, want %#v", config["keywords"], wantKeywords)
+	}
 	params := config["params"].(map[string]interface{})
-	if !reflect.DeepEqual(params["keywords"], wantKeywords) {
-		t.Fatalf("keywords = %#v, want %#v", params["keywords"], wantKeywords)
+	if _, exists := params["keywords"]; exists {
+		t.Fatalf("typed keywords must not also be sent in params: %#v", params)
 	}
 
 	payload, err := json.Marshal(config)
@@ -36,10 +39,10 @@ func TestAresSTTKeywordsMatchGeneratedASR(t *testing.T) {
 	if generated.Ares == nil || generated.Ares.Params == nil {
 		t.Fatalf("generated Ares params are nil: %#v", generated)
 	}
-	if !reflect.DeepEqual(generated.Ares.Params.Keywords, wantKeywords) {
-		t.Fatalf("generated keywords = %#v, want %#v", generated.Ares.Params.Keywords, wantKeywords)
+	if !reflect.DeepEqual(generated.Ares.Keywords, wantKeywords) {
+		t.Fatalf("generated keywords = %#v, want %#v", generated.Ares.Keywords, wantKeywords)
 	}
-	if generated.Ares.Params.GetExtraProperties()["custom_param"] != true {
+	if (*generated.Ares.Params)["custom_param"] != true {
 		t.Fatalf("generated params lost custom_param: %#v", generated.Ares.Params)
 	}
 }
