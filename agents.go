@@ -1120,6 +1120,7 @@ type Asr struct {
 	Deepgram      *DeepgramAsr
 	Openai        *OpenAiAsr
 	Google        *GoogleAsr
+	Gemini        *GeminiAsr
 	Amazon        *AmazonAsr
 	Assemblyai    *AssemblyAiAsr
 	Speechmatics  *SpeechmaticsAsr
@@ -1184,6 +1185,13 @@ func (a *Asr) GetGoogle() *GoogleAsr {
 		return nil
 	}
 	return a.Google
+}
+
+func (a *Asr) GetGemini() *GeminiAsr {
+	if a == nil {
+		return nil
+	}
+	return a.Gemini
 }
 
 func (a *Asr) GetAmazon() *AmazonAsr {
@@ -1296,6 +1304,12 @@ func (a *Asr) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		a.Google = value
+	case "gemini":
+		value := new(GeminiAsr)
+		if err := json.Unmarshal(data, &value); err != nil {
+			return err
+		}
+		a.Gemini = value
 	case "amazon":
 		value := new(AmazonAsr)
 		if err := json.Unmarshal(data, &value); err != nil {
@@ -1373,6 +1387,9 @@ func (a Asr) MarshalJSON() ([]byte, error) {
 	if a.Google != nil {
 		return internal.MarshalJSONWithExtraProperty(a.Google, "vendor", "google")
 	}
+	if a.Gemini != nil {
+		return internal.MarshalJSONWithExtraProperty(a.Gemini, "vendor", "gemini")
+	}
 	if a.Amazon != nil {
 		return internal.MarshalJSONWithExtraProperty(a.Amazon, "vendor", "amazon")
 	}
@@ -1408,6 +1425,7 @@ type AsrVisitor interface {
 	VisitDeepgram(*DeepgramAsr) error
 	VisitOpenai(*OpenAiAsr) error
 	VisitGoogle(*GoogleAsr) error
+	VisitGemini(*GeminiAsr) error
 	VisitAmazon(*AmazonAsr) error
 	VisitAssemblyai(*AssemblyAiAsr) error
 	VisitSpeechmatics(*SpeechmaticsAsr) error
@@ -1439,6 +1457,9 @@ func (a *Asr) Accept(visitor AsrVisitor) error {
 	}
 	if a.Google != nil {
 		return visitor.VisitGoogle(a.Google)
+	}
+	if a.Gemini != nil {
+		return visitor.VisitGemini(a.Gemini)
 	}
 	if a.Amazon != nil {
 		return visitor.VisitAmazon(a.Amazon)
@@ -1492,6 +1513,9 @@ func (a *Asr) validate() error {
 	}
 	if a.Google != nil {
 		fields = append(fields, "google")
+	}
+	if a.Gemini != nil {
+		fields = append(fields, "gemini")
 	}
 	if a.Amazon != nil {
 		fields = append(fields, "amazon")
@@ -4252,6 +4276,259 @@ func (f *FishAudioTtsParams) String() string {
 		return value
 	}
 	return fmt.Sprintf("%#v", f)
+}
+
+// Google Gemini ASR configuration.
+var (
+	geminiAsrFieldLanguage = big.NewInt(1 << 0)
+	geminiAsrFieldParams   = big.NewInt(1 << 1)
+)
+
+type GeminiAsr struct {
+	Language *AsrLanguage     `json:"language,omitempty" url:"language,omitempty"`
+	Params   *GeminiAsrParams `json:"params" url:"params"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (g *GeminiAsr) GetLanguage() *AsrLanguage {
+	if g == nil {
+		return nil
+	}
+	return g.Language
+}
+
+func (g *GeminiAsr) GetParams() *GeminiAsrParams {
+	if g == nil {
+		return nil
+	}
+	return g.Params
+}
+
+func (g *GeminiAsr) GetExtraProperties() map[string]interface{} {
+	return g.ExtraProperties
+}
+
+func (g *GeminiAsr) require(field *big.Int) {
+	if g.explicitFields == nil {
+		g.explicitFields = big.NewInt(0)
+	}
+	g.explicitFields.Or(g.explicitFields, field)
+}
+
+// SetLanguage sets the Language field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiAsr) SetLanguage(language *AsrLanguage) {
+	g.Language = language
+	g.require(geminiAsrFieldLanguage)
+}
+
+// SetParams sets the Params field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiAsr) SetParams(params *GeminiAsrParams) {
+	g.Params = params
+	g.require(geminiAsrFieldParams)
+}
+
+func (g *GeminiAsr) UnmarshalJSON(data []byte) error {
+	type embed GeminiAsr
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*g),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*g = GeminiAsr(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *g)
+	if err != nil {
+		return err
+	}
+	g.ExtraProperties = extraProperties
+	g.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (g *GeminiAsr) MarshalJSON() ([]byte, error) {
+	type embed GeminiAsr
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*g),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, g.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, g.ExtraProperties)
+}
+
+func (g *GeminiAsr) String() string {
+	if len(g.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(g.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(g); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", g)
+}
+
+// Google Gemini ASR configuration parameters.
+var (
+	geminiAsrParamsFieldAPIKey        = big.NewInt(1 << 0)
+	geminiAsrParamsFieldModel         = big.NewInt(1 << 1)
+	geminiAsrParamsFieldSampleRate    = big.NewInt(1 << 2)
+	geminiAsrParamsFieldLanguage      = big.NewInt(1 << 3)
+	geminiAsrParamsFieldWordTimestamp = big.NewInt(1 << 4)
+)
+
+type GeminiAsrParams struct {
+	// Google Gemini API key.
+	APIKey string `json:"api_key" url:"api_key"`
+	// Gemini transcription model identifier.
+	Model string `json:"model" url:"model"`
+	// Audio sample rate in Hz.
+	SampleRate *int `json:"sample_rate,omitempty" url:"sample_rate,omitempty"`
+	// Language code for speech recognition.
+	Language *string `json:"language,omitempty" url:"language,omitempty"`
+	// Whether to include word-level timestamps in transcription results.
+	WordTimestamp *bool `json:"word_timestamp,omitempty" url:"word_timestamp,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (g *GeminiAsrParams) GetAPIKey() string {
+	if g == nil {
+		return ""
+	}
+	return g.APIKey
+}
+
+func (g *GeminiAsrParams) GetModel() string {
+	if g == nil {
+		return ""
+	}
+	return g.Model
+}
+
+func (g *GeminiAsrParams) GetSampleRate() *int {
+	if g == nil {
+		return nil
+	}
+	return g.SampleRate
+}
+
+func (g *GeminiAsrParams) GetLanguage() *string {
+	if g == nil {
+		return nil
+	}
+	return g.Language
+}
+
+func (g *GeminiAsrParams) GetWordTimestamp() *bool {
+	if g == nil {
+		return nil
+	}
+	return g.WordTimestamp
+}
+
+func (g *GeminiAsrParams) GetExtraProperties() map[string]interface{} {
+	return g.ExtraProperties
+}
+
+func (g *GeminiAsrParams) require(field *big.Int) {
+	if g.explicitFields == nil {
+		g.explicitFields = big.NewInt(0)
+	}
+	g.explicitFields.Or(g.explicitFields, field)
+}
+
+// SetAPIKey sets the APIKey field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiAsrParams) SetAPIKey(apiKey string) {
+	g.APIKey = apiKey
+	g.require(geminiAsrParamsFieldAPIKey)
+}
+
+// SetModel sets the Model field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiAsrParams) SetModel(model string) {
+	g.Model = model
+	g.require(geminiAsrParamsFieldModel)
+}
+
+// SetSampleRate sets the SampleRate field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiAsrParams) SetSampleRate(sampleRate *int) {
+	g.SampleRate = sampleRate
+	g.require(geminiAsrParamsFieldSampleRate)
+}
+
+// SetLanguage sets the Language field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiAsrParams) SetLanguage(language *string) {
+	g.Language = language
+	g.require(geminiAsrParamsFieldLanguage)
+}
+
+// SetWordTimestamp sets the WordTimestamp field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiAsrParams) SetWordTimestamp(wordTimestamp *bool) {
+	g.WordTimestamp = wordTimestamp
+	g.require(geminiAsrParamsFieldWordTimestamp)
+}
+
+func (g *GeminiAsrParams) UnmarshalJSON(data []byte) error {
+	type embed GeminiAsrParams
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*g),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*g = GeminiAsrParams(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *g)
+	if err != nil {
+		return err
+	}
+	g.ExtraProperties = extraProperties
+	g.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (g *GeminiAsrParams) MarshalJSON() ([]byte, error) {
+	type embed GeminiAsrParams
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*g),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, g.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, g.ExtraProperties)
+}
+
+func (g *GeminiAsrParams) String() string {
+	if len(g.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(g.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(g); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", g)
 }
 
 // Generic OpenAI-compatible Text-to-Speech configuration.
@@ -8630,9 +8907,10 @@ var (
 	mllmFieldInputModalities      = big.NewInt(1 << 9)
 	mllmFieldOutputModalities     = big.NewInt(1 << 10)
 	mllmFieldGreetingMessage      = big.NewInt(1 << 11)
-	mllmFieldFailureMessage       = big.NewInt(1 << 12)
-	mllmFieldVendor               = big.NewInt(1 << 13)
-	mllmFieldTurnDetection        = big.NewInt(1 << 14)
+	mllmFieldGreeting             = big.NewInt(1 << 12)
+	mllmFieldFailureMessage       = big.NewInt(1 << 13)
+	mllmFieldVendor               = big.NewInt(1 << 14)
+	mllmFieldTurnDetection        = big.NewInt(1 << 15)
 )
 
 type Mllm struct {
@@ -8659,6 +8937,8 @@ type Mllm struct {
 	OutputModalities []string `json:"output_modalities,omitempty" url:"output_modalities,omitempty"`
 	// Agent greeting message.
 	GreetingMessage *string `json:"greeting_message,omitempty" url:"greeting_message,omitempty"`
+	// Greeting message for the MLLM session.
+	Greeting *string `json:"greeting,omitempty" url:"greeting,omitempty"`
 	// Agent failure message.
 	FailureMessage *string `json:"failure_message,omitempty" url:"failure_message,omitempty"`
 	// MLLM provider.
@@ -8755,6 +9035,13 @@ func (m *Mllm) GetGreetingMessage() *string {
 		return nil
 	}
 	return m.GreetingMessage
+}
+
+func (m *Mllm) GetGreeting() *string {
+	if m == nil {
+		return nil
+	}
+	return m.Greeting
 }
 
 func (m *Mllm) GetFailureMessage() *string {
@@ -8871,6 +9158,13 @@ func (m *Mllm) SetOutputModalities(outputModalities []string) {
 func (m *Mllm) SetGreetingMessage(greetingMessage *string) {
 	m.GreetingMessage = greetingMessage
 	m.require(mllmFieldGreetingMessage)
+}
+
+// SetGreeting sets the Greeting field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *Mllm) SetGreeting(greeting *string) {
+	m.Greeting = greeting
+	m.require(mllmFieldGreeting)
 }
 
 // SetFailureMessage sets the FailureMessage field and marks it as non-optional;
@@ -10006,12 +10300,13 @@ func (m MllmTurnDetectionServerVadConfigStartOfSpeechSensitivity) Ptr() *MllmTur
 type MllmVendor string
 
 const (
-	MllmVendorOpenai   MllmVendor = "openai"
-	MllmVendorAzure    MllmVendor = "azure"
-	MllmVendorGemini   MllmVendor = "gemini"
-	MllmVendorVertexai MllmVendor = "vertexai"
-	MllmVendorXai      MllmVendor = "xai"
-	MllmVendorQwenOmni MllmVendor = "qwen_omni"
+	MllmVendorOpenai        MllmVendor = "openai"
+	MllmVendorAzure         MllmVendor = "azure"
+	MllmVendorGemini        MllmVendor = "gemini"
+	MllmVendorVertexai      MllmVendor = "vertexai"
+	MllmVendorXai           MllmVendor = "xai"
+	MllmVendorQwenOmni      MllmVendor = "qwen_omni"
+	MllmVendorOpenaiGptLive MllmVendor = "openai_gpt_live"
 )
 
 func NewMllmVendorFromString(s string) (MllmVendor, error) {
@@ -10028,6 +10323,8 @@ func NewMllmVendorFromString(s string) (MllmVendor, error) {
 		return MllmVendorXai, nil
 	case "qwen_omni":
 		return MllmVendorQwenOmni, nil
+	case "openai_gpt_live":
+		return MllmVendorOpenaiGptLive, nil
 	}
 	var t MllmVendor
 	return "", fmt.Errorf("%s is not a valid %T", s, t)
