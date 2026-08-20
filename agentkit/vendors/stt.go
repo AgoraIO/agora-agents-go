@@ -368,15 +368,16 @@ func NewAresSTT(options ...AresSTTOptions) *AresSTT {
 
 // ToConfig returns the Ares configuration expected by the API.
 func (a *AresSTT) ToConfig() map[string]interface{} {
-	params := make(map[string]interface{}, len(a.options.AdditionalParams)+1)
+	params := make(map[string]interface{}, len(a.options.AdditionalParams))
 	for key, value := range a.options.AdditionalParams {
 		params[key] = value
 	}
-	if a.options.Keywords != nil {
-		params["keywords"] = a.options.Keywords
-	}
 
 	config := map[string]interface{}{"vendor": "ares"}
+	if a.options.Keywords != nil {
+		delete(params, "keywords")
+		config["keywords"] = a.options.Keywords
+	}
 	if len(params) > 0 {
 		config["params"] = params
 	}
