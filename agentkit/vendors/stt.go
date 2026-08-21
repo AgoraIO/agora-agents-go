@@ -3,6 +3,8 @@ package vendors
 import "strings"
 
 type SpeechmaticsSTTOptions struct {
+	Key string
+	// Deprecated: Use Key instead. APIKey is normalized to the REST API's key field.
 	APIKey           string
 	Language         string
 	Model            string
@@ -15,8 +17,11 @@ type SpeechmaticsSTT struct {
 }
 
 func NewSpeechmaticsSTT(opts SpeechmaticsSTTOptions) *SpeechmaticsSTT {
-	if opts.APIKey == "" {
-		panic("SpeechmaticsSTT requires APIKey")
+	if opts.Key == "" {
+		opts.Key = opts.APIKey
+	}
+	if opts.Key == "" {
+		panic("SpeechmaticsSTT requires Key")
 	}
 	if opts.Language == "" {
 		panic("SpeechmaticsSTT requires Language")
@@ -26,7 +31,7 @@ func NewSpeechmaticsSTT(opts SpeechmaticsSTTOptions) *SpeechmaticsSTT {
 
 func (s *SpeechmaticsSTT) ToConfig() map[string]interface{} {
 	params := map[string]interface{}{
-		"api_key":  s.options.APIKey,
+		"key":      s.options.Key,
 		"language": s.options.Language,
 	}
 	if s.options.Model != "" {
@@ -36,6 +41,9 @@ func (s *SpeechmaticsSTT) ToConfig() map[string]interface{} {
 		params["uri"] = s.options.URI
 	}
 	for k, v := range s.options.AdditionalParams {
+		if k == "api_key" {
+			continue
+		}
 		if _, exists := params[k]; !exists {
 			params[k] = v
 		}

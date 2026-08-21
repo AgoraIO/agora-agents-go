@@ -693,7 +693,8 @@ func TestBYOKASRVendorShapes(t *testing.T) {
 		asr := props["asr"].(map[string]interface{})
 		assert.Equal(t, "speechmatics", asr["vendor"])
 		p := asr["params"].(map[string]interface{})
-		assert.Equal(t, "sm-key", p["api_key"])
+		assert.Equal(t, "sm-key", p["key"])
+		assert.NotContains(t, p, "api_key")
 		assert.Equal(t, "en", p["language"])
 	})
 

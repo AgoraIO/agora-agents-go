@@ -611,13 +611,14 @@ Named fields are written after `AdditionalParams`, so `APIKey`, `VoiceID`, and `
 func NewSpeechmaticsSTT(opts SpeechmaticsSTTOptions) *SpeechmaticsSTT
 ```
 
-Panics if `APIKey` or `Language` is empty.
+Panics if both `Key` and the deprecated `APIKey` are empty, or if `Language` is empty. If both credential fields are set, `Key` takes precedence. AgentKit always serializes the credential as `asr.params.key`.
 
 #### SpeechmaticsSTTOptions
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `APIKey` | `string` | Yes | Speechmatics API key |
+| `Key` | `string` | Yes | Speechmatics API key |
+| `APIKey` | `string` | No | Deprecated alias for `Key`; retained for backward compatibility |
 | `Language` | `string` | Yes | Speechmatics language code |
 | `Model` | `string` | No | Model identifier |
 | `URI` | `string` | No | Speechmatics streaming WebSocket URL |

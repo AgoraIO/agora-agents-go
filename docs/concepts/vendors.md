@@ -122,7 +122,7 @@ Use `TurnDetectionConfig.Language` for Agora interaction language; it defaults t
 
 | Constructor | Options Struct | Required Fields |
 |---|---|---|
-| `NewSpeechmaticsSTT` | `SpeechmaticsSTTOptions` | `APIKey`, `Language` |
+| `NewSpeechmaticsSTT` | `SpeechmaticsSTTOptions` | `Key`, `Language`; deprecated `APIKey` remains supported |
 | `NewDeepgramSTT` | `DeepgramSTTOptions` | `APIKey` for BYOK; none for supported Agora-managed global/default Deepgram models; `Keyterm?` |
 | `NewMicrosoftSTT` | `MicrosoftSTTOptions` | `Key`, `Region`, `Language` |
 | `NewOpenAISTT` | `OpenAISTTOptions` | `APIKey` |
