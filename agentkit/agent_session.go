@@ -50,6 +50,7 @@ type EventHandler func(data interface{})
 
 type AgentSession struct {
 	client          *agents.Client
+	previewFeatures []string
 	agentManagement *agentmanagement.Client
 	agent           agentcore.AgentRuntime
 	appID           string
@@ -75,20 +76,23 @@ type AgentSession struct {
 }
 
 type AgentSessionOptions struct {
-	Client                *agents.Client
+	Client *agents.Client
+	// PreviewFeatures are the preview families the client can reach. Empty for
+	// a production client; NewSession fills it from the bound AgoraClient.
+	PreviewFeatures       []string
 	AgentManagementClient *agentmanagement.Client
 	Agent                 agentcore.AgentRuntime
 	AppID                 string
 	AppCertificate        string
 	// Name is the agent instance identifier sent as the top-level /join "name" field.
 	// When empty, NewAgentSession generates agent-<unix_timestamp>.
-	Name                  string
-	Channel               string
-	Token                 string
-	AgentUID              string
-	RemoteUIDs            []string
-	IdleTimeout           *int
-	EnableStringUID       *bool
+	Name            string
+	Channel         string
+	Token           string
+	AgentUID        string
+	RemoteUIDs      []string
+	IdleTimeout     *int
+	EnableStringUID *bool
 	// ExpiresIn is the token lifetime in seconds (default: 86400 = 24 hours, Agora maximum).
 	// Only applies when the SDK auto-generates a token. Valid range: 1–86400.
 	// Use ExpiresInHours() / ExpiresInMinutes() for clarity.
@@ -128,6 +132,7 @@ func NewAgentSession(opts AgentSessionOptions) *AgentSession {
 		preset:          append([]string(nil), opts.Preset...),
 		pipelineID:      opts.PipelineID,
 		debug:           opts.Debug,
+		previewFeatures: opts.PreviewFeatures,
 		warn:            opts.Warn,
 		status:          StatusIdle,
 		handlers:        make(map[string][]EventHandler),
@@ -307,10 +312,22 @@ func (s *AgentSession) Start(ctx context.Context) (string, error) {
 		return "", err
 	}
 
+	if err := AssertPreviewSupport(s.previewFeatures, resolvedProperties); err != nil {
+		s.mu.Lock()
+		s.status = StatusError
+		s.mu.Unlock()
+		s.emit("error", err)
+		return "", err
+	}
+
+	// Retarget MLLM fields the shared builder wrote with production spellings,
+	// so a preview config follows the preview route's structure.
+	ApplyPreviewShape(resolvedProperties)
+
 	if s.debug {
 		debugPayload := map[string]interface{}{
 			"name":       s.name,
-			"properties": resolvedProperties,
+			"properties": RedactSecrets(resolvedProperties),
 		}
 		if resolvedPreset != "" {
 			debugPayload["preset"] = resolvedPreset

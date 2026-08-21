@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+
+- **Preview endpoint support** — `NewAgoraPreviewClient` routes every request to the preview gateway and pins the `agora-feature` gate header. It returns `*AgoraClient`, so it is accepted everywhere a production client is, including `NewAgent`.
+- **Gemini preview MLLMs** — `NewGeminiWalkieTalkie` (`walkie-talkie`) and `NewGeminiCleverChatter` (`clever-chatter`), served only by the preview gateway. `ThinkingLevel` is exclusive to clever-chatter, so it is a separate options type.
+- **Preview MLLM rename constants** — `GeminiPreviewModel35Live` (`gemini-3.5-live`) and `GeminiPreviewModel35LiveThinking` (`gemini-3.5-live-thinking`) are the post-rename IDs for walkie-talkie and clever-chatter. Both spellings are accepted by `RequiredPreviewFeatures`, so the guard works throughout Google's rollout. The vendor types still send the codenames — see `GeminiPreviewDefaultModel*`.
+- **Preview MLLM language** — `LanguageCodes` serializes to `params.language_codes`, omitted when nil. The preview MLLMs never send the singular `params.language`: that field belongs to xAI Grok in the Agora schema, and the production Gemini Live provider sends no language field at all.
+- **Preview MLLM greeting** — the field is `Greeting` (not `GreetingMessage`) and serializes to `greeting`, the spelling the new Gemini preview models read. `WithGreeting` also works — the builder writes it as `mllm.greeting_message` and `ApplyPreviewShape` retargets it.
+- **Preview wire-shape translation** — `ApplyPreviewShape` runs at session start and retargets MLLM fields the shared builder wrote with production spellings, so an agent-level greeting reaches the preview models as `greeting` rather than the `greeting_message` they ignore. A hand-written `greeting_message` migrates too, so an existing config keeps working after only swapping the model. `failure_message` is left alone as an Agora engine field, and production MLLMs are untouched.
+- **Preview support guard** — `AssertPreviewSupport` returns an error before any request when preview providers are paired with a production client. `NewSession` fills the session's feature list from the bound client.
+- **Debug redaction** — `RedactSecrets` replaces vendor API keys, RTC tokens, and the App ID with `[REDACTED]` in `Debug: true` output. Empty strings stay visible so an unset environment variable remains diagnosable.
+
+### Notes
+
+- The gate header is applied in a wrapped `core.HTTPClient` rather than via `option.WithHTTPHeader`, because that option replaces the entire header map — a per-call header option would otherwise silently drop the gate. A custom `HTTPClient` passed to `AgoraPreviewClientOptions` is wrapped, not replaced.
+
+### Fixed
+
+- **An unrecognised MLLM model no longer silently skips the wire-shape translation** — preview detection matched only the four known model names, so overriding `Model` to a rename this SDK had not shipped yet turned off `ApplyPreviewShape` with no error: the greeting stayed in `greeting_message`, which these models ignore, and the agent never greeted. A config is now also recognised by its envelope (`params.api_key` set and `url` on the Gemini Developer API host), which the production `GeminiLive` vendor does not emit.
+
+### Documentation
+
+- Added [Preview Endpoint](docs/guides/preview-endpoint.md), covering the gate header, intake-node failure signatures, and how to add a future preview family.
+- Documented every key the shared builder injects into a vendor config map, and why a preview provider must be verified against the resolved request body rather than the vendor constructor output — a value written under a spelling the route ignores fails silently.
+- Documented the two signals that mark a config as preview, and why matching on the model name alone was a silent failure.
+
 ## [v2.2.0] — 2026-06-05
 
 ### Added

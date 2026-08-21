@@ -381,8 +381,16 @@ func NewSession(agent agentcore.AgentRuntime, opts CreateSessionOptions) *AgentS
 		name = fmt.Sprintf("agent-%d", time.Now().UnixMilli())
 	}
 
+	// A preview client advertises the families it can reach; a production client
+	// does not implement this, which leaves the guard with an empty set.
+	var previewFeatures []string
+	if provider, ok := client.(interface{ PreviewFeatureNames() []string }); ok {
+		previewFeatures = provider.PreviewFeatureNames()
+	}
+
 	return NewAgentSession(AgentSessionOptions{
 		Client:                   client.AgentsClient(),
+		PreviewFeatures:          previewFeatures,
 		AgentManagementClient:    client.AgentManagementClient(),
 		Agent:                    agent,
 		AppID:                    client.AppID(),

@@ -60,6 +60,27 @@ type AgoraClient struct {
 	appID           string
 	appCertificate  string
 	AuthMode        AuthMode
+	// previewFeatures is empty for production clients; NewAgoraPreviewClient
+	// populates it so AgentSession can vouch for preview configs.
+	previewFeatures []string
+	// previewBaseURL is empty for production clients, which route through the
+	// regional pool instead.
+	previewBaseURL string
+}
+
+// PreviewFeatureNames returns the preview families this client can reach.
+// Empty for a production client.
+func (c *AgoraClient) PreviewFeatureNames() []string {
+	return c.previewFeatures
+}
+
+// CurrentURL returns the preview endpoint this client targets, or "" for a
+// production client, which resolves its host from the regional pool per request.
+//
+// The preview host is a single partner endpoint with no regional replicas, so
+// there is no failover to perform.
+func (c *AgoraClient) CurrentURL() string {
+	return c.previewBaseURL
 }
 
 func (c *AgoraClient) AgentsClient() *agents.Client {
