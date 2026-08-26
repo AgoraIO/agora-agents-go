@@ -51,6 +51,8 @@ type EventHandler func(data interface{})
 type AgentSession struct {
 	client          *agents.Client
 	agentManagement *agentmanagement.Client
+	httpClient      core.HTTPClient
+	routingOpts     []option.RequestOption
 	agent           agentcore.AgentRuntime
 	appID           string
 	appCertificate  string
@@ -76,19 +78,20 @@ type AgentSession struct {
 
 type AgentSessionOptions struct {
 	Client                *agents.Client
+	HTTPClient            core.HTTPClient
 	AgentManagementClient *agentmanagement.Client
 	Agent                 agentcore.AgentRuntime
 	AppID                 string
 	AppCertificate        string
 	// Name is the agent instance identifier sent as the top-level /join "name" field.
 	// When empty, NewAgentSession generates agent-<unix_timestamp>.
-	Name                  string
-	Channel               string
-	Token                 string
-	AgentUID              string
-	RemoteUIDs            []string
-	IdleTimeout           *int
-	EnableStringUID       *bool
+	Name            string
+	Channel         string
+	Token           string
+	AgentUID        string
+	RemoteUIDs      []string
+	IdleTimeout     *int
+	EnableStringUID *bool
 	// ExpiresIn is the token lifetime in seconds (default: 86400 = 24 hours, Agora maximum).
 	// Only applies when the SDK auto-generates a token. Valid range: 1–86400.
 	// Use ExpiresInHours() / ExpiresInMinutes() for clarity.
@@ -113,6 +116,7 @@ func NewAgentSession(opts AgentSessionOptions) *AgentSession {
 	return &AgentSession{
 		client:          opts.Client,
 		agentManagement: opts.AgentManagementClient,
+		httpClient:      opts.HTTPClient,
 		agent:           opts.Agent,
 		appID:           opts.AppID,
 		appCertificate:  opts.AppCertificate,
@@ -136,8 +140,11 @@ func NewAgentSession(opts AgentSessionOptions) *AgentSession {
 
 // convoAIRequestOpts returns per-request options with ConvoAI token when using app credentials.
 func (s *AgentSession) convoAIRequestOpts(ctx context.Context) ([]option.RequestOption, error) {
+	s.mu.RLock()
+	routingOpts := append([]option.RequestOption(nil), s.routingOpts...)
+	s.mu.RUnlock()
 	if !s.useAppCredsREST {
-		return nil, nil
+		return routingOpts, nil
 	}
 	if s.appCertificate == "" {
 		return nil, fmt.Errorf("appCertificate is required for app-credentials auth mode; pass AppCertificate when creating AgoraClient")
@@ -155,7 +162,7 @@ func (s *AgentSession) convoAIRequestOpts(ctx context.Context) ([]option.Request
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate ConvoAI token for app-credentials auth mode: %w", err)
 	}
-	return []option.RequestOption{option.WithToken(token)}, nil
+	return append([]option.RequestOption{option.WithToken(token)}, routingOpts...), nil
 }
 
 func (s *AgentSession) ID() string {
@@ -307,10 +314,15 @@ func (s *AgentSession) Start(ctx context.Context) (string, error) {
 		return "", err
 	}
 
+	previewFeatures := RequiredPreviewFeatures(resolvedProperties)
+	s.mu.Lock()
+	s.routingOpts = previewRequestOptions(previewFeatures, s.httpClient)
+	s.mu.Unlock()
+
 	if s.debug {
 		debugPayload := map[string]interface{}{
 			"name":       s.name,
-			"properties": resolvedProperties,
+			"properties": RedactSecrets(resolvedProperties),
 		}
 		if resolvedPreset != "" {
 			debugPayload["preset"] = resolvedPreset

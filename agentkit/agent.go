@@ -7,6 +7,7 @@ import (
 	Agora "github.com/AgoraIO/agora-agents-go/v2"
 	agentcore "github.com/AgoraIO/agora-agents-go/v2/agentkit/core"
 	"github.com/AgoraIO/agora-agents-go/v2/agentkit/vendors"
+	sdkcore "github.com/AgoraIO/agora-agents-go/v2/core"
 )
 
 type TurnDetectionConfig = agentcore.TurnDetectionConfig
@@ -381,8 +382,14 @@ func NewSession(agent agentcore.AgentRuntime, opts CreateSessionOptions) *AgentS
 		name = fmt.Sprintf("agent-%d", time.Now().UnixMilli())
 	}
 
+	var httpClient sdkcore.HTTPClient
+	if provider, ok := client.(interface{ HTTPClient() sdkcore.HTTPClient }); ok {
+		httpClient = provider.HTTPClient()
+	}
+
 	return NewAgentSession(AgentSessionOptions{
 		Client:                   client.AgentsClient(),
+		HTTPClient:               httpClient,
 		AgentManagementClient:    client.AgentManagementClient(),
 		Agent:                    agent,
 		AppID:                    client.AppID(),
