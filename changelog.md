@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [v2.7.0] — 2026-08-26
+
+### Added
+
+- **Automatic preview routing** — `NewAgoraClient` detects preview providers from the resolved start body and binds preview routing to that session.
+- **Gemini preview ASR** — `NewGeminiSTT` (`gemini-3.5-transcribe-live`), a cascading ASR stage served only by the preview gateway.
+- **Gemini ASR language selection** — `LanguageCodes` serializes to `params.language_codes`, replacing the singular `params.language` this vendor previously sent. Omitted from the request when nil, which is how the provider spells auto-detect. `GeminiSTTOptions` has no `Language` field: the top-level `asr.language` comes from turn detection, as it does for every STT vendor.
+- **Gemini ASR custom vocabulary** — `CustomVocabulary` biases recognition toward supplied words and phrases via `params.custom_vocabulary`. Omitted from the request when nil.
+- **Session-scoped preview state** — preview routing follows every session lifecycle request, while GA sessions and `StopAgent` remain on production routing.
+- **Debug redaction** — `RedactSecrets` replaces vendor API keys, RTC tokens, and the App ID with `[REDACTED]` in `Debug: true` output. Empty strings stay visible so an unset environment variable remains diagnosable.
+
+### Fixed
+
+- **Gemini ASR parameter compatibility** — `WordTimestamp` is now omitted unless explicitly set. Enabling it together with `CustomVocabulary` fails locally instead of sending a combination Gemini does not support.
+
+### Notes
+
+- The gate header is applied in a wrapped `core.HTTPClient` rather than via `option.WithHTTPHeader`, so header-map replacement cannot drop it. A custom `HTTPClient` passed to `AgoraClientOptions` is wrapped for preview sessions.
+
+### Documentation
+
+- Added [Preview Endpoint](docs/guides/preview-endpoint.md), covering the gate header, intake-node failure signatures, and how to add a future preview family.
+- Documented every key the shared builder injects into a vendor config map, and why a preview provider must be verified against the resolved request body rather than the vendor constructor output — a value written under a spelling the route ignores fails silently.
+
 ## [v2.6.1] — 2026-08-19
 
 ### Fixed
@@ -26,6 +50,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - **AssemblyAI ASR** — `AssemblyAISTTOptions.URI` is renamed to `WsURL` and now serializes as `asr.params.ws_url` instead of `asr.params.uri`. Callers setting `URI` must rename the field.
 - **Generated core refresh** — Regenerated core types for the latest Conversational AI schema, adding `AresAsrParams`, `FengmingAsrParams`, `TypecastTts`, and the `azure` and `qwen_omni` MLLM vendors.
 - **MLLM routing docs** — `docs/guides/regional-routing.md` documents the MLLM package boundary: the global Azure constructor belongs to the global `agentkit` client and Qwen Omni to the `agentkit/cn` facade.
+
 ## [v2.2.0] — 2026-06-05
 
 ### Added

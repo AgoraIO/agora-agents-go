@@ -195,6 +195,10 @@ func resolveAsrConfig(profile Profile, base *BaseAgent, turnDetection map[string
 	if len(asrConfig) == 0 {
 		asrConfig["vendor"] = defaultASRVendor(profile)
 	}
+	// Unconditional: turn detection is the single source of truth for the
+	// interaction language, so a vendor-level Language would be silently
+	// discarded here. Do not add one to a vendor options struct — see
+	// docs/guides/preview-endpoint.md#the-vendor-type-is-not-the-whole-wire-shape.
 	asrConfig["language"] = turnDetection["language"]
 	return asrConfig
 }
@@ -228,6 +232,12 @@ func resolveTurnDetectionConfig(base *BaseAgent) (map[string]interface{}, error)
 	return turnDetection, nil
 }
 
+// buildMllmConfigMap fills agent-level values the vendor left unset.
+//
+// The keys below are production wire spellings. A route that spells one of them
+// differently needs a rename entry in agentkit/preview_client.go, or the value
+// lands in a field the provider ignores and fails silently. See
+// docs/guides/preview-endpoint.md#the-vendor-type-is-not-the-whole-wire-shape.
 func buildMllmConfigMap(base *BaseAgent) map[string]interface{} {
 	mllmConfig := CloneConfig(base.MLLM)
 	if base.Greeting != "" {

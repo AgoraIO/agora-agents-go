@@ -144,6 +144,8 @@ stt := vendors.NewDeepgramSTT(vendors.DeepgramSTTOptions{
 agent = agent.WithStt(stt)
 ```
 
+> **Preview providers** — `NewGeminiSTT` (ASR) is served only by the preview gateway. `NewAgoraClient` detects and routes it automatically when the session starts. See [Preview Endpoint](../guides/preview-endpoint.md).
+
 ## MLLM Vendors
 
 | Constructor | Options Struct | Required Fields | Default Model |
