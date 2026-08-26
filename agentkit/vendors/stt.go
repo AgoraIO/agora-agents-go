@@ -3,6 +3,8 @@ package vendors
 import "strings"
 
 type SpeechmaticsSTTOptions struct {
+	Key string
+	// Deprecated: Use Key instead. APIKey is normalized to the REST API's key field.
 	APIKey           string
 	Language         string
 	Model            string
@@ -15,8 +17,11 @@ type SpeechmaticsSTT struct {
 }
 
 func NewSpeechmaticsSTT(opts SpeechmaticsSTTOptions) *SpeechmaticsSTT {
-	if opts.APIKey == "" {
-		panic("SpeechmaticsSTT requires APIKey")
+	if opts.Key == "" {
+		opts.Key = opts.APIKey
+	}
+	if opts.Key == "" {
+		panic("SpeechmaticsSTT requires Key")
 	}
 	if opts.Language == "" {
 		panic("SpeechmaticsSTT requires Language")
@@ -26,7 +31,7 @@ func NewSpeechmaticsSTT(opts SpeechmaticsSTTOptions) *SpeechmaticsSTT {
 
 func (s *SpeechmaticsSTT) ToConfig() map[string]interface{} {
 	params := map[string]interface{}{
-		"api_key":  s.options.APIKey,
+		"key":      s.options.Key,
 		"language": s.options.Language,
 	}
 	if s.options.Model != "" {
@@ -36,6 +41,9 @@ func (s *SpeechmaticsSTT) ToConfig() map[string]interface{} {
 		params["uri"] = s.options.URI
 	}
 	for k, v := range s.options.AdditionalParams {
+		if k == "api_key" {
+			continue
+		}
 		if _, exists := params[k]; !exists {
 			params[k] = v
 		}
@@ -304,7 +312,7 @@ func (a *AmazonSTT) ToConfig() map[string]interface{} {
 type AssemblyAISTTOptions struct {
 	APIKey           string
 	Language         string
-	URI              string
+	WsURL            string
 	AdditionalParams map[string]interface{}
 }
 
@@ -331,8 +339,8 @@ func (a *AssemblyAISTT) ToConfig() map[string]interface{} {
 	if a.options.Language != "" {
 		params["language"] = a.options.Language
 	}
-	if a.options.URI != "" {
-		params["uri"] = a.options.URI
+	if a.options.WsURL != "" {
+		params["ws_url"] = a.options.WsURL
 	}
 
 	config := map[string]interface{}{
@@ -368,15 +376,16 @@ func NewAresSTT(options ...AresSTTOptions) *AresSTT {
 
 // ToConfig returns the Ares configuration expected by the API.
 func (a *AresSTT) ToConfig() map[string]interface{} {
-	params := make(map[string]interface{}, len(a.options.AdditionalParams)+1)
+	params := make(map[string]interface{}, len(a.options.AdditionalParams))
 	for key, value := range a.options.AdditionalParams {
 		params[key] = value
 	}
-	if a.options.Keywords != nil {
-		params["keywords"] = a.options.Keywords
-	}
 
 	config := map[string]interface{}{"vendor": "ares"}
+	if a.options.Keywords != nil {
+		delete(params, "keywords")
+		config["keywords"] = a.options.Keywords
+	}
 	if len(params) > 0 {
 		config["params"] = params
 	}
