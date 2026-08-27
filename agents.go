@@ -1120,6 +1120,7 @@ type Asr struct {
 	Deepgram      *DeepgramAsr
 	Openai        *OpenAiAsr
 	Google        *GoogleAsr
+	Gemini        *GeminiAsr
 	Amazon        *AmazonAsr
 	Assemblyai    *AssemblyAiAsr
 	Speechmatics  *SpeechmaticsAsr
@@ -1184,6 +1185,13 @@ func (a *Asr) GetGoogle() *GoogleAsr {
 		return nil
 	}
 	return a.Google
+}
+
+func (a *Asr) GetGemini() *GeminiAsr {
+	if a == nil {
+		return nil
+	}
+	return a.Gemini
 }
 
 func (a *Asr) GetAmazon() *AmazonAsr {
@@ -1296,6 +1304,12 @@ func (a *Asr) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		a.Google = value
+	case "gemini":
+		value := new(GeminiAsr)
+		if err := json.Unmarshal(data, &value); err != nil {
+			return err
+		}
+		a.Gemini = value
 	case "amazon":
 		value := new(AmazonAsr)
 		if err := json.Unmarshal(data, &value); err != nil {
@@ -1373,6 +1387,9 @@ func (a Asr) MarshalJSON() ([]byte, error) {
 	if a.Google != nil {
 		return internal.MarshalJSONWithExtraProperty(a.Google, "vendor", "google")
 	}
+	if a.Gemini != nil {
+		return internal.MarshalJSONWithExtraProperty(a.Gemini, "vendor", "gemini")
+	}
 	if a.Amazon != nil {
 		return internal.MarshalJSONWithExtraProperty(a.Amazon, "vendor", "amazon")
 	}
@@ -1408,6 +1425,7 @@ type AsrVisitor interface {
 	VisitDeepgram(*DeepgramAsr) error
 	VisitOpenai(*OpenAiAsr) error
 	VisitGoogle(*GoogleAsr) error
+	VisitGemini(*GeminiAsr) error
 	VisitAmazon(*AmazonAsr) error
 	VisitAssemblyai(*AssemblyAiAsr) error
 	VisitSpeechmatics(*SpeechmaticsAsr) error
@@ -1439,6 +1457,9 @@ func (a *Asr) Accept(visitor AsrVisitor) error {
 	}
 	if a.Google != nil {
 		return visitor.VisitGoogle(a.Google)
+	}
+	if a.Gemini != nil {
+		return visitor.VisitGemini(a.Gemini)
 	}
 	if a.Amazon != nil {
 		return visitor.VisitAmazon(a.Amazon)
@@ -1492,6 +1513,9 @@ func (a *Asr) validate() error {
 	}
 	if a.Google != nil {
 		fields = append(fields, "google")
+	}
+	if a.Gemini != nil {
+		fields = append(fields, "gemini")
 	}
 	if a.Amazon != nil {
 		fields = append(fields, "amazon")
@@ -4252,6 +4276,259 @@ func (f *FishAudioTtsParams) String() string {
 		return value
 	}
 	return fmt.Sprintf("%#v", f)
+}
+
+// Google Gemini ASR configuration.
+var (
+	geminiAsrFieldLanguage = big.NewInt(1 << 0)
+	geminiAsrFieldParams   = big.NewInt(1 << 1)
+)
+
+type GeminiAsr struct {
+	Language *AsrLanguage     `json:"language,omitempty" url:"language,omitempty"`
+	Params   *GeminiAsrParams `json:"params" url:"params"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (g *GeminiAsr) GetLanguage() *AsrLanguage {
+	if g == nil {
+		return nil
+	}
+	return g.Language
+}
+
+func (g *GeminiAsr) GetParams() *GeminiAsrParams {
+	if g == nil {
+		return nil
+	}
+	return g.Params
+}
+
+func (g *GeminiAsr) GetExtraProperties() map[string]interface{} {
+	return g.ExtraProperties
+}
+
+func (g *GeminiAsr) require(field *big.Int) {
+	if g.explicitFields == nil {
+		g.explicitFields = big.NewInt(0)
+	}
+	g.explicitFields.Or(g.explicitFields, field)
+}
+
+// SetLanguage sets the Language field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiAsr) SetLanguage(language *AsrLanguage) {
+	g.Language = language
+	g.require(geminiAsrFieldLanguage)
+}
+
+// SetParams sets the Params field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiAsr) SetParams(params *GeminiAsrParams) {
+	g.Params = params
+	g.require(geminiAsrFieldParams)
+}
+
+func (g *GeminiAsr) UnmarshalJSON(data []byte) error {
+	type embed GeminiAsr
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*g),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*g = GeminiAsr(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *g)
+	if err != nil {
+		return err
+	}
+	g.ExtraProperties = extraProperties
+	g.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (g *GeminiAsr) MarshalJSON() ([]byte, error) {
+	type embed GeminiAsr
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*g),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, g.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, g.ExtraProperties)
+}
+
+func (g *GeminiAsr) String() string {
+	if len(g.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(g.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(g); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", g)
+}
+
+// Google Gemini ASR configuration parameters.
+var (
+	geminiAsrParamsFieldAPIKey        = big.NewInt(1 << 0)
+	geminiAsrParamsFieldModel         = big.NewInt(1 << 1)
+	geminiAsrParamsFieldSampleRate    = big.NewInt(1 << 2)
+	geminiAsrParamsFieldLanguage      = big.NewInt(1 << 3)
+	geminiAsrParamsFieldWordTimestamp = big.NewInt(1 << 4)
+)
+
+type GeminiAsrParams struct {
+	// Google Gemini API key
+	APIKey string `json:"api_key" url:"api_key"`
+	// Google Gemini model to use for transcription
+	Model string `json:"model" url:"model"`
+	// Audio sample rate in Hz
+	SampleRate *int `json:"sample_rate,omitempty" url:"sample_rate,omitempty"`
+	// Language code for speech recognition
+	Language string `json:"language" url:"language"`
+	// Whether to include word-level timestamps in transcription results
+	WordTimestamp bool `json:"word_timestamp" url:"word_timestamp"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (g *GeminiAsrParams) GetAPIKey() string {
+	if g == nil {
+		return ""
+	}
+	return g.APIKey
+}
+
+func (g *GeminiAsrParams) GetModel() string {
+	if g == nil {
+		return ""
+	}
+	return g.Model
+}
+
+func (g *GeminiAsrParams) GetSampleRate() *int {
+	if g == nil {
+		return nil
+	}
+	return g.SampleRate
+}
+
+func (g *GeminiAsrParams) GetLanguage() string {
+	if g == nil {
+		return ""
+	}
+	return g.Language
+}
+
+func (g *GeminiAsrParams) GetWordTimestamp() bool {
+	if g == nil {
+		return false
+	}
+	return g.WordTimestamp
+}
+
+func (g *GeminiAsrParams) GetExtraProperties() map[string]interface{} {
+	return g.ExtraProperties
+}
+
+func (g *GeminiAsrParams) require(field *big.Int) {
+	if g.explicitFields == nil {
+		g.explicitFields = big.NewInt(0)
+	}
+	g.explicitFields.Or(g.explicitFields, field)
+}
+
+// SetAPIKey sets the APIKey field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiAsrParams) SetAPIKey(apiKey string) {
+	g.APIKey = apiKey
+	g.require(geminiAsrParamsFieldAPIKey)
+}
+
+// SetModel sets the Model field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiAsrParams) SetModel(model string) {
+	g.Model = model
+	g.require(geminiAsrParamsFieldModel)
+}
+
+// SetSampleRate sets the SampleRate field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiAsrParams) SetSampleRate(sampleRate *int) {
+	g.SampleRate = sampleRate
+	g.require(geminiAsrParamsFieldSampleRate)
+}
+
+// SetLanguage sets the Language field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiAsrParams) SetLanguage(language string) {
+	g.Language = language
+	g.require(geminiAsrParamsFieldLanguage)
+}
+
+// SetWordTimestamp sets the WordTimestamp field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiAsrParams) SetWordTimestamp(wordTimestamp bool) {
+	g.WordTimestamp = wordTimestamp
+	g.require(geminiAsrParamsFieldWordTimestamp)
+}
+
+func (g *GeminiAsrParams) UnmarshalJSON(data []byte) error {
+	type embed GeminiAsrParams
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*g),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*g = GeminiAsrParams(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *g)
+	if err != nil {
+		return err
+	}
+	g.ExtraProperties = extraProperties
+	g.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (g *GeminiAsrParams) MarshalJSON() ([]byte, error) {
+	type embed GeminiAsrParams
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*g),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, g.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, g.ExtraProperties)
+}
+
+func (g *GeminiAsrParams) String() string {
+	if len(g.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(g.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(g); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", g)
 }
 
 // Generic OpenAI-compatible Text-to-Speech configuration.
@@ -11832,16 +12109,14 @@ func (s *SpeechmaticsAsr) String() string {
 
 // Speechmatics ASR configuration parameters.
 var (
-	speechmaticsAsrParamsFieldKey      = big.NewInt(1 << 0)
+	speechmaticsAsrParamsFieldAPIKey   = big.NewInt(1 << 0)
 	speechmaticsAsrParamsFieldLanguage = big.NewInt(1 << 1)
 	speechmaticsAsrParamsFieldURI      = big.NewInt(1 << 2)
 )
 
 type SpeechmaticsAsrParams struct {
 	// Speechmatics API key
-	Key string `json:"key" url:"key"`
-	// Deprecated: Use Key instead. APIKey is normalized to Key during serialization.
-	APIKey string `json:"-" url:"-"`
+	APIKey string `json:"api_key" url:"api_key"`
 	// Language code to use for transcription
 	Language string `json:"language" url:"language"`
 	// WebSocket URL for the Speechmatics streaming API
@@ -11855,19 +12130,11 @@ type SpeechmaticsAsrParams struct {
 	rawJSON json.RawMessage
 }
 
-func (s *SpeechmaticsAsrParams) GetKey() string {
+func (s *SpeechmaticsAsrParams) GetAPIKey() string {
 	if s == nil {
 		return ""
 	}
-	if s.Key != "" {
-		return s.Key
-	}
 	return s.APIKey
-}
-
-// Deprecated: Use GetKey instead.
-func (s *SpeechmaticsAsrParams) GetAPIKey() string {
-	return s.GetKey()
 }
 
 func (s *SpeechmaticsAsrParams) GetLanguage() string {
@@ -11895,19 +12162,11 @@ func (s *SpeechmaticsAsrParams) require(field *big.Int) {
 	s.explicitFields.Or(s.explicitFields, field)
 }
 
-// SetKey sets the Key field and marks it as non-optional;
+// SetAPIKey sets the APIKey field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (s *SpeechmaticsAsrParams) SetKey(key string) {
-	s.Key = key
-	s.require(speechmaticsAsrParamsFieldKey)
-}
-
-// SetAPIKey sets the deprecated APIKey field and normalizes it to Key.
-// Deprecated: Use SetKey instead.
 func (s *SpeechmaticsAsrParams) SetAPIKey(apiKey string) {
 	s.APIKey = apiKey
-	s.Key = apiKey
-	s.require(speechmaticsAsrParamsFieldKey)
+	s.require(speechmaticsAsrParamsFieldAPIKey)
 }
 
 // SetLanguage sets the Language field and marks it as non-optional;
@@ -11940,37 +12199,19 @@ func (s *SpeechmaticsAsrParams) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	s.ExtraProperties = extraProperties
-	if legacyKey, ok := s.ExtraProperties["api_key"].(string); ok {
-		if s.Key == "" {
-			s.Key = legacyKey
-		}
-		delete(s.ExtraProperties, "api_key")
-	}
-	s.APIKey = s.Key
 	s.rawJSON = json.RawMessage(data)
 	return nil
 }
 
 func (s *SpeechmaticsAsrParams) MarshalJSON() ([]byte, error) {
 	type embed SpeechmaticsAsrParams
-	normalized := *s
-	if normalized.Key == "" {
-		normalized.Key = normalized.APIKey
-	}
-	normalized.APIKey = ""
 	var marshaler = struct {
 		embed
 	}{
-		embed: embed(normalized),
+		embed: embed(*s),
 	}
 	explicitMarshaler := internal.HandleExplicitFields(marshaler, s.explicitFields)
-	extraProperties := make(map[string]interface{}, len(s.ExtraProperties))
-	for key, value := range s.ExtraProperties {
-		if key != "api_key" {
-			extraProperties[key] = value
-		}
-	}
-	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, extraProperties)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, s.ExtraProperties)
 }
 
 func (s *SpeechmaticsAsrParams) String() string {
@@ -17313,7 +17554,6 @@ type StartAgentsRequestProperties struct {
 	// RTC media encryption configuration.
 	Rtc *StartAgentsRequestPropertiesRtc `json:"rtc,omitempty" url:"rtc,omitempty"`
 	// Filler word configuration. Plays filler words while waiting for LLM responses to reduce user anxiety and improve conversation flow.
-	// When `enable` is `true`, `content.static_config.phrases` must be present and non-empty, even when `content.mode` is `generated`, because generated mode still falls back to static filler words.
 	FillerWords *StartAgentsRequestPropertiesFillerWords `json:"filler_words,omitempty" url:"filler_words,omitempty"`
 	// Agent configuration parameters.
 	Parameters *StartAgentsRequestPropertiesParameters `json:"parameters,omitempty" url:"parameters,omitempty"`
@@ -17956,7 +18196,6 @@ func (s StartAgentsRequestPropertiesAvatarVendor) Ptr() *StartAgentsRequestPrope
 }
 
 // Filler word configuration. Plays filler words while waiting for LLM responses to reduce user anxiety and improve conversation flow.
-// When `enable` is `true`, `content.static_config.phrases` must be present and non-empty, even when `content.mode` is `generated`, because generated mode still falls back to static filler words.
 var (
 	startAgentsRequestPropertiesFillerWordsFieldEnable  = big.NewInt(1 << 0)
 	startAgentsRequestPropertiesFillerWordsFieldTrigger = big.NewInt(1 << 1)
@@ -18082,12 +18321,11 @@ var (
 type StartAgentsRequestPropertiesFillerWordsContent struct {
 	// Filler word content mode:
 	// - `static`: Static filler words. Uses a predefined list of filler words.
-	// - `generated`: LLM-generated filler words based on the last user message. Falls back to static filler words when generation is not ready, fails, or returns empty text.
+	// - `generated`: LLM-generated filler words based on the last user message.
 	Mode *StartAgentsRequestPropertiesFillerWordsContentMode `json:"mode,omitempty" url:"mode,omitempty"`
 	// Static filler word configuration. Required when `mode` is `static`.
-	// Also required whenever `filler_words.enable` is `true`, including when `mode` is `generated`, because generated mode uses static filler words as fallback.
 	StaticConfig *StartAgentsRequestPropertiesFillerWordsContentStaticConfig `json:"static_config,omitempty" url:"static_config,omitempty"`
-	// Generated filler word configuration. Required when `content.mode` is `generated`.
+	// Optional configuration for generated filler words. When omitted, the service uses its default generator settings.
 	GeneratedConfig *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig `json:"generated_config,omitempty" url:"generated_config,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
@@ -18189,22 +18427,23 @@ func (s *StartAgentsRequestPropertiesFillerWordsContent) String() string {
 	return fmt.Sprintf("%#v", s)
 }
 
-// Generated filler word configuration. Required when `content.mode` is `generated`.
+// Optional configuration for generated filler words. When omitted, the service uses its default generator settings.
 var (
-	startAgentsRequestPropertiesFillerWordsContentGeneratedConfigFieldLlmProvider = big.NewInt(1 << 0)
-	startAgentsRequestPropertiesFillerWordsContentGeneratedConfigFieldPrompt      = big.NewInt(1 << 1)
+	startAgentsRequestPropertiesFillerWordsContentGeneratedConfigFieldLlmProvider      = big.NewInt(1 << 0)
+	startAgentsRequestPropertiesFillerWordsContentGeneratedConfigFieldPrompt           = big.NewInt(1 << 1)
+	startAgentsRequestPropertiesFillerWordsContentGeneratedConfigFieldFallbackStrategy = big.NewInt(1 << 2)
 )
 
 type StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig struct {
 	// OpenAI-compatible LLM provider used to generate filler words. Runs in parallel with the main business LLM and only uses the last user message as input.
-	LlmProvider *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProvider `json:"llm_provider" url:"llm_provider"`
+	LlmProvider *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProvider `json:"llm_provider,omitempty" url:"llm_provider,omitempty"`
 	// System prompt used to generate a short filler phrase based on the last user message. The generated text should be conversational and must not answer the user's question.
-	Prompt string `json:"prompt" url:"prompt"`
+	Prompt *string `json:"prompt,omitempty" url:"prompt,omitempty"`
 	// Fallback strategy when generated filler text is not ready, fails, or returns empty text. Phase 1 only supports `static`.
+	FallbackStrategy *string `json:"fallback_strategy,omitempty" url:"fallback_strategy,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
-	explicitFields   *big.Int `json:"-" url:"-"`
-	fallbackStrategy string
+	explicitFields *big.Int `json:"-" url:"-"`
 
 	extraProperties map[string]interface{}
 	rawJSON         json.RawMessage
@@ -18217,15 +18456,11 @@ func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) GetLlmPr
 	return s.LlmProvider
 }
 
-func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) GetPrompt() string {
+func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) GetPrompt() *string {
 	if s == nil {
-		return ""
+		return nil
 	}
 	return s.Prompt
-}
-
-func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) FallbackStrategy() string {
-	return s.fallbackStrategy
 }
 
 func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) GetExtraProperties() map[string]interface{} {
@@ -18248,28 +18483,26 @@ func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetLlmPr
 
 // SetPrompt sets the Prompt field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetPrompt(prompt string) {
+func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetPrompt(prompt *string) {
 	s.Prompt = prompt
 	s.require(startAgentsRequestPropertiesFillerWordsContentGeneratedConfigFieldPrompt)
 }
 
+// SetFallbackStrategy sets the FallbackStrategy field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetFallbackStrategy(fallbackStrategy *string) {
+	s.FallbackStrategy = fallbackStrategy
+	s.require(startAgentsRequestPropertiesFillerWordsContentGeneratedConfigFieldFallbackStrategy)
+}
+
 func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) UnmarshalJSON(data []byte) error {
-	type embed StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig
-	var unmarshaler = struct {
-		embed
-		FallbackStrategy string `json:"fallback_strategy"`
-	}{
-		embed: embed(*s),
-	}
-	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+	type unmarshaler StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig
+	var value unmarshaler
+	if err := json.Unmarshal(data, &value); err != nil {
 		return err
 	}
-	*s = StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig(unmarshaler.embed)
-	if unmarshaler.FallbackStrategy != "static" {
-		return fmt.Errorf("unexpected value for literal on type %T; expected %v got %v", s, "static", unmarshaler.FallbackStrategy)
-	}
-	s.fallbackStrategy = unmarshaler.FallbackStrategy
-	extraProperties, err := internal.ExtractExtraProperties(data, *s, "fallback_strategy")
+	*s = StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig(value)
+	extraProperties, err := internal.ExtractExtraProperties(data, *s)
 	if err != nil {
 		return err
 	}
@@ -18282,10 +18515,8 @@ func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) MarshalJ
 	type embed StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig
 	var marshaler = struct {
 		embed
-		FallbackStrategy string `json:"fallback_strategy"`
 	}{
-		embed:            embed(*s),
-		FallbackStrategy: "static",
+		embed: embed(*s),
 	}
 	explicitMarshaler := internal.HandleExplicitFields(marshaler, s.explicitFields)
 	return json.Marshal(explicitMarshaler)
@@ -18305,14 +18536,14 @@ func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) String()
 
 // OpenAI-compatible LLM provider used to generate filler words. Runs in parallel with the main business LLM and only uses the last user message as input.
 var (
-	startAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProviderFieldBaseURL = big.NewInt(1 << 0)
-	startAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProviderFieldAPIKey  = big.NewInt(1 << 1)
-	startAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProviderFieldParams  = big.NewInt(1 << 2)
+	startAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProviderFieldURL    = big.NewInt(1 << 0)
+	startAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProviderFieldAPIKey = big.NewInt(1 << 1)
+	startAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProviderFieldParams = big.NewInt(1 << 2)
 )
 
 type StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProvider struct {
-	// Base URL of the OpenAI-compatible chat completions endpoint. If the URL does not end with `/chat/completions`, the engine appends it automatically.
-	BaseURL string `json:"base_url" url:"base_url"`
+	// URL of the OpenAI-compatible chat completions endpoint. If the URL does not end with `/chat/completions`, the engine appends it automatically.
+	URL string `json:"url" url:"url"`
 	// API key for authenticating requests to the filler LLM provider.
 	APIKey string `json:"api_key" url:"api_key"`
 	// Additional request parameters merged into the generated filler LLM request body, such as `model`.
@@ -18325,11 +18556,11 @@ type StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProvider st
 	rawJSON         json.RawMessage
 }
 
-func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProvider) GetBaseURL() string {
+func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProvider) GetURL() string {
 	if s == nil {
 		return ""
 	}
-	return s.BaseURL
+	return s.URL
 }
 
 func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProvider) GetAPIKey() string {
@@ -18357,11 +18588,11 @@ func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProvide
 	s.explicitFields.Or(s.explicitFields, field)
 }
 
-// SetBaseURL sets the BaseURL field and marks it as non-optional;
+// SetURL sets the URL field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProvider) SetBaseURL(baseURL string) {
-	s.BaseURL = baseURL
-	s.require(startAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProviderFieldBaseURL)
+func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProvider) SetURL(url string) {
+	s.URL = url
+	s.require(startAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProviderFieldURL)
 }
 
 // SetAPIKey sets the APIKey field and marks it as non-optional;
@@ -18419,7 +18650,7 @@ func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProvide
 
 // Filler word content mode:
 // - `static`: Static filler words. Uses a predefined list of filler words.
-// - `generated`: LLM-generated filler words based on the last user message. Falls back to static filler words when generation is not ready, fails, or returns empty text.
+// - `generated`: LLM-generated filler words based on the last user message.
 type StartAgentsRequestPropertiesFillerWordsContentMode string
 
 const (
@@ -18443,7 +18674,6 @@ func (s StartAgentsRequestPropertiesFillerWordsContentMode) Ptr() *StartAgentsRe
 }
 
 // Static filler word configuration. Required when `mode` is `static`.
-// Also required whenever `filler_words.enable` is `true`, including when `mode` is `generated`, because generated mode uses static filler words as fallback.
 var (
 	startAgentsRequestPropertiesFillerWordsContentStaticConfigFieldPhrases       = big.NewInt(1 << 0)
 	startAgentsRequestPropertiesFillerWordsContentStaticConfigFieldSelectionRule = big.NewInt(1 << 1)
