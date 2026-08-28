@@ -77,8 +77,11 @@ type AvatarConfig = agentcore.AvatarConfig
 type FillerWordsTrigger = agentcore.FillerWordsTrigger
 type FillerWordsTriggerFixedTimeConfig = agentcore.FillerWordsTriggerFixedTimeConfig
 type FillerWordsContent = agentcore.FillerWordsContent
+type FillerWordsContentMode = agentcore.FillerWordsContentMode
 type FillerWordsContentStaticConfig = agentcore.FillerWordsContentStaticConfig
 type FillerWordsContentSelectionRule = agentcore.FillerWordsContentSelectionRule
+type FillerWordsContentGeneratedConfig = agentcore.FillerWordsContentGeneratedConfig
+type FillerWordsContentGeneratedLlmProvider = agentcore.FillerWordsContentGeneratedLlmProvider
 
 const (
 	ParametersAudioScenarioDefault  ParametersAudioScenario = agentcore.ParametersAudioScenarioDefault

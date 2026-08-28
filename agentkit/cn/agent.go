@@ -46,6 +46,7 @@ type (
 	FillerWordsTrigger                  = agentcore.FillerWordsTrigger
 	FillerWordsTriggerFixedTimeConfig   = agentcore.FillerWordsTriggerFixedTimeConfig
 	FillerWordsContent                  = agentcore.FillerWordsContent
+	FillerWordsContentMode              = agentcore.FillerWordsContentMode
 	FillerWordsContentStaticConfig      = agentcore.FillerWordsContentStaticConfig
 	FillerWordsContentSelectionRule     = agentcore.FillerWordsContentSelectionRule
 	LlmGreetingConfigs                  = agentcore.LlmGreetingConfigs
@@ -86,6 +87,9 @@ type (
 	TtsConfig                           = agentcore.TtsConfig
 	AvatarConfig                        = agentcore.AvatarConfig
 )
+
+type FillerWordsContentGeneratedConfig = agentcore.FillerWordsContentGeneratedConfig
+type FillerWordsContentGeneratedLlmProvider = agentcore.FillerWordsContentGeneratedLlmProvider
 
 type Agent struct {
 	base *agentcore.BaseAgent

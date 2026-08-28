@@ -179,13 +179,13 @@ agent := agentkit.NewAgent(client,
     agentkit.WithFillerWords(&agentkit.FillerWordsConfig{
         Enable: Agora.Bool(true),
         Trigger: &agentkit.FillerWordsTrigger{
-            Mode: Agora.String("fixed_time"),
+            Mode: Agora.String(agentkit.FillerWordsTriggerModeFixedTime),
             FixedTimeConfig: &agentkit.FillerWordsTriggerFixedTimeConfig{
                 ResponseWaitMs: Agora.Int(2000),
             },
         },
         Content: &agentkit.FillerWordsContent{
-            Mode: Agora.String("static"),
+            Mode: agentkit.FillerWordsContentModeStatic.Ptr(),
             StaticConfig: &agentkit.FillerWordsContentStaticConfig{
                 Phrases:      []string{"Let me think...", "One moment...", "Hmm..."},
                 SelectionRule: agentkit.FillerWordsSelectionRuleShuffle.Ptr(),
@@ -193,6 +193,47 @@ agent := agentkit.NewAgent(client,
         },
     }),
 ).WithLlm(/* ... */).WithTts(/* ... */).WithStt(/* ... */)
+```
+
+Use generated mode to create a filler phrase from the last user message. When
+`GeneratedConfig` is omitted, the service uses its default generator:
+
+```go
+agent := agentkit.NewAgent(client,
+    agentkit.WithFillerWords(&agentkit.FillerWordsConfig{
+        Enable: Agora.Bool(true),
+        Trigger: &agentkit.FillerWordsTrigger{
+            Mode: Agora.String(agentkit.FillerWordsTriggerModeFixedTime),
+            FixedTimeConfig: &agentkit.FillerWordsTriggerFixedTimeConfig{
+                ResponseWaitMs: Agora.Int(1200),
+            },
+        },
+        Content: &agentkit.FillerWordsContent{
+            Mode: agentkit.FillerWordsContentModeGenerated.Ptr(),
+        },
+    }),
+).WithLlm(/* ... */).WithTts(/* ... */).WithStt(/* ... */)
+```
+
+You can also configure an OpenAI-compatible filler LLM independently from the
+main business LLM:
+
+```go
+Content: &agentkit.FillerWordsContent{
+    Mode: agentkit.FillerWordsContentModeGenerated.Ptr(),
+    StaticConfig: &agentkit.FillerWordsContentStaticConfig{
+        Phrases: []string{"One moment..."},
+    },
+    GeneratedConfig: &agentkit.FillerWordsContentGeneratedConfig{
+        LlmProvider: &agentkit.FillerWordsContentGeneratedLlmProvider{
+            URL:    "https://api.openai.com/v1/chat/completions",
+            APIKey: os.Getenv("FILLER_LLM_API_KEY"),
+            Params: map[string]interface{}{"model": "gpt-4o-mini"},
+        },
+        Prompt:           Agora.String("Reply with a short conversational filler phrase."),
+        FallbackStrategy: Agora.String(agentkit.FillerWordsFallbackStrategyStatic),
+    },
+},
 ```
 
 ## Getters
@@ -272,7 +313,7 @@ func main() {
                 },
             },
             Content: &agentkit.FillerWordsContent{
-                Mode: Agora.String("static"),
+                Mode: agentkit.FillerWordsContentModeStatic.Ptr(),
                 StaticConfig: &agentkit.FillerWordsContentStaticConfig{
                     Phrases:       []string{"Let me think...", "One moment please."},
                     SelectionRule: agentkit.FillerWordsSelectionRuleShuffle.Ptr(),
