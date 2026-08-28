@@ -90,6 +90,82 @@ func TestRequestBodyScenario1BYOKPropertiesShape(t *testing.T) {
 	assert.Equal(t, "wss://api.elevenlabs.io/v1", ttsParams["base_url"])
 }
 
+func TestGeneratedFillerWordsPropertiesShape(t *testing.T) {
+	tests := []struct {
+		name        string
+		fillerWords *FillerWordsConfig
+		assert      func(*testing.T, map[string]interface{})
+	}{
+		{
+			name: "service default generator",
+			fillerWords: &FillerWordsConfig{
+				Enable: Agora.Bool(true),
+				Trigger: &FillerWordsTrigger{
+					Mode: Agora.String(FillerWordsTriggerModeFixedTime),
+					FixedTimeConfig: &FillerWordsTriggerFixedTimeConfig{
+						ResponseWaitMs: Agora.Int(1200),
+					},
+				},
+				Content: &FillerWordsContent{
+					Mode: FillerWordsContentModeGenerated.Ptr(),
+				},
+			},
+			assert: func(t *testing.T, fillerWords map[string]interface{}) {
+				content := fillerWords["content"].(map[string]interface{})
+				assert.Equal(t, "generated", content["mode"])
+				assert.NotContains(t, content, "generated_config")
+				assert.NotContains(t, content, "static_config")
+			},
+		},
+		{
+			name: "custom filler LLM",
+			fillerWords: &FillerWordsConfig{
+				Enable: Agora.Bool(true),
+				Content: &FillerWordsContent{
+					Mode: FillerWordsContentModeGenerated.Ptr(),
+					StaticConfig: &FillerWordsContentStaticConfig{
+						Phrases: []string{"One moment..."},
+					},
+					GeneratedConfig: &FillerWordsContentGeneratedConfig{
+						LlmProvider: &FillerWordsContentGeneratedLlmProvider{
+							URL:    "https://api.openai.com/v1/chat/completions",
+							APIKey: "filler-key",
+							Params: map[string]interface{}{"model": "gpt-4o-mini"},
+						},
+						Prompt:           Agora.String("Reply with a short conversational filler phrase."),
+						FallbackStrategy: Agora.String(FillerWordsFallbackStrategyStatic),
+					},
+				},
+			},
+			assert: func(t *testing.T, fillerWords map[string]interface{}) {
+				content := fillerWords["content"].(map[string]interface{})
+				generated := content["generated_config"].(map[string]interface{})
+				provider := generated["llm_provider"].(map[string]interface{})
+
+				assert.Equal(t, "generated", content["mode"])
+				assert.Equal(t, "https://api.openai.com/v1/chat/completions", provider["url"])
+				assert.Equal(t, "filler-key", provider["api_key"])
+				assert.Equal(t, "gpt-4o-mini", provider["params"].(map[string]interface{})["model"])
+				assert.Equal(t, "Reply with a short conversational filler phrase.", generated["prompt"])
+				assert.Equal(t, "static", generated["fallback_strategy"])
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			agent := NewAgent(testAgoraClient(), WithFillerWords(tt.fillerWords)).
+				WithStt(stubASR).
+				WithLlm(stubLLM).
+				WithTts(stubTTS)
+
+			properties, err := agent.ToPropertiesMap(basePropertiesOpts())
+			require.NoError(t, err)
+			tt.assert(t, properties["filler_words"].(map[string]interface{}))
+		})
+	}
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Scenario 2a — Preset-backed pipeline (full start request)
 // ─────────────────────────────────────────────────────────────────────────────

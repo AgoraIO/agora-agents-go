@@ -136,9 +136,12 @@ type (
 )
 
 type (
-	FillerWordsTrigger                = Agora.StartAgentsRequestPropertiesFillerWordsTrigger
-	FillerWordsTriggerFixedTimeConfig = Agora.StartAgentsRequestPropertiesFillerWordsTriggerFixedTimeConfig
-	FillerWordsContent                = Agora.StartAgentsRequestPropertiesFillerWordsContent
-	FillerWordsContentStaticConfig    = Agora.StartAgentsRequestPropertiesFillerWordsContentStaticConfig
-	FillerWordsContentSelectionRule   = Agora.StartAgentsRequestPropertiesFillerWordsContentStaticConfigSelectionRule
+	FillerWordsTrigger                     = Agora.StartAgentsRequestPropertiesFillerWordsTrigger
+	FillerWordsTriggerFixedTimeConfig      = Agora.StartAgentsRequestPropertiesFillerWordsTriggerFixedTimeConfig
+	FillerWordsContent                     = Agora.StartAgentsRequestPropertiesFillerWordsContent
+	FillerWordsContentMode                 = Agora.StartAgentsRequestPropertiesFillerWordsContentMode
+	FillerWordsContentStaticConfig         = Agora.StartAgentsRequestPropertiesFillerWordsContentStaticConfig
+	FillerWordsContentSelectionRule        = Agora.StartAgentsRequestPropertiesFillerWordsContentStaticConfigSelectionRule
+	FillerWordsContentGeneratedConfig      = Agora.StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig
+	FillerWordsContentGeneratedLlmProvider = Agora.StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProvider
 )

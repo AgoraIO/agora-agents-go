@@ -68,6 +68,14 @@ These are passed to `agentkit.NewAgent(client, opts ...AgentOption)`:
 | `WithRtc(rtc *RtcConfig)` | RTC config | RTC media encryption |
 | `WithFillerWords(fw *FillerWordsConfig)` | Filler words | Filler words while waiting for LLM |
 
+Filler words support two content modes. Use `FillerWordsContentModeStatic` with
+`FillerWordsContentStaticConfig` for a fixed phrase list, or
+`FillerWordsContentModeGenerated` to generate a short phrase from the latest
+user message. In generated mode, omit `GeneratedConfig` to use the service
+default generator, or provide `FillerWordsContentGeneratedConfig` with an
+OpenAI-compatible `FillerWordsContentGeneratedLlmProvider`. Set
+`FillerWordsFallbackStrategyStatic` when a static fallback is configured.
+
 ## Vendor Chaining Methods
 
 After creating an agent with `NewAgent`, attach vendors using method chaining. Each method returns a **new** `*Agent` (the original is not modified — immutable cloning):
