@@ -1,8 +1,11 @@
 package vendors
 
 import (
+	"reflect"
 	"strings"
 	"testing"
+
+	Agora "github.com/AgoraIO/agora-agents-go/v2"
 )
 
 func TestGroqSerializesAsOpenAICompatible(t *testing.T) {
@@ -265,6 +268,51 @@ func TestOpenAIManagedModeIsRestrictedToSupportedModels(t *testing.T) {
 	assertPanic(t, "OpenAI Agora-managed mode does not allow Vendor", func() {
 		NewOpenAI(OpenAIOptions{Model: "gpt-5-mini", Vendor: "custom"})
 	})
+}
+
+func TestOpenAIEmitsInlineToolsAlongsideMcpServers(t *testing.T) {
+	tool := &Agora.LlmTool{
+		Function: &Agora.LlmToolFunction{Name: "lookup"},
+		Server: &Agora.LlmToolServer{
+			Method: Agora.LlmToolServerMethodGet,
+			URL:    "https://example.com/items/{{args.id}}",
+		},
+	}
+	config := NewOpenAI(OpenAIOptions{
+		Model:      "gpt-4o-mini",
+		Tools:      []*Agora.LlmTool{tool},
+		McpServers: []map[string]interface{}{{"url": "https://mcp.example.com"}},
+	}).ToConfig()
+
+	if _, ok := config["tools"].([]*Agora.LlmTool); !ok {
+		t.Fatalf("tools = %#v, want generated tool definitions", config["tools"])
+	}
+	servers := config["mcp_servers"].([]map[string]interface{})
+	if servers[0]["transport"] != "streamable_http" {
+		t.Fatalf("MCP transport was not normalized: %#v", servers)
+	}
+}
+
+func TestLlmVendorOptionsExposeTools(t *testing.T) {
+	want := reflect.TypeOf([]*Agora.LlmTool{})
+	optionTypes := []reflect.Type{
+		reflect.TypeOf(OpenAIOptions{}),
+		reflect.TypeOf(AzureOpenAIOptions{}),
+		reflect.TypeOf(AnthropicOptions{}),
+		reflect.TypeOf(GeminiOptions{}),
+		reflect.TypeOf(AmazonBedrockOptions{}),
+		reflect.TypeOf(DifyOptions{}),
+	}
+
+	for _, optionType := range optionTypes {
+		field, ok := optionType.FieldByName("Tools")
+		if !ok {
+			t.Fatalf("%s has no Tools option", optionType.Name())
+		}
+		if field.Type != want {
+			t.Fatalf("%s.Tools type = %s, want %s", optionType.Name(), field.Type, want)
+		}
+	}
 }
 
 func assertPanic(t *testing.T, want string, fn func()) {

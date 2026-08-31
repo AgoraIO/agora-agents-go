@@ -145,3 +145,12 @@ type (
 	FillerWordsContentGeneratedConfig      = Agora.StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig
 	FillerWordsContentGeneratedLlmProvider = Agora.StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProvider
 )
+
+type (
+	LlmTool                   = Agora.LlmTool
+	LlmToolFunction           = Agora.LlmToolFunction
+	LlmToolFunctionParameters = Agora.LlmToolFunctionParameters
+	LlmToolExecution          = Agora.LlmToolExecution
+	LlmToolServer             = Agora.LlmToolServer
+	LlmToolServerMethod       = Agora.LlmToolServerMethod
+)
