@@ -90,6 +90,11 @@ Panics if `Model` is empty. Panics if `APIKey` is empty unless `Model` is one of
 | `Headers`         | `map[string]string`        | No       | —                                              | Custom HTTP headers forwarded to the LLM provider |
 | `GreetingConfigs` | `map[string]interface{}`   | No       | —                                              | Greeting playback configuration |
 | `TemplateVariables` | `map[string]string`      | No       | —                                              | Template variables for messages |
+| `McpServers`      | `[]map[string]interface{}` | No       | —                                              | MCP servers exposed to the model |
+| `Tools`           | `[]*Agora.LlmTool`         | No       | —                                              | Inline REST tool definitions exposed to the model |
+
+`McpServers` and `Tools` define tools exposed to the model. Enable tool execution
+separately with `agentkit.WithTools(true)` or `agent.WithTools(true)`.
 
 ### NewAzureOpenAI
 

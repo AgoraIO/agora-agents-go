@@ -82,6 +82,12 @@ type FillerWordsContentStaticConfig = agentcore.FillerWordsContentStaticConfig
 type FillerWordsContentSelectionRule = agentcore.FillerWordsContentSelectionRule
 type FillerWordsContentGeneratedConfig = agentcore.FillerWordsContentGeneratedConfig
 type FillerWordsContentGeneratedLlmProvider = agentcore.FillerWordsContentGeneratedLlmProvider
+type LlmTool = agentcore.LlmTool
+type LlmToolFunction = agentcore.LlmToolFunction
+type LlmToolFunctionParameters = agentcore.LlmToolFunctionParameters
+type LlmToolExecution = agentcore.LlmToolExecution
+type LlmToolServer = agentcore.LlmToolServer
+type LlmToolServerMethod = agentcore.LlmToolServerMethod
 
 const (
 	ParametersAudioScenarioDefault  ParametersAudioScenario = agentcore.ParametersAudioScenarioDefault

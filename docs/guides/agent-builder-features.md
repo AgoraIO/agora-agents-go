@@ -16,7 +16,7 @@ For string values with a finite set of options (e.g. `data_channel`, `sal_mode`,
 |---|---|---|
 | `sal` | `WithSalConfig` / `WithSal` | Selective Attention Locking — speaker recognition and noise suppression |
 | `advancedFeatures` | `WithAdvancedFeatures` | Enable MLLM, RTM, SAL, tools |
-| `tools` | `WithTools` | Enable MCP tool invocation |
+| `tools` | `WithTools` | Enable tool invocation for MCP servers and inline LLM tools |
 | `parameters` | `WithParameters` | Silence config, farewell config, data channel |
 | `failureMessage` | LLM/MLLM vendor option | Message spoken when LLM fails |
 | `maxHistory` | LLM vendor option | Max conversation turns in LLM context |
@@ -77,7 +77,7 @@ agent := agentkit.NewAgent(client,
     }),
 )
 
-// Enable tool invocation via MCP
+// Enable tool invocation via MCP servers or inline LLM tools
 agent := agentkit.NewAgent(client,
     agentkit.WithTools(true),
 )
