@@ -750,14 +750,14 @@ func NewAresSTT(options ...AresSTTOptions) *AresSTT
 
 Options are optional, so both `NewAresSTT()` and `NewAresSTT(AresSTTOptions{...})` are supported. More than one options value causes a panic. Ares is the Agora-managed default ASR provider for the global AgentKit facade.
 
-REST `asr.language` still comes from `TurnDetectionConfig.Language`. `Keywords` is serialized as `asr.params.keywords` and takes precedence over a `keywords` entry in `AdditionalParams`.
+REST `asr.language` still comes from `TurnDetectionConfig.Language`. `Keywords` is serialized at the top level as `asr.keywords`. `AdditionalParams` is copied unchanged under `asr.params`; AgentKit does not inspect, remove, or override keys in that map.
 
 #### AresSTTOptions
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `Keywords` | `[]string` | No | Hotwords used to improve ASR accuracy |
-| `AdditionalParams` | `map[string]interface{}` | No | Additional Ares parameters forwarded under `asr.params` |
+| `Keywords` | `[]string` | No | Hotwords forwarded as top-level `asr.keywords` |
+| `AdditionalParams` | `map[string]interface{}` | No | Additional Ares parameters copied unchanged under `asr.params` |
 
 ### NewSarvamSTT
 
@@ -985,14 +985,14 @@ func NewFengmingSTT(options ...FengmingSTTOptions) *FengmingSTT
 
 Options are optional, preserving the existing `NewFengmingSTT()` call. More than one options value causes a panic. Fengming is the Agora-managed default ASR provider for the mainland China AgentKit facade.
 
-REST `asr.language` still comes from `TurnDetectionConfig.Language`. `Keywords` is serialized as `asr.params.keywords` and takes precedence over a `keywords` entry in `AdditionalParams`.
+REST `asr.language` still comes from `TurnDetectionConfig.Language`. `Keywords` is serialized at the top level as `asr.keywords`. `AdditionalParams` is copied unchanged under `asr.params`; AgentKit does not inspect, remove, or override keys in that map.
 
 #### FengmingSTTOptions
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `Keywords` | `[]string` | No | Hotwords used to improve ASR accuracy |
-| `AdditionalParams` | `map[string]interface{}` | No | Additional Fengming parameters forwarded under `asr.params` |
+| `Keywords` | `[]string` | No | Hotwords forwarded as top-level `asr.keywords` |
+| `AdditionalParams` | `map[string]interface{}` | No | Additional Fengming parameters copied unchanged under `asr.params` |
 
 ---
 

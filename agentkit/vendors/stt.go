@@ -383,7 +383,6 @@ func (a *AresSTT) ToConfig() map[string]interface{} {
 
 	config := map[string]interface{}{"vendor": "ares"}
 	if a.options.Keywords != nil {
-		delete(params, "keywords")
 		config["keywords"] = a.options.Keywords
 	}
 	if len(params) > 0 {
