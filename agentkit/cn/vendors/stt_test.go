@@ -16,16 +16,11 @@ func TestFengmingSTTKeywordsMatchGeneratedASR(t *testing.T) {
 		Keywords: wantKeywords,
 		AdditionalParams: map[string]interface{}{
 			"custom_param": true,
-			"keywords":     []string{"overridden"},
 		},
 	}).ToConfig()
 
 	if !reflect.DeepEqual(config["keywords"], wantKeywords) {
 		t.Fatalf("keywords = %#v, want %#v", config["keywords"], wantKeywords)
-	}
-	params := config["params"].(map[string]interface{})
-	if _, exists := params["keywords"]; exists {
-		t.Fatalf("typed keywords must not also be sent in params: %#v", params)
 	}
 
 	payload, err := json.Marshal(config)
@@ -62,6 +57,23 @@ func TestFengmingSTTKeepsNoArgumentCompatibility(t *testing.T) {
 	var nilFengming *FengmingSTT
 	if got := nilFengming.ToConfig()["vendor"]; got != "fengming" {
 		t.Fatalf("nil receiver vendor = %v, want fengming", got)
+	}
+}
+
+func TestFengmingSTTAllowsAdditionalParams(t *testing.T) {
+	config := NewFengmingSTT(FengmingSTTOptions{
+		AdditionalParams: map[string]interface{}{
+			"custom_param": true,
+			"sample_rate":  16000,
+		},
+	}).ToConfig()
+
+	params, ok := config["params"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("params = %#v, want map[string]interface{}", config["params"])
+	}
+	if params["custom_param"] != true || params["sample_rate"] != 16000 {
+		t.Fatalf("additional params were not preserved: %#v", params)
 	}
 }
 

@@ -35,7 +35,6 @@ func (f *FengmingSTT) ToConfig() map[string]interface{} {
 		params[key] = value
 	}
 	if f.options.Keywords != nil {
-		delete(params, "keywords")
 		config["keywords"] = f.options.Keywords
 	}
 

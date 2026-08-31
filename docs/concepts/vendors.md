@@ -129,9 +129,11 @@ Use `TurnDetectionConfig.Language` for Agora interaction language; it defaults t
 | `NewGoogleSTT` | `GoogleSTTOptions` | `ProjectID`, `Location`, `ADCCredentialsString`, `Language` |
 | `NewAmazonSTT` | `AmazonSTTOptions` | `AccessKey`, `SecretKey`, `Region`, `Language` |
 | `NewAssemblyAISTT` | `AssemblyAISTTOptions` | `APIKey`, `Language` |
-| `NewAresSTT` | `AresSTTOptions` | None; optional `Keywords` |
+| `NewAresSTT` | `AresSTTOptions` | None; optional `Keywords` and `AdditionalParams` |
 | `NewSarvamSTT` | `SarvamSTTOptions` | `APIKey`, `Language` |
 | `NewXaiSTT` | `XaiSTTOptions` | `APIKey` |
+
+For Ares, `Keywords` is emitted as top-level `asr.keywords`, while `AdditionalParams` is copied unchanged under `asr.params`.
 
 <!-- snippet: fragment -->
 ```go
@@ -206,12 +208,14 @@ REST `asr.language` comes from `TurnDetectionConfig.Language` (default `en-US`),
 
 | Constructor | Wire `vendor` | Required fields |
 |---|---|---|
-| `NewFengmingSTT()` / `NewFengmingSTT(FengmingSTTOptions)` | `fengming` | none; optional `Keywords` |
+| `NewFengmingSTT()` / `NewFengmingSTT(FengmingSTTOptions)` | `fengming` | none; optional `Keywords` and `AdditionalParams` |
 | `NewTencentSTT` | `tencent` | `Key`, `AppID`, `Secret` |
 | `NewMicrosoftSTT` | `microsoft` | `Key`, `Region`, `Language` (in `params.language`) |
 | `NewXfyunSTT` | `xfyun` | `APIKey`, `AppID`, `APISecret`; `Language` optional in `params` |
 | `NewXfyunBigModelSTT` | `xfyun_bigmodel` | `APIKey`, `AppID`, `APISecret`; `Language` / `LanguageName` optional in `params` |
 | `NewXfyunDialectSTT` | `xfyun_dialect` | `AppID`, `AccessKeyID`, `AccessKeySecret`; `Language` optional in `params` |
+
+For Fengming, `Keywords` is emitted as top-level `asr.keywords`, while `AdditionalParams` is copied unchanged under `asr.params`.
 
 ### CN TTS
 

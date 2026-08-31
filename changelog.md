@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 - **Generated filler words** — AgentKit now exposes generated filler content types and mode constants, including optional service-default generation and custom OpenAI-compatible filler LLM configuration.
 
+### Changed
+
+- **Ares and Fengming STT parameters** — `Keywords` is emitted as top-level `asr.keywords`; `AdditionalParams` remains an unchanged passthrough map under `asr.params` for both providers.
+
 ## [v2.7.0] — 2026-08-26
 
 ### Added
