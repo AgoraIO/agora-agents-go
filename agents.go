@@ -4388,16 +4388,16 @@ var (
 )
 
 type GeminiAsrParams struct {
-	// Google Gemini API key
+	// The Google Gemini API key used to authenticate requests.
 	APIKey string `json:"api_key" url:"api_key"`
-	// Google Gemini model to use for transcription
+	// The Gemini transcription model identifier.
 	Model string `json:"model" url:"model"`
-	// Audio sample rate in Hz
+	// The audio sample rate in Hz.
 	SampleRate *int `json:"sample_rate,omitempty" url:"sample_rate,omitempty"`
-	// Language code for speech recognition
-	Language string `json:"language" url:"language"`
-	// Whether to include word-level timestamps in transcription results
-	WordTimestamp bool `json:"word_timestamp" url:"word_timestamp"`
+	// The language code for speech recognition. This takes precedence over the top-level `asr.language` value.
+	Language *string `json:"language,omitempty" url:"language,omitempty"`
+	// Whether to include word-level timestamps in the transcription results.
+	WordTimestamp *bool `json:"word_timestamp,omitempty" url:"word_timestamp,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
 	explicitFields *big.Int `json:"-" url:"-"`
@@ -4428,16 +4428,16 @@ func (g *GeminiAsrParams) GetSampleRate() *int {
 	return g.SampleRate
 }
 
-func (g *GeminiAsrParams) GetLanguage() string {
+func (g *GeminiAsrParams) GetLanguage() *string {
 	if g == nil {
-		return ""
+		return nil
 	}
 	return g.Language
 }
 
-func (g *GeminiAsrParams) GetWordTimestamp() bool {
+func (g *GeminiAsrParams) GetWordTimestamp() *bool {
 	if g == nil {
-		return false
+		return nil
 	}
 	return g.WordTimestamp
 }
@@ -4476,14 +4476,14 @@ func (g *GeminiAsrParams) SetSampleRate(sampleRate *int) {
 
 // SetLanguage sets the Language field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (g *GeminiAsrParams) SetLanguage(language string) {
+func (g *GeminiAsrParams) SetLanguage(language *string) {
 	g.Language = language
 	g.require(geminiAsrParamsFieldLanguage)
 }
 
 // SetWordTimestamp sets the WordTimestamp field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (g *GeminiAsrParams) SetWordTimestamp(wordTimestamp bool) {
+func (g *GeminiAsrParams) SetWordTimestamp(wordTimestamp *bool) {
 	g.WordTimestamp = wordTimestamp
 	g.require(geminiAsrParamsFieldWordTimestamp)
 }
@@ -12109,16 +12109,14 @@ func (s *SpeechmaticsAsr) String() string {
 
 // Speechmatics ASR configuration parameters.
 var (
-	speechmaticsAsrParamsFieldKey      = big.NewInt(1 << 0)
+	speechmaticsAsrParamsFieldAPIKey   = big.NewInt(1 << 0)
 	speechmaticsAsrParamsFieldLanguage = big.NewInt(1 << 1)
 	speechmaticsAsrParamsFieldURI      = big.NewInt(1 << 2)
 )
 
 type SpeechmaticsAsrParams struct {
 	// Speechmatics API key
-	Key string `json:"key" url:"key"`
-	// Deprecated: Use Key instead. APIKey is normalized to Key during serialization.
-	APIKey string `json:"-" url:"-"`
+	APIKey string `json:"api_key" url:"api_key"`
 	// Language code to use for transcription
 	Language string `json:"language" url:"language"`
 	// WebSocket URL for the Speechmatics streaming API
@@ -12132,19 +12130,11 @@ type SpeechmaticsAsrParams struct {
 	rawJSON json.RawMessage
 }
 
-func (s *SpeechmaticsAsrParams) GetKey() string {
+func (s *SpeechmaticsAsrParams) GetAPIKey() string {
 	if s == nil {
 		return ""
 	}
-	if s.Key != "" {
-		return s.Key
-	}
 	return s.APIKey
-}
-
-// Deprecated: Use GetKey instead.
-func (s *SpeechmaticsAsrParams) GetAPIKey() string {
-	return s.GetKey()
 }
 
 func (s *SpeechmaticsAsrParams) GetLanguage() string {
@@ -12172,19 +12162,11 @@ func (s *SpeechmaticsAsrParams) require(field *big.Int) {
 	s.explicitFields.Or(s.explicitFields, field)
 }
 
-// SetKey sets the Key field and marks it as non-optional;
+// SetAPIKey sets the APIKey field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (s *SpeechmaticsAsrParams) SetKey(key string) {
-	s.Key = key
-	s.require(speechmaticsAsrParamsFieldKey)
-}
-
-// SetAPIKey sets the deprecated APIKey field and normalizes it to Key.
-// Deprecated: Use SetKey instead.
 func (s *SpeechmaticsAsrParams) SetAPIKey(apiKey string) {
 	s.APIKey = apiKey
-	s.Key = apiKey
-	s.require(speechmaticsAsrParamsFieldKey)
+	s.require(speechmaticsAsrParamsFieldAPIKey)
 }
 
 // SetLanguage sets the Language field and marks it as non-optional;
@@ -12217,37 +12199,19 @@ func (s *SpeechmaticsAsrParams) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	s.ExtraProperties = extraProperties
-	if legacyKey, ok := s.ExtraProperties["api_key"].(string); ok {
-		if s.Key == "" {
-			s.Key = legacyKey
-		}
-		delete(s.ExtraProperties, "api_key")
-	}
-	s.APIKey = s.Key
 	s.rawJSON = json.RawMessage(data)
 	return nil
 }
 
 func (s *SpeechmaticsAsrParams) MarshalJSON() ([]byte, error) {
 	type embed SpeechmaticsAsrParams
-	normalized := *s
-	if normalized.Key == "" {
-		normalized.Key = normalized.APIKey
-	}
-	normalized.APIKey = ""
 	var marshaler = struct {
 		embed
 	}{
-		embed: embed(normalized),
+		embed: embed(*s),
 	}
 	explicitMarshaler := internal.HandleExplicitFields(marshaler, s.explicitFields)
-	extraProperties := make(map[string]interface{}, len(s.ExtraProperties))
-	for key, value := range s.ExtraProperties {
-		if key != "api_key" {
-			extraProperties[key] = value
-		}
-	}
-	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, extraProperties)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, s.ExtraProperties)
 }
 
 func (s *SpeechmaticsAsrParams) String() string {
