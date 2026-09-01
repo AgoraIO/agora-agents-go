@@ -4388,16 +4388,16 @@ var (
 )
 
 type GeminiAsrParams struct {
-	// Google Gemini API key
+	// The Google Gemini API key used to authenticate requests.
 	APIKey string `json:"api_key" url:"api_key"`
-	// Google Gemini model to use for transcription
+	// The Gemini transcription model identifier.
 	Model string `json:"model" url:"model"`
-	// Audio sample rate in Hz
+	// The audio sample rate in Hz.
 	SampleRate *int `json:"sample_rate,omitempty" url:"sample_rate,omitempty"`
-	// Language code for speech recognition
-	Language string `json:"language" url:"language"`
-	// Whether to include word-level timestamps in transcription results
-	WordTimestamp bool `json:"word_timestamp" url:"word_timestamp"`
+	// The language code for speech recognition. This takes precedence over the top-level `asr.language` value.
+	Language *string `json:"language,omitempty" url:"language,omitempty"`
+	// Whether to include word-level timestamps in the transcription results.
+	WordTimestamp *bool `json:"word_timestamp,omitempty" url:"word_timestamp,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
 	explicitFields *big.Int `json:"-" url:"-"`
@@ -4428,16 +4428,16 @@ func (g *GeminiAsrParams) GetSampleRate() *int {
 	return g.SampleRate
 }
 
-func (g *GeminiAsrParams) GetLanguage() string {
+func (g *GeminiAsrParams) GetLanguage() *string {
 	if g == nil {
-		return ""
+		return nil
 	}
 	return g.Language
 }
 
-func (g *GeminiAsrParams) GetWordTimestamp() bool {
+func (g *GeminiAsrParams) GetWordTimestamp() *bool {
 	if g == nil {
-		return false
+		return nil
 	}
 	return g.WordTimestamp
 }
@@ -4476,14 +4476,14 @@ func (g *GeminiAsrParams) SetSampleRate(sampleRate *int) {
 
 // SetLanguage sets the Language field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (g *GeminiAsrParams) SetLanguage(language string) {
+func (g *GeminiAsrParams) SetLanguage(language *string) {
 	g.Language = language
 	g.require(geminiAsrParamsFieldLanguage)
 }
 
 // SetWordTimestamp sets the WordTimestamp field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (g *GeminiAsrParams) SetWordTimestamp(wordTimestamp bool) {
+func (g *GeminiAsrParams) SetWordTimestamp(wordTimestamp *bool) {
 	g.WordTimestamp = wordTimestamp
 	g.require(geminiAsrParamsFieldWordTimestamp)
 }
