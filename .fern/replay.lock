@@ -48,14 +48,20 @@ generations:
     cli_version: unknown
     generator_versions:
       fernapi/fern-go-sdk: 1.16.5
-current_generation: 95254bb4338ea14aaeed10e73dda7307b234bbb2
+  - commit_sha: 3b6b29fbb3893c6efac17f30948b69d6d5db6bdb
+    tree_hash: 6dcf5ec8743ec69e6d3cb13971c7f3020e4bd65c
+    timestamp: 2026-09-01T03:17:41.063Z
+    cli_version: unknown
+    generator_versions:
+      fernapi/fern-go-sdk: 1.16.5
+current_generation: 3b6b29fbb3893c6efac17f30948b69d6d5db6bdb
 patches:
   - id: patch-69644e80
     content_hash: sha256:47e5dc31d5823a159b4c7abafc86d8b4ade17fd80b73df7b3e4d44bf17204f55
     original_commit: 69644e80506fa1c57bdb6b9a5dc5767a78f333ad
     original_message: "feat(core): add tests for Pool and RequestOptions with fixed base URL handling"
     original_author: seymourtang <tangxianmeng@live.com>
-    base_generation: 95254bb4338ea14aaeed10e73dda7307b234bbb2
+    base_generation: 3b6b29fbb3893c6efac17f30948b69d6d5db6bdb
     files:
       - core/request_option_custom_test.go
     patch_content: |
@@ -343,7 +349,7 @@ patches:
     original_commit: eb09f0ee6aec94edb1cf24a833a35d98a9a35580
     original_message: "refactor(core): rename internal API base URL to configured base URL"
     original_author: seymourtang <tangxianmeng@live.com>
-    base_generation: 95254bb4338ea14aaeed10e73dda7307b234bbb2
+    base_generation: 3b6b29fbb3893c6efac17f30948b69d6d5db6bdb
     files:
       - core/request_option_custom_test.go
     patch_content: |
@@ -631,12 +637,12 @@ patches:
     original_commit: dda5517eb2c926b0de9b1fafac5763798586527d
     original_message: "fix(vendors): send Speechmatics STT key instead of api_key"
     original_author: digitallysavvy <hermes.frangoudis@gmail.com>
-    base_generation: 95254bb4338ea14aaeed10e73dda7307b234bbb2
+    base_generation: 3b6b29fbb3893c6efac17f30948b69d6d5db6bdb
     files:
       - agents.go
     patch_content: |
       diff --git a/agents.go b/agents.go
-      index cfe75de..894419b 100644
+      index 744bbfe..97e553a 100644
       --- a/agents.go
       +++ b/agents.go
       @@ -12109,14 +12109,16 @@ func (s *SpeechmaticsAsr) String() string {
@@ -5135,16 +5141,16 @@ patches:
         )
 
         type GeminiAsrParams struct {
-        	// Google Gemini API key
+        	// The Google Gemini API key used to authenticate requests.
         	APIKey string `json:"api_key" url:"api_key"`
-        	// Google Gemini model to use for transcription
+        	// The Gemini transcription model identifier.
         	Model string `json:"model" url:"model"`
-        	// Audio sample rate in Hz
+        	// The audio sample rate in Hz.
         	SampleRate *int `json:"sample_rate,omitempty" url:"sample_rate,omitempty"`
-        	// Language code for speech recognition
-        	Language string `json:"language" url:"language"`
-        	// Whether to include word-level timestamps in transcription results
-        	WordTimestamp bool `json:"word_timestamp" url:"word_timestamp"`
+        	// The language code for speech recognition. This takes precedence over the top-level `asr.language` value.
+        	Language *string `json:"language,omitempty" url:"language,omitempty"`
+        	// Whether to include word-level timestamps in the transcription results.
+        	WordTimestamp *bool `json:"word_timestamp,omitempty" url:"word_timestamp,omitempty"`
 
         	// Private bitmask of fields set to an explicit value and therefore not to be omitted
         	explicitFields *big.Int `json:"-" url:"-"`
@@ -5175,16 +5181,16 @@ patches:
         	return g.SampleRate
         }
 
-        func (g *GeminiAsrParams) GetLanguage() string {
+        func (g *GeminiAsrParams) GetLanguage() *string {
         	if g == nil {
-        		return ""
+        		return nil
         	}
         	return g.Language
         }
 
-        func (g *GeminiAsrParams) GetWordTimestamp() bool {
+        func (g *GeminiAsrParams) GetWordTimestamp() *bool {
         	if g == nil {
-        		return false
+        		return nil
         	}
         	return g.WordTimestamp
         }
@@ -5223,14 +5229,14 @@ patches:
 
         // SetLanguage sets the Language field and marks it as non-optional;
         // this prevents an empty or null value for this field from being omitted during serialization.
-        func (g *GeminiAsrParams) SetLanguage(language string) {
+        func (g *GeminiAsrParams) SetLanguage(language *string) {
         	g.Language = language
         	g.require(geminiAsrParamsFieldLanguage)
         }
 
         // SetWordTimestamp sets the WordTimestamp field and marks it as non-optional;
         // this prevents an empty or null value for this field from being omitted during serialization.
-        func (g *GeminiAsrParams) SetWordTimestamp(wordTimestamp bool) {
+        func (g *GeminiAsrParams) SetWordTimestamp(wordTimestamp *bool) {
         	g.WordTimestamp = wordTimestamp
         	g.require(geminiAsrParamsFieldWordTimestamp)
         }
@@ -22984,3 +22990,4 @@ patches:
         	u.Properties = properties
         	u.require(updateAgentsRequestFieldProperties)
         }
+    user_owned: true
