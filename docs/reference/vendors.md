@@ -707,6 +707,26 @@ Panics if `ProjectID`, `Location`, `ADCCredentialsString`, or `Language` is empt
 | `Model` | `string` | No | Model identifier |
 | `AdditionalParams` | `map[string]interface{}` | No | Additional vendor params |
 
+### NewGeminiSTT
+
+<!-- snippet: fragment -->
+```go
+func NewGeminiSTT(opts GeminiSTTOptions) *GeminiSTT
+```
+
+Panics if `APIKey` or `Model` is empty.
+
+#### GeminiSTTOptions
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `APIKey` | `string` | Yes | Google Gemini API key |
+| `Model` | `string` | Yes | Gemini transcription model identifier |
+| `Language` | `string` | No | Recognition language code |
+| `SampleRate` | `*SampleRate` | No | Audio sample rate |
+| `WordTimestamp` | `*bool` | No | Include word-level timestamps |
+| `AdditionalParams` | `map[string]interface{}` | No | Additional vendor params |
+
 ### NewAmazonSTT
 
 <!-- snippet: fragment -->
