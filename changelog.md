@@ -10,10 +10,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 - **Generated filler words** — AgentKit now exposes generated filler content types and mode constants, including optional service-default generation and custom OpenAI-compatible filler LLM configuration.
 - **Inline LLM tools** — Global and mainland China LLM vendor options now accept typed `Tools` definitions for inline REST function calls. AgentKit exposes the generated `LlmTool` types, and tool execution is enabled with `WithTools(true)` alongside MCP tools.
+- **Global Gemini ASR** — `vendors.NewGeminiSTT` emits the generated `gemini` ASR schema with required `APIKey` and `Model`, plus optional `Language`, `SampleRate`, and `WordTimestamp` parameters.
 
 ### Changed
 
 - **Ares and Fengming STT parameters** — `Keywords` is emitted as top-level `asr.keywords`; `AdditionalParams` remains an unchanged passthrough map under `asr.params` for both providers.
+
+### Removed
+
+- **Gemini ASR preview implementation** — Removed the preview-only Gemini ASR vendor implementation, preview endpoint routing, and preview-specific configuration. Global Gemini ASR now uses the Fern-generated production schema through `vendors.NewGeminiSTT`.
 
 ## [v2.7.0] — 2026-08-26
 

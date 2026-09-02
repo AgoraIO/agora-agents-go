@@ -262,6 +262,56 @@ func (g *GoogleSTT) ToConfig() map[string]interface{} {
 	return config
 }
 
+// GeminiSTTOptions configures Gemini ASR.
+type GeminiSTTOptions struct {
+	APIKey           string
+	Model            string
+	Language         string
+	SampleRate       *SampleRate
+	WordTimestamp    *bool
+	AdditionalParams map[string]interface{}
+}
+
+// GeminiSTT configures Gemini speech recognition.
+type GeminiSTT struct {
+	options GeminiSTTOptions
+}
+
+// NewGeminiSTT creates a Gemini ASR configuration.
+func NewGeminiSTT(opts GeminiSTTOptions) *GeminiSTT {
+	if opts.APIKey == "" {
+		panic("GeminiSTT requires APIKey")
+	}
+	if opts.Model == "" {
+		panic("GeminiSTT requires Model")
+	}
+	return &GeminiSTT{options: opts}
+}
+
+// ToConfig returns the Gemini configuration expected by the API.
+func (g *GeminiSTT) ToConfig() map[string]interface{} {
+	params := map[string]interface{}{}
+	for key, value := range g.options.AdditionalParams {
+		params[key] = value
+	}
+	params["api_key"] = g.options.APIKey
+	params["model"] = g.options.Model
+	if g.options.Language != "" {
+		params["language"] = g.options.Language
+	}
+	if g.options.SampleRate != nil {
+		params["sample_rate"] = int(*g.options.SampleRate)
+	}
+	if g.options.WordTimestamp != nil {
+		params["word_timestamp"] = *g.options.WordTimestamp
+	}
+
+	return map[string]interface{}{
+		"vendor": "gemini",
+		"params": params,
+	}
+}
+
 type AmazonSTTOptions struct {
 	AccessKey        string
 	SecretKey        string

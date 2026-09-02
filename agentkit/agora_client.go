@@ -45,8 +45,6 @@ type AgoraClientOptions struct {
 	// The SDK sets "Authorization: agora token=<Token>" automatically.
 	// Mutually exclusive with CustomerID/CustomerSecret.
 	Token string
-	// HTTPClient overrides the transport used for requests.
-	HTTPClient core.HTTPClient
 }
 
 // AgoraClient wraps the Fern-generated client with AppID, AppCertificate, and
@@ -62,7 +60,6 @@ type AgoraClient struct {
 	appID           string
 	appCertificate  string
 	AuthMode        AuthMode
-	httpClient      core.HTTPClient
 }
 
 func (c *AgoraClient) AgentsClient() *agents.Client {
@@ -83,10 +80,6 @@ func (c *AgoraClient) AppCertificate() string {
 
 func (c *AgoraClient) IsAppCredentialsMode() bool {
 	return c.AuthMode == AuthModeAppCredentials
-}
-
-func (c *AgoraClient) HTTPClient() core.HTTPClient {
-	return c.httpClient
 }
 
 // NewAgoraClient creates a new AgoraClient with the given options.
@@ -119,9 +112,6 @@ func (c *AgoraClient) HTTPClient() core.HTTPClient {
 //	})
 func NewAgoraClient(opts AgoraClientOptions) *AgoraClient {
 	reqOpts := []option.RequestOption{option.WithArea(opts.Area)}
-	if opts.HTTPClient != nil {
-		reqOpts = append(reqOpts, option.WithHTTPClient(opts.HTTPClient))
-	}
 
 	authMode := AuthModeAppCredentials
 	if opts.CustomerID != "" {
@@ -141,7 +131,6 @@ func NewAgoraClient(opts AgoraClientOptions) *AgoraClient {
 		appID:           opts.AppID,
 		appCertificate:  opts.AppCertificate,
 		AuthMode:        authMode,
-		httpClient:      opts.HTTPClient,
 	}
 }
 

@@ -59,7 +59,6 @@ Requires Go 1.21 or later.
 | [Pagination](./guides/pagination.md) | Iterate over paginated list endpoints |
 | [Advanced](./guides/advanced.md) | Headers, retries, timeouts, raw response, custom HTTP client |
 | [Low-Level API](./guides/low-level-api.md) | Generated REST APIs |
-| [Preview Endpoint](./guides/preview-endpoint.md) | Automatic session-scoped preview routing and the `agora-feature` gate header |
 | [Client Reference](./reference/client.md) | Constructor options, public methods |
 | [Agent Reference](./reference/agent.md) | Full builder API |
 | [Session Reference](./reference/session.md) | All methods and payload types |

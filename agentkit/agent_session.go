@@ -51,8 +51,6 @@ type EventHandler func(data interface{})
 type AgentSession struct {
 	client          *agents.Client
 	agentManagement *agentmanagement.Client
-	httpClient      core.HTTPClient
-	routingOpts     []option.RequestOption
 	agent           agentcore.AgentRuntime
 	appID           string
 	appCertificate  string
@@ -78,7 +76,6 @@ type AgentSession struct {
 
 type AgentSessionOptions struct {
 	Client                *agents.Client
-	HTTPClient            core.HTTPClient
 	AgentManagementClient *agentmanagement.Client
 	Agent                 agentcore.AgentRuntime
 	AppID                 string
@@ -116,7 +113,6 @@ func NewAgentSession(opts AgentSessionOptions) *AgentSession {
 	return &AgentSession{
 		client:          opts.Client,
 		agentManagement: opts.AgentManagementClient,
-		httpClient:      opts.HTTPClient,
 		agent:           opts.Agent,
 		appID:           opts.AppID,
 		appCertificate:  opts.AppCertificate,
@@ -140,11 +136,8 @@ func NewAgentSession(opts AgentSessionOptions) *AgentSession {
 
 // convoAIRequestOpts returns per-request options with ConvoAI token when using app credentials.
 func (s *AgentSession) convoAIRequestOpts(ctx context.Context) ([]option.RequestOption, error) {
-	s.mu.RLock()
-	routingOpts := append([]option.RequestOption(nil), s.routingOpts...)
-	s.mu.RUnlock()
 	if !s.useAppCredsREST {
-		return routingOpts, nil
+		return nil, nil
 	}
 	if s.appCertificate == "" {
 		return nil, fmt.Errorf("appCertificate is required for app-credentials auth mode; pass AppCertificate when creating AgoraClient")
@@ -162,7 +155,7 @@ func (s *AgentSession) convoAIRequestOpts(ctx context.Context) ([]option.Request
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate ConvoAI token for app-credentials auth mode: %w", err)
 	}
-	return append([]option.RequestOption{option.WithToken(token)}, routingOpts...), nil
+	return []option.RequestOption{option.WithToken(token)}, nil
 }
 
 func (s *AgentSession) ID() string {
@@ -313,11 +306,6 @@ func (s *AgentSession) Start(ctx context.Context) (string, error) {
 		s.emit("error", err)
 		return "", err
 	}
-
-	previewFeatures := RequiredPreviewFeatures(resolvedProperties)
-	s.mu.Lock()
-	s.routingOpts = previewRequestOptions(previewFeatures, s.httpClient)
-	s.mu.Unlock()
 
 	if s.debug {
 		debugPayload := map[string]interface{}{

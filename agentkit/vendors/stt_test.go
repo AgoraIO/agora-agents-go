@@ -67,6 +67,105 @@ func TestGeneratedSpeechmaticsParamsNormalizesDeprecatedAPIKey(t *testing.T) {
 	}
 }
 
+func TestGeminiSTTMatchesGeneratedASRSchema(t *testing.T) {
+	wordTimestamp := true
+	sampleRate := SampleRate16kHz
+	config := NewGeminiSTT(GeminiSTTOptions{
+		APIKey:        "gemini-key",
+		Model:         "gemini-3.7-transcribe-live",
+		Language:      "en-US",
+		SampleRate:    &sampleRate,
+		WordTimestamp: &wordTimestamp,
+	}).ToConfig()
+
+	payload, err := json.Marshal(config)
+	if err != nil {
+		t.Fatalf("marshal Gemini config: %v", err)
+	}
+	var generated Agora.Asr
+	if err := json.Unmarshal(payload, &generated); err != nil {
+		t.Fatalf("unmarshal Gemini config into generated ASR: %v", err)
+	}
+	if generated.Gemini == nil || generated.Gemini.Params == nil {
+		t.Fatalf("generated Gemini params are nil: %#v", generated)
+	}
+
+	params := generated.Gemini.Params
+	if params.APIKey != "gemini-key" {
+		t.Fatalf("api_key = %q, want gemini-key", params.APIKey)
+	}
+	if params.Model != "gemini-3.7-transcribe-live" {
+		t.Fatalf("model = %q, want gemini-3.7-transcribe-live", params.Model)
+	}
+	if params.Language == nil || *params.Language != "en-US" {
+		t.Fatalf("language = %#v, want en-US", params.Language)
+	}
+	if params.SampleRate == nil || *params.SampleRate != 16000 {
+		t.Fatalf("sample_rate = %#v, want 16000", params.SampleRate)
+	}
+	if params.WordTimestamp == nil || !*params.WordTimestamp {
+		t.Fatalf("word_timestamp = %#v, want true", params.WordTimestamp)
+	}
+}
+
+func TestGeminiSTTExplicitFieldsOverrideAdditionalParams(t *testing.T) {
+	wordTimestamp := false
+	config := NewGeminiSTT(GeminiSTTOptions{
+		APIKey:        "gemini-key",
+		Model:         "gemini-3.7-transcribe-live",
+		Language:      "en-US",
+		WordTimestamp: &wordTimestamp,
+		AdditionalParams: map[string]interface{}{
+			"api_key":          "wrong-key",
+			"model":            "wrong-model",
+			"language":         "fr-FR",
+			"word_timestamp":   true,
+			"custom_parameter": "kept",
+		},
+	}).ToConfig()
+
+	params := config["params"].(map[string]interface{})
+	if params["api_key"] != "gemini-key" || params["model"] != "gemini-3.7-transcribe-live" {
+		t.Fatalf("explicit credentials/model did not win: %#v", params)
+	}
+	if params["language"] != "en-US" || params["word_timestamp"] != false {
+		t.Fatalf("explicit optional fields did not win: %#v", params)
+	}
+	if params["custom_parameter"] != "kept" {
+		t.Fatalf("additional parameter was lost: %#v", params)
+	}
+}
+
+func TestGeminiSTTRequiresGeneratedRequiredFields(t *testing.T) {
+	tests := []struct {
+		name      string
+		opts      GeminiSTTOptions
+		wantPanic string
+	}{
+		{
+			name:      "missing API key",
+			opts:      GeminiSTTOptions{Model: "gemini-3.7-transcribe-live"},
+			wantPanic: "GeminiSTT requires APIKey",
+		},
+		{
+			name:      "missing model",
+			opts:      GeminiSTTOptions{APIKey: "gemini-key"},
+			wantPanic: "GeminiSTT requires Model",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				if got := recover(); got != tt.wantPanic {
+					t.Fatalf("panic = %v, want %q", got, tt.wantPanic)
+				}
+			}()
+			NewGeminiSTT(tt.opts)
+		})
+	}
+}
+
 func TestAresSTTKeywordsMatchGeneratedASR(t *testing.T) {
 	wantKeywords := []string{"Agora", "ConvoAI"}
 	config := NewAresSTT(AresSTTOptions{
