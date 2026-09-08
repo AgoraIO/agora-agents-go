@@ -707,6 +707,31 @@ Panics if `ProjectID`, `Location`, `ADCCredentialsString`, or `Language` is empt
 | `Model` | `string` | No | Model identifier |
 | `AdditionalParams` | `map[string]interface{}` | No | Additional vendor params |
 
+### NewGeminiSTT
+
+<!-- snippet: fragment -->
+```go
+func NewGeminiSTT(opts GeminiSTTOptions) *GeminiSTT
+```
+
+Panics if `APIKey` is empty. `Model` defaults to `gemini-3.5-transcribe-live`.
+
+#### GeminiSTTOptions
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `APIKey` | `string` | Yes | Google Gemini API key |
+| `Model` | `string` | No | Gemini transcription model identifier; defaults to `gemini-3.5-transcribe-live` |
+| `Language` | `string` | No | Recognition language code |
+| `LanguageHints` | `[]string` | No | Candidate transcription languages, sent as `params.language_hints`; nil is omitted and an empty slice is sent explicitly |
+| `LanguageCodes` | `[]string` | No | Deprecated alias for `LanguageHints`; used only when `LanguageHints` is nil |
+| `CustomVocabulary` | `[]string` | No | Words and phrases used to bias recognition |
+| `SampleRate` | `int` | No | Audio sample rate; defaults to `16000` |
+| `WordTimestamp` | `*bool` | No | Include word-level timestamps |
+| `AdditionalParams` | `map[string]interface{}` | No | Additional vendor-specific parameters |
+
+`LanguageHints` takes precedence when both it and `LanguageCodes` are set. `CustomVocabulary` cannot be combined with `WordTimestamp: true`.
+
 ### NewAmazonSTT
 
 <!-- snippet: fragment -->

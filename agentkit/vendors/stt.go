@@ -262,6 +262,98 @@ func (g *GoogleSTT) ToConfig() map[string]interface{} {
 	return config
 }
 
+// GeminiSTTModel35Live is the default Gemini transcription model.
+//
+// The name is retained for compatibility with the Gemini ASR preview API.
+const GeminiSTTModel35Live = "gemini-3.5-transcribe-live"
+
+// GeminiSTTOptions configures [GeminiSTT].
+type GeminiSTTOptions struct {
+	// APIKey is the Google API key.
+	APIKey string
+	// Model is the transcription model. It defaults to GeminiSTTModel35Live.
+	Model string
+	// Language is the recognition language used by the global Gemini ASR API.
+	Language string
+	// LanguageHints are the languages the model should transcribe, sent as
+	// params.language_hints for the Gemini ASR extension.
+	// A nil slice is omitted; an empty non-nil slice is sent explicitly.
+	LanguageHints []string
+	// LanguageCodes are the languages the model should transcribe, sent as
+	// params.language_hints for the Gemini ASR extension.
+	// A nil slice is omitted; an empty non-nil slice is sent explicitly.
+	//
+	// Deprecated: Use LanguageHints instead.
+	LanguageCodes []string
+	// CustomVocabulary biases recognition toward supplied words and phrases.
+	CustomVocabulary []string
+	// SampleRate is the audio sample rate in Hz. It defaults to 16000.
+	SampleRate int
+	// WordTimestamp enables word-level timestamps. It is omitted when nil and
+	// cannot be true when CustomVocabulary is set.
+	WordTimestamp *bool
+	// AdditionalParams are additional vendor-specific parameters. Explicit
+	// option fields take precedence over values with the same wire key.
+	AdditionalParams map[string]interface{}
+}
+
+// GeminiSTT configures Gemini speech recognition.
+type GeminiSTT struct {
+	options GeminiSTTOptions
+}
+
+// NewGeminiSTT creates a Gemini ASR configuration.
+func NewGeminiSTT(opts GeminiSTTOptions) *GeminiSTT {
+	if opts.APIKey == "" {
+		panic("GeminiSTT requires APIKey")
+	}
+	return &GeminiSTT{options: opts}
+}
+
+// ToConfig returns the Gemini configuration expected by the API.
+func (g *GeminiSTT) ToConfig() map[string]interface{} {
+	model := g.options.Model
+	if model == "" {
+		model = GeminiSTTModel35Live
+	}
+	sampleRate := g.options.SampleRate
+	if sampleRate == 0 {
+		sampleRate = 16000
+	}
+
+	params := map[string]interface{}{}
+	for key, value := range g.options.AdditionalParams {
+		params[key] = value
+	}
+	params["api_key"] = g.options.APIKey
+	params["model"] = model
+	params["sample_rate"] = sampleRate
+	if g.options.Language != "" {
+		params["language"] = g.options.Language
+	}
+	if g.options.LanguageHints != nil {
+		params["language_hints"] = g.options.LanguageHints
+	} else if g.options.LanguageCodes != nil {
+		params["language_hints"] = g.options.LanguageCodes
+	}
+	if g.options.CustomVocabulary != nil {
+		params["custom_vocabulary"] = g.options.CustomVocabulary
+	}
+	if g.options.WordTimestamp != nil {
+		params["word_timestamp"] = *g.options.WordTimestamp
+	}
+	_, hasCustomVocabulary := params["custom_vocabulary"]
+	wordTimestamp, _ := params["word_timestamp"].(bool)
+	if hasCustomVocabulary && wordTimestamp {
+		panic("CustomVocabulary cannot be used with WordTimestamp=true")
+	}
+
+	return map[string]interface{}{
+		"vendor": "gemini",
+		"params": params,
+	}
+}
+
 type AmazonSTTOptions struct {
 	AccessKey        string
 	SecretKey        string
