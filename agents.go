@@ -4380,11 +4380,15 @@ func (g *GeminiAsr) String() string {
 
 // Google Gemini ASR configuration parameters.
 var (
-	geminiAsrParamsFieldAPIKey        = big.NewInt(1 << 0)
-	geminiAsrParamsFieldModel         = big.NewInt(1 << 1)
-	geminiAsrParamsFieldSampleRate    = big.NewInt(1 << 2)
-	geminiAsrParamsFieldLanguage      = big.NewInt(1 << 3)
-	geminiAsrParamsFieldWordTimestamp = big.NewInt(1 << 4)
+	geminiAsrParamsFieldAPIKey           = big.NewInt(1 << 0)
+	geminiAsrParamsFieldModel            = big.NewInt(1 << 1)
+	geminiAsrParamsFieldSampleRate       = big.NewInt(1 << 2)
+	geminiAsrParamsFieldLanguage         = big.NewInt(1 << 3)
+	geminiAsrParamsFieldLanguageHints    = big.NewInt(1 << 4)
+	geminiAsrParamsFieldCustomVocabulary = big.NewInt(1 << 5)
+	geminiAsrParamsFieldMode             = big.NewInt(1 << 6)
+	geminiAsrParamsFieldWordTimestamp    = big.NewInt(1 << 7)
+	geminiAsrParamsFieldDiarization      = big.NewInt(1 << 8)
 )
 
 type GeminiAsrParams struct {
@@ -4396,8 +4400,16 @@ type GeminiAsrParams struct {
 	SampleRate *int `json:"sample_rate,omitempty" url:"sample_rate,omitempty"`
 	// The language code for speech recognition. This takes precedence over the top-level `asr.language` value.
 	Language *string `json:"language,omitempty" url:"language,omitempty"`
-	// Whether to include word-level timestamps in the transcription results.
+	// Candidate language codes for transcription. When non-empty, these take precedence over language.
+	LanguageHints []string `json:"language_hints,omitempty" url:"language_hints,omitempty"`
+	// Words and phrases used to bias transcription. A non-empty custom vocabulary cannot be combined with word_timestamp.
+	CustomVocabulary []string `json:"custom_vocabulary,omitempty" url:"custom_vocabulary,omitempty"`
+	// Transcription output mode. SMART removes disfluencies and applies formatting; VERBATIM preserves literal speech. When omitted, the service defaults to VERBATIM. SMART cannot be combined with word_timestamp or diarization.
+	Mode *GeminiAsrParamsMode `json:"mode,omitempty" url:"mode,omitempty"`
+	// Whether to include word-level timestamps in the transcription results. Cannot be enabled when mode is SMART or custom_vocabulary is non-empty.
 	WordTimestamp *bool `json:"word_timestamp,omitempty" url:"word_timestamp,omitempty"`
+	// Whether to include speaker labels in the transcription results. Cannot be enabled when mode is SMART.
+	Diarization *bool `json:"diarization,omitempty" url:"diarization,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
 	explicitFields *big.Int `json:"-" url:"-"`
@@ -4435,11 +4447,39 @@ func (g *GeminiAsrParams) GetLanguage() *string {
 	return g.Language
 }
 
+func (g *GeminiAsrParams) GetLanguageHints() []string {
+	if g == nil {
+		return nil
+	}
+	return g.LanguageHints
+}
+
+func (g *GeminiAsrParams) GetCustomVocabulary() []string {
+	if g == nil {
+		return nil
+	}
+	return g.CustomVocabulary
+}
+
+func (g *GeminiAsrParams) GetMode() *GeminiAsrParamsMode {
+	if g == nil {
+		return nil
+	}
+	return g.Mode
+}
+
 func (g *GeminiAsrParams) GetWordTimestamp() *bool {
 	if g == nil {
 		return nil
 	}
 	return g.WordTimestamp
+}
+
+func (g *GeminiAsrParams) GetDiarization() *bool {
+	if g == nil {
+		return nil
+	}
+	return g.Diarization
 }
 
 func (g *GeminiAsrParams) GetExtraProperties() map[string]interface{} {
@@ -4481,11 +4521,39 @@ func (g *GeminiAsrParams) SetLanguage(language *string) {
 	g.require(geminiAsrParamsFieldLanguage)
 }
 
+// SetLanguageHints sets the LanguageHints field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiAsrParams) SetLanguageHints(languageHints []string) {
+	g.LanguageHints = languageHints
+	g.require(geminiAsrParamsFieldLanguageHints)
+}
+
+// SetCustomVocabulary sets the CustomVocabulary field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiAsrParams) SetCustomVocabulary(customVocabulary []string) {
+	g.CustomVocabulary = customVocabulary
+	g.require(geminiAsrParamsFieldCustomVocabulary)
+}
+
+// SetMode sets the Mode field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiAsrParams) SetMode(mode *GeminiAsrParamsMode) {
+	g.Mode = mode
+	g.require(geminiAsrParamsFieldMode)
+}
+
 // SetWordTimestamp sets the WordTimestamp field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
 func (g *GeminiAsrParams) SetWordTimestamp(wordTimestamp *bool) {
 	g.WordTimestamp = wordTimestamp
 	g.require(geminiAsrParamsFieldWordTimestamp)
+}
+
+// SetDiarization sets the Diarization field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiAsrParams) SetDiarization(diarization *bool) {
+	g.Diarization = diarization
+	g.require(geminiAsrParamsFieldDiarization)
 }
 
 func (g *GeminiAsrParams) UnmarshalJSON(data []byte) error {
@@ -4529,6 +4597,29 @@ func (g *GeminiAsrParams) String() string {
 		return value
 	}
 	return fmt.Sprintf("%#v", g)
+}
+
+// Transcription output mode. SMART removes disfluencies and applies formatting; VERBATIM preserves literal speech. When omitted, the service defaults to VERBATIM. SMART cannot be combined with word_timestamp or diarization.
+type GeminiAsrParamsMode string
+
+const (
+	GeminiAsrParamsModeSmart    GeminiAsrParamsMode = "SMART"
+	GeminiAsrParamsModeVerbatim GeminiAsrParamsMode = "VERBATIM"
+)
+
+func NewGeminiAsrParamsModeFromString(s string) (GeminiAsrParamsMode, error) {
+	switch s {
+	case "SMART":
+		return GeminiAsrParamsModeSmart, nil
+	case "VERBATIM":
+		return GeminiAsrParamsModeVerbatim, nil
+	}
+	var t GeminiAsrParamsMode
+	return "", fmt.Errorf("%s is not a valid %T", s, t)
+}
+
+func (g GeminiAsrParamsMode) Ptr() *GeminiAsrParamsMode {
+	return &g
 }
 
 // Generic OpenAI-compatible Text-to-Speech configuration.

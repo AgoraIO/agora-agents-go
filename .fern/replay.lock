@@ -54,14 +54,20 @@ generations:
     cli_version: unknown
     generator_versions:
       fernapi/fern-go-sdk: 1.16.5
-current_generation: 3b6b29fbb3893c6efac17f30948b69d6d5db6bdb
+  - commit_sha: 8c6c01bb892f8dfdec821e53b18424e98f17fca5
+    tree_hash: e71211b9528839b8f19f45c7ee835eeea25786bd
+    timestamp: 2026-09-09T15:13:36.663Z
+    cli_version: unknown
+    generator_versions:
+      fernapi/fern-go-sdk: 1.16.5
+current_generation: 8c6c01bb892f8dfdec821e53b18424e98f17fca5
 patches:
   - id: patch-69644e80
     content_hash: sha256:47e5dc31d5823a159b4c7abafc86d8b4ade17fd80b73df7b3e4d44bf17204f55
     original_commit: 69644e80506fa1c57bdb6b9a5dc5767a78f333ad
     original_message: "feat(core): add tests for Pool and RequestOptions with fixed base URL handling"
     original_author: seymourtang <tangxianmeng@live.com>
-    base_generation: 3b6b29fbb3893c6efac17f30948b69d6d5db6bdb
+    base_generation: 8c6c01bb892f8dfdec821e53b18424e98f17fca5
     files:
       - core/request_option_custom_test.go
     patch_content: |
@@ -349,7 +355,7 @@ patches:
     original_commit: eb09f0ee6aec94edb1cf24a833a35d98a9a35580
     original_message: "refactor(core): rename internal API base URL to configured base URL"
     original_author: seymourtang <tangxianmeng@live.com>
-    base_generation: 3b6b29fbb3893c6efac17f30948b69d6d5db6bdb
+    base_generation: 8c6c01bb892f8dfdec821e53b18424e98f17fca5
     files:
       - core/request_option_custom_test.go
     patch_content: |
@@ -633,19 +639,19 @@ patches:
         }
     user_owned: true
   - id: patch-dda5517e
-    content_hash: sha256:834becac5982e3e0c42308ce0a19f8ba5ed0823eed8155cbfffdc64a73c7db4f
+    content_hash: sha256:b84f244b3610100b5cf450306524cf2912e1453f6dfdc12a95b45c37acffb7fd
     original_commit: dda5517eb2c926b0de9b1fafac5763798586527d
     original_message: "fix(vendors): send Speechmatics STT key instead of api_key"
     original_author: digitallysavvy <hermes.frangoudis@gmail.com>
-    base_generation: 3b6b29fbb3893c6efac17f30948b69d6d5db6bdb
+    base_generation: 8c6c01bb892f8dfdec821e53b18424e98f17fca5
     files:
       - agents.go
     patch_content: |
       diff --git a/agents.go b/agents.go
-      index 744bbfe..97e553a 100644
+      index 0ebf682..6a78db7 100644
       --- a/agents.go
       +++ b/agents.go
-      @@ -12109,14 +12109,16 @@ func (s *SpeechmaticsAsr) String() string {
+      @@ -12200,14 +12200,16 @@ func (s *SpeechmaticsAsr) String() string {
        
        // Speechmatics ASR configuration parameters.
        var (
@@ -664,7 +670,7 @@ patches:
        	// Language code to use for transcription
        	Language string `json:"language" url:"language"`
        	// WebSocket URL for the Speechmatics streaming API
-      @@ -12130,13 +12132,21 @@ type SpeechmaticsAsrParams struct {
+      @@ -12221,13 +12223,21 @@ type SpeechmaticsAsrParams struct {
        	rawJSON json.RawMessage
        }
        
@@ -687,7 +693,7 @@ patches:
        func (s *SpeechmaticsAsrParams) GetLanguage() string {
        	if s == nil {
        		return ""
-      @@ -12162,11 +12172,19 @@ func (s *SpeechmaticsAsrParams) require(field *big.Int) {
+      @@ -12253,11 +12263,19 @@ func (s *SpeechmaticsAsrParams) require(field *big.Int) {
        	s.explicitFields.Or(s.explicitFields, field)
        }
        
@@ -709,7 +715,7 @@ patches:
        }
        
        // SetLanguage sets the Language field and marks it as non-optional;
-      @@ -12199,19 +12217,37 @@ func (s *SpeechmaticsAsrParams) UnmarshalJSON(data []byte) error {
+      @@ -12290,19 +12308,37 @@ func (s *SpeechmaticsAsrParams) UnmarshalJSON(data []byte) error {
        		return err
        	}
        	s.ExtraProperties = extraProperties
@@ -5133,11 +5139,15 @@ patches:
 
         // Google Gemini ASR configuration parameters.
         var (
-        	geminiAsrParamsFieldAPIKey        = big.NewInt(1 << 0)
-        	geminiAsrParamsFieldModel         = big.NewInt(1 << 1)
-        	geminiAsrParamsFieldSampleRate    = big.NewInt(1 << 2)
-        	geminiAsrParamsFieldLanguage      = big.NewInt(1 << 3)
-        	geminiAsrParamsFieldWordTimestamp = big.NewInt(1 << 4)
+        	geminiAsrParamsFieldAPIKey           = big.NewInt(1 << 0)
+        	geminiAsrParamsFieldModel            = big.NewInt(1 << 1)
+        	geminiAsrParamsFieldSampleRate       = big.NewInt(1 << 2)
+        	geminiAsrParamsFieldLanguage         = big.NewInt(1 << 3)
+        	geminiAsrParamsFieldLanguageHints    = big.NewInt(1 << 4)
+        	geminiAsrParamsFieldCustomVocabulary = big.NewInt(1 << 5)
+        	geminiAsrParamsFieldMode             = big.NewInt(1 << 6)
+        	geminiAsrParamsFieldWordTimestamp    = big.NewInt(1 << 7)
+        	geminiAsrParamsFieldDiarization      = big.NewInt(1 << 8)
         )
 
         type GeminiAsrParams struct {
@@ -5149,8 +5159,16 @@ patches:
         	SampleRate *int `json:"sample_rate,omitempty" url:"sample_rate,omitempty"`
         	// The language code for speech recognition. This takes precedence over the top-level `asr.language` value.
         	Language *string `json:"language,omitempty" url:"language,omitempty"`
-        	// Whether to include word-level timestamps in the transcription results.
+        	// Candidate language codes for transcription. When non-empty, these take precedence over language.
+        	LanguageHints []string `json:"language_hints,omitempty" url:"language_hints,omitempty"`
+        	// Words and phrases used to bias transcription. A non-empty custom vocabulary cannot be combined with word_timestamp.
+        	CustomVocabulary []string `json:"custom_vocabulary,omitempty" url:"custom_vocabulary,omitempty"`
+        	// Transcription output mode. SMART removes disfluencies and applies formatting; VERBATIM preserves literal speech. When omitted, the service defaults to VERBATIM. SMART cannot be combined with word_timestamp or diarization.
+        	Mode *GeminiAsrParamsMode `json:"mode,omitempty" url:"mode,omitempty"`
+        	// Whether to include word-level timestamps in the transcription results. Cannot be enabled when mode is SMART or custom_vocabulary is non-empty.
         	WordTimestamp *bool `json:"word_timestamp,omitempty" url:"word_timestamp,omitempty"`
+        	// Whether to include speaker labels in the transcription results. Cannot be enabled when mode is SMART.
+        	Diarization *bool `json:"diarization,omitempty" url:"diarization,omitempty"`
 
         	// Private bitmask of fields set to an explicit value and therefore not to be omitted
         	explicitFields *big.Int `json:"-" url:"-"`
@@ -5188,11 +5206,39 @@ patches:
         	return g.Language
         }
 
+        func (g *GeminiAsrParams) GetLanguageHints() []string {
+        	if g == nil {
+        		return nil
+        	}
+        	return g.LanguageHints
+        }
+
+        func (g *GeminiAsrParams) GetCustomVocabulary() []string {
+        	if g == nil {
+        		return nil
+        	}
+        	return g.CustomVocabulary
+        }
+
+        func (g *GeminiAsrParams) GetMode() *GeminiAsrParamsMode {
+        	if g == nil {
+        		return nil
+        	}
+        	return g.Mode
+        }
+
         func (g *GeminiAsrParams) GetWordTimestamp() *bool {
         	if g == nil {
         		return nil
         	}
         	return g.WordTimestamp
+        }
+
+        func (g *GeminiAsrParams) GetDiarization() *bool {
+        	if g == nil {
+        		return nil
+        	}
+        	return g.Diarization
         }
 
         func (g *GeminiAsrParams) GetExtraProperties() map[string]interface{} {
@@ -5234,11 +5280,39 @@ patches:
         	g.require(geminiAsrParamsFieldLanguage)
         }
 
+        // SetLanguageHints sets the LanguageHints field and marks it as non-optional;
+        // this prevents an empty or null value for this field from being omitted during serialization.
+        func (g *GeminiAsrParams) SetLanguageHints(languageHints []string) {
+        	g.LanguageHints = languageHints
+        	g.require(geminiAsrParamsFieldLanguageHints)
+        }
+
+        // SetCustomVocabulary sets the CustomVocabulary field and marks it as non-optional;
+        // this prevents an empty or null value for this field from being omitted during serialization.
+        func (g *GeminiAsrParams) SetCustomVocabulary(customVocabulary []string) {
+        	g.CustomVocabulary = customVocabulary
+        	g.require(geminiAsrParamsFieldCustomVocabulary)
+        }
+
+        // SetMode sets the Mode field and marks it as non-optional;
+        // this prevents an empty or null value for this field from being omitted during serialization.
+        func (g *GeminiAsrParams) SetMode(mode *GeminiAsrParamsMode) {
+        	g.Mode = mode
+        	g.require(geminiAsrParamsFieldMode)
+        }
+
         // SetWordTimestamp sets the WordTimestamp field and marks it as non-optional;
         // this prevents an empty or null value for this field from being omitted during serialization.
         func (g *GeminiAsrParams) SetWordTimestamp(wordTimestamp *bool) {
         	g.WordTimestamp = wordTimestamp
         	g.require(geminiAsrParamsFieldWordTimestamp)
+        }
+
+        // SetDiarization sets the Diarization field and marks it as non-optional;
+        // this prevents an empty or null value for this field from being omitted during serialization.
+        func (g *GeminiAsrParams) SetDiarization(diarization *bool) {
+        	g.Diarization = diarization
+        	g.require(geminiAsrParamsFieldDiarization)
         }
 
         func (g *GeminiAsrParams) UnmarshalJSON(data []byte) error {
@@ -5282,6 +5356,29 @@ patches:
         		return value
         	}
         	return fmt.Sprintf("%#v", g)
+        }
+
+        // Transcription output mode. SMART removes disfluencies and applies formatting; VERBATIM preserves literal speech. When omitted, the service defaults to VERBATIM. SMART cannot be combined with word_timestamp or diarization.
+        type GeminiAsrParamsMode string
+
+        const (
+        	GeminiAsrParamsModeSmart    GeminiAsrParamsMode = "SMART"
+        	GeminiAsrParamsModeVerbatim GeminiAsrParamsMode = "VERBATIM"
+        )
+
+        func NewGeminiAsrParamsModeFromString(s string) (GeminiAsrParamsMode, error) {
+        	switch s {
+        	case "SMART":
+        		return GeminiAsrParamsModeSmart, nil
+        	case "VERBATIM":
+        		return GeminiAsrParamsModeVerbatim, nil
+        	}
+        	var t GeminiAsrParamsMode
+        	return "", fmt.Errorf("%s is not a valid %T", s, t)
+        }
+
+        func (g GeminiAsrParamsMode) Ptr() *GeminiAsrParamsMode {
+        	return &g
         }
 
         // Generic OpenAI-compatible Text-to-Speech configuration.
