@@ -6911,7 +6911,7 @@ var (
 
 type LlmToolExecution struct {
 	// Execution mode. Phase 1a only accepts `sync`.
-	Mode *string `json:"mode,omitempty" url:"mode,omitempty"`
+	Mode *LlmToolExecutionMode `json:"mode,omitempty" url:"mode,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
 	explicitFields *big.Int `json:"-" url:"-"`
@@ -6934,9 +6934,20 @@ func (l *LlmToolExecution) require(field *big.Int) {
 
 // SetMode sets the Mode field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (l *LlmToolExecution) SetMode(mode *string) {
+func (l *LlmToolExecution) SetMode(mode *LlmToolExecutionMode) {
 	l.Mode = mode
 	l.require(llmToolExecutionFieldMode)
+}
+
+// LlmToolExecutionMode controls how an inline REST tool is executed.
+type LlmToolExecutionMode string
+
+const (
+	LlmToolExecutionModeSync LlmToolExecutionMode = "sync"
+)
+
+func (l LlmToolExecutionMode) Ptr() *LlmToolExecutionMode {
+	return &l
 }
 
 func (l *LlmToolExecution) UnmarshalJSON(data []byte) error {
@@ -17946,7 +17957,7 @@ type StartAgentsRequestPropertiesAdvancedFeatures struct {
 	EnableRtm *bool `json:"enable_rtm,omitempty" url:"enable_rtm,omitempty"`
 	// Enable Selective Attention Locking (SAL). When enabled, configure the `sal` field to set up speaker recognition or locking modes.
 	EnableSal *bool `json:"enable_sal,omitempty" url:"enable_sal,omitempty"`
-	// Enable tool invocation. When enabled, the agent can invoke tools provided by the MCP server to implement advanced functionality.
+	// Enable invocation for MCP servers and inline REST tools.
 	EnableTools *bool `json:"enable_tools,omitempty" url:"enable_tools,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
@@ -18476,7 +18487,7 @@ type StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig struct {
 	// System prompt used to generate a short filler phrase based on the last user message. The generated text should be conversational and must not answer the user's question.
 	Prompt *string `json:"prompt,omitempty" url:"prompt,omitempty"`
 	// Fallback strategy when generated filler text is not ready, fails, or returns empty text. Phase 1 only supports `static`.
-	FallbackStrategy *string `json:"fallback_strategy,omitempty" url:"fallback_strategy,omitempty"`
+	FallbackStrategy *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy `json:"fallback_strategy,omitempty" url:"fallback_strategy,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
 	explicitFields *big.Int `json:"-" url:"-"`
@@ -18526,9 +18537,20 @@ func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetPromp
 
 // SetFallbackStrategy sets the FallbackStrategy field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetFallbackStrategy(fallbackStrategy *string) {
+func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetFallbackStrategy(fallbackStrategy *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy) {
 	s.FallbackStrategy = fallbackStrategy
 	s.require(startAgentsRequestPropertiesFillerWordsContentGeneratedConfigFieldFallbackStrategy)
+}
+
+// StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy controls fallback behavior for generated filler words.
+type StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy string
+
+const (
+	StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategyStatic StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy = "static"
+)
+
+func (s StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy) Ptr() *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy {
+	return &s
 }
 
 func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) UnmarshalJSON(data []byte) error {

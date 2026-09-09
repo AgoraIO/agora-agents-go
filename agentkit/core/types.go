@@ -151,6 +151,7 @@ type (
 	LlmToolFunction           = Agora.LlmToolFunction
 	LlmToolFunctionParameters = Agora.LlmToolFunctionParameters
 	LlmToolExecution          = Agora.LlmToolExecution
+	LlmToolExecutionMode      = Agora.LlmToolExecutionMode
 	LlmToolServer             = Agora.LlmToolServer
 	LlmToolServerMethod       = Agora.LlmToolServerMethod
 )

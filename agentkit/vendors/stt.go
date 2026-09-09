@@ -371,6 +371,9 @@ func NewAresSTT(options ...AresSTTOptions) *AresSTT {
 	if len(options) == 1 {
 		opts = options[0]
 	}
+	if _, exists := opts.AdditionalParams["keywords"]; exists {
+		panic("NewAresSTT AdditionalParams must not contain keywords; use the Keywords field")
+	}
 	return &AresSTT{options: opts}
 }
 

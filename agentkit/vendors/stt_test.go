@@ -106,6 +106,15 @@ func TestAresSTTOmitsEmptyParams(t *testing.T) {
 	}
 }
 
+func TestAresSTTRejectsKeywordsInAdditionalParams(t *testing.T) {
+	defer func() {
+		if recovered := recover(); recovered == nil {
+			t.Fatal("expected NewAresSTT to reject keywords in AdditionalParams")
+		}
+	}()
+	NewAresSTT(AresSTTOptions{AdditionalParams: map[string]interface{}{"keywords": []string{"Agora"}}})
+}
+
 func TestAresSTTRejectsMultipleOptions(t *testing.T) {
 	defer func() {
 		if got := recover(); got != "NewAresSTT accepts at most one options value" {

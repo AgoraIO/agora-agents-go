@@ -13,7 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
-- **Ares and Fengming STT parameters** — `Keywords` is emitted as top-level `asr.keywords`; `AdditionalParams` remains an unchanged passthrough map under `asr.params` for both providers.
+- **Ares and Fengming STT parameters** — `Keywords` is emitted as top-level `asr.keywords`; other `AdditionalParams` remain under `asr.params`, while nested `AdditionalParams["keywords"]` is rejected to prevent ambiguous requests.
+- **Restricted single-value options** — Inline tool execution mode and generated filler fallback strategy now use named string types and exported constants instead of unrestricted string pointers.
 
 ## [v2.7.0] — 2026-08-26
 

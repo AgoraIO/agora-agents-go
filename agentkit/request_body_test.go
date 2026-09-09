@@ -133,7 +133,7 @@ func TestGeneratedFillerWordsPropertiesShape(t *testing.T) {
 							Params: map[string]interface{}{"model": "gpt-4o-mini"},
 						},
 						Prompt:           Agora.String("Reply with a short conversational filler phrase."),
-						FallbackStrategy: Agora.String(FillerWordsFallbackStrategyStatic),
+						FallbackStrategy: FillerWordsFallbackStrategyStatic.Ptr(),
 					},
 				},
 			},
