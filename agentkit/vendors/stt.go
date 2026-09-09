@@ -1,6 +1,10 @@
 package vendors
 
-import "strings"
+import (
+	"strings"
+
+	Agora "github.com/AgoraIO/agora-agents-go/v2"
+)
 
 type SpeechmaticsSTTOptions struct {
 	Key string
@@ -267,6 +271,16 @@ func (g *GoogleSTT) ToConfig() map[string]interface{} {
 // The name is retained for compatibility with the Gemini ASR preview API.
 const GeminiSTTModel35Live = "gemini-3.5-transcribe-live"
 
+// GeminiTranscriptionMode controls how Gemini formats ASR transcripts.
+type GeminiTranscriptionMode = Agora.GeminiAsrParamsMode
+
+const (
+	// GeminiTranscriptionModeSmart removes disfluencies and applies formatting.
+	GeminiTranscriptionModeSmart = Agora.GeminiAsrParamsModeSmart
+	// GeminiTranscriptionModeVerbatim preserves literal speech.
+	GeminiTranscriptionModeVerbatim = Agora.GeminiAsrParamsModeVerbatim
+)
+
 // GeminiSTTOptions configures [GeminiSTT].
 type GeminiSTTOptions struct {
 	// APIKey is the Google API key.
@@ -290,8 +304,15 @@ type GeminiSTTOptions struct {
 	// SampleRate is the audio sample rate in Hz. It defaults to 16000.
 	SampleRate int
 	// WordTimestamp enables word-level timestamps. It is omitted when nil and
-	// cannot be true when CustomVocabulary is set.
+	// cannot be true when CustomVocabulary is set or Mode is SMART.
 	WordTimestamp *bool
+	// Mode controls transcript cleanup and formatting. It is omitted when empty,
+	// leaving the service default of VERBATIM. SMART cannot be combined
+	// with WordTimestamp or Diarization.
+	Mode GeminiTranscriptionMode
+	// Diarization enables speaker labels. It is omitted when nil, treated as false
+	// during validation, and cannot be true when Mode is SMART.
+	Diarization *bool
 	// AdditionalParams are additional vendor-specific parameters. Explicit
 	// option fields take precedence over values with the same wire key.
 	AdditionalParams map[string]interface{}
@@ -307,6 +328,7 @@ func NewGeminiSTT(opts GeminiSTTOptions) *GeminiSTT {
 	if opts.APIKey == "" {
 		panic("GeminiSTT requires APIKey")
 	}
+	validateGeminiSTTOptions(opts)
 	return &GeminiSTT{options: opts}
 }
 
@@ -342,15 +364,39 @@ func (g *GeminiSTT) ToConfig() map[string]interface{} {
 	if g.options.WordTimestamp != nil {
 		params["word_timestamp"] = *g.options.WordTimestamp
 	}
-	_, hasCustomVocabulary := params["custom_vocabulary"]
-	wordTimestamp, _ := params["word_timestamp"].(bool)
-	if hasCustomVocabulary && wordTimestamp {
-		panic("CustomVocabulary cannot be used with WordTimestamp=true")
+	if g.options.Mode != "" {
+		params["mode"] = g.options.Mode
 	}
-
+	if g.options.Diarization != nil {
+		params["diarization"] = *g.options.Diarization
+	}
 	return map[string]interface{}{
 		"vendor": "gemini",
 		"params": params,
+	}
+}
+
+func validateGeminiSTTOptions(options GeminiSTTOptions) {
+	wordTimestamp := options.WordTimestamp != nil && *options.WordTimestamp
+	if len(options.CustomVocabulary) > 0 && wordTimestamp {
+		panic("CustomVocabulary cannot be used with WordTimestamp=true")
+	}
+
+	mode := options.Mode
+	if mode == "" {
+		mode = GeminiTranscriptionModeVerbatim
+	}
+	if _, err := Agora.NewGeminiAsrParamsModeFromString(string(mode)); err != nil {
+		panic("GeminiSTT Mode must be SMART or VERBATIM")
+	}
+	if mode != GeminiTranscriptionModeSmart {
+		return
+	}
+	if wordTimestamp {
+		panic("GeminiSTT Mode=SMART cannot be used with WordTimestamp=true")
+	}
+	if options.Diarization != nil && *options.Diarization {
+		panic("GeminiSTT Mode=SMART cannot be used with Diarization=true")
 	}
 }
 

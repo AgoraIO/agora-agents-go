@@ -724,6 +724,7 @@ func TestBYOKASRVendorShapes(t *testing.T) {
 
 	t.Run("Gemini", func(t *testing.T) {
 		wordTimestamp := false
+		diarization := true
 		agent := NewAgent(testAgoraClient()).
 			WithStt(vendors.NewGeminiSTT(vendors.GeminiSTTOptions{
 				APIKey:           "gemini-key",
@@ -733,6 +734,8 @@ func TestBYOKASRVendorShapes(t *testing.T) {
 				CustomVocabulary: []string{"Agora"},
 				SampleRate:       24000,
 				WordTimestamp:    &wordTimestamp,
+				Mode:             vendors.GeminiTranscriptionModeVerbatim,
+				Diarization:      &diarization,
 			}))
 		props, err := agent.ToPropertiesMap(asrOpts())
 		require.NoError(t, err)
@@ -747,6 +750,8 @@ func TestBYOKASRVendorShapes(t *testing.T) {
 		assert.Equal(t, []string{"Agora"}, p["custom_vocabulary"])
 		assert.Equal(t, 24000, p["sample_rate"])
 		assert.Equal(t, false, p["word_timestamp"])
+		assert.Equal(t, vendors.GeminiTranscriptionModeVerbatim, p["mode"])
+		assert.Equal(t, true, p["diarization"])
 	})
 
 	t.Run("Amazon", func(t *testing.T) {

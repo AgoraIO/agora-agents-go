@@ -69,12 +69,15 @@ func TestGeneratedSpeechmaticsParamsNormalizesDeprecatedAPIKey(t *testing.T) {
 
 func TestGeminiSTTMatchesGeneratedASRSchema(t *testing.T) {
 	wordTimestamp := true
+	diarization := true
 	config := NewGeminiSTT(GeminiSTTOptions{
 		APIKey:        "gemini-key",
 		Model:         "gemini-3.7-transcribe-live",
 		Language:      "en-US",
 		SampleRate:    16000,
 		WordTimestamp: &wordTimestamp,
+		Mode:          GeminiTranscriptionModeVerbatim,
+		Diarization:   &diarization,
 	}).ToConfig()
 
 	payload, err := json.Marshal(config)
@@ -104,6 +107,12 @@ func TestGeminiSTTMatchesGeneratedASRSchema(t *testing.T) {
 	}
 	if params.WordTimestamp == nil || !*params.WordTimestamp {
 		t.Fatalf("word_timestamp = %#v, want true", params.WordTimestamp)
+	}
+	if params.Mode == nil || *params.Mode != Agora.GeminiAsrParamsModeVerbatim {
+		t.Fatalf("mode = %#v, want VERBATIM", params.Mode)
+	}
+	if params.Diarization == nil || !*params.Diarization {
+		t.Fatalf("diarization = %#v, want true", params.Diarization)
 	}
 }
 
@@ -234,23 +243,143 @@ func TestGeminiSTTLanguageHintsTakePriorityOverLanguageCodes(t *testing.T) {
 	}
 }
 
-func TestGeminiSTTRejectsParameterConflict(t *testing.T) {
-	wordTimestamp := true
-	defer func() {
-		if got := recover(); got != "CustomVocabulary cannot be used with WordTimestamp=true" {
-			t.Fatalf("panic = %v", got)
-		}
-	}()
+func TestGeminiSTTRejectsParameterConflicts(t *testing.T) {
+	trueValue := true
+	tests := []struct {
+		name string
+		opts GeminiSTTOptions
+		want string
+	}{
+		{
+			name: "custom vocabulary with word timestamps",
+			opts: GeminiSTTOptions{
+				APIKey:           "gemini-key",
+				CustomVocabulary: []string{"Agora"},
+				WordTimestamp:    &trueValue,
+			},
+			want: "CustomVocabulary cannot be used with WordTimestamp=true",
+		},
+		{
+			name: "SMART with word timestamps",
+			opts: GeminiSTTOptions{
+				APIKey:        "gemini-key",
+				Mode:          GeminiTranscriptionModeSmart,
+				WordTimestamp: &trueValue,
+			},
+			want: "GeminiSTT Mode=SMART cannot be used with WordTimestamp=true",
+		},
+		{
+			name: "SMART with diarization",
+			opts: GeminiSTTOptions{
+				APIKey:      "gemini-key",
+				Mode:        GeminiTranscriptionModeSmart,
+				Diarization: &trueValue,
+			},
+			want: "GeminiSTT Mode=SMART cannot be used with Diarization=true",
+		},
+	}
 
-	NewGeminiSTT(GeminiSTTOptions{
-		APIKey:           "gemini-key",
-		CustomVocabulary: []string{"Agora"},
-		WordTimestamp:    &wordTimestamp,
-	}).ToConfig()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assertPanic(t, tt.want, func() {
+				NewGeminiSTT(tt.opts)
+			})
+		})
+	}
+}
+
+func TestGeminiSTTRejectsInvalidMode(t *testing.T) {
+	invalid := GeminiTranscriptionMode("INVALID")
+	assertPanic(t, "GeminiSTT Mode must be SMART or VERBATIM", func() {
+		NewGeminiSTT(GeminiSTTOptions{
+			APIKey: "gemini-key",
+			Mode:   invalid,
+		})
+	})
+}
+
+func TestGeminiSTTAcceptsSupportedParameterCombinations(t *testing.T) {
+	trueValue := true
+	tests := []struct {
+		name string
+		opts GeminiSTTOptions
+	}{
+		{
+			name: "SMART with custom vocabulary",
+			opts: GeminiSTTOptions{
+				APIKey:           "gemini-key",
+				CustomVocabulary: []string{"Agora"},
+				Mode:             GeminiTranscriptionModeSmart,
+			},
+		},
+		{
+			name: "VERBATIM with word timestamps and diarization",
+			opts: GeminiSTTOptions{
+				APIKey:        "gemini-key",
+				Mode:          GeminiTranscriptionModeVerbatim,
+				WordTimestamp: &trueValue,
+				Diarization:   &trueValue,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			NewGeminiSTT(tt.opts).ToConfig()
+		})
+	}
+}
+
+func TestGeminiSTTEmptyModeUsesVerbatimValidation(t *testing.T) {
+	wordTimestamp := true
+	params := NewGeminiSTT(GeminiSTTOptions{
+		APIKey:        "gemini-key",
+		WordTimestamp: &wordTimestamp,
+		Diarization:   &wordTimestamp,
+	}).ToConfig()["params"].(map[string]interface{})
+
+	if _, exists := params["mode"]; exists {
+		t.Fatalf("empty mode must be omitted: %#v", params)
+	}
+	if params["word_timestamp"] != true || params["diarization"] != true {
+		t.Fatalf("VERBATIM-compatible options were not preserved: %#v", params)
+	}
+}
+
+func TestGeminiSTTNilDiarizationUsesFalseForValidation(t *testing.T) {
+	params := NewGeminiSTT(GeminiSTTOptions{
+		APIKey: "gemini-key",
+		Mode:   GeminiTranscriptionModeSmart,
+	}).ToConfig()["params"].(map[string]interface{})
+
+	if _, exists := params["diarization"]; exists {
+		t.Fatalf("nil diarization must be omitted: %#v", params)
+	}
+}
+
+func TestGeminiSTTDoesNotValidateAdditionalParams(t *testing.T) {
+	params := NewGeminiSTT(GeminiSTTOptions{
+		APIKey: "gemini-key",
+		AdditionalParams: map[string]interface{}{
+			"custom_vocabulary": []string{"Agora"},
+			"word_timestamp":    true,
+			"mode":              "SMART",
+			"diarization":       true,
+		},
+	}).ToConfig()["params"].(map[string]interface{})
+
+	if params["mode"] != "SMART" || params["word_timestamp"] != true ||
+		!reflect.DeepEqual(params["custom_vocabulary"], []string{"Agora"}) {
+		t.Fatalf("additional params were not preserved: %#v", params)
+	}
+	if params["diarization"] != true {
+		t.Fatalf("additional diarization param was not preserved: %#v", params)
+	}
 }
 
 func TestGeminiSTTExplicitFieldsOverrideAdditionalParams(t *testing.T) {
 	wordTimestamp := false
+	diarization := false
 	config := NewGeminiSTT(GeminiSTTOptions{
 		APIKey:           "gemini-key",
 		Model:            "gemini-3.7-transcribe-live",
@@ -259,6 +388,8 @@ func TestGeminiSTTExplicitFieldsOverrideAdditionalParams(t *testing.T) {
 		LanguageCodes:    []string{"es-ES"},
 		CustomVocabulary: []string{"Agora"},
 		WordTimestamp:    &wordTimestamp,
+		Mode:             GeminiTranscriptionModeSmart,
+		Diarization:      &diarization,
 		AdditionalParams: map[string]interface{}{
 			"api_key":           "wrong-key",
 			"model":             "wrong-model",
@@ -266,6 +397,8 @@ func TestGeminiSTTExplicitFieldsOverrideAdditionalParams(t *testing.T) {
 			"language_hints":    []string{"fr-FR"},
 			"custom_vocabulary": []string{"wrong"},
 			"word_timestamp":    true,
+			"mode":              "VERBATIM",
+			"diarization":       true,
 			"custom_parameter":  "kept",
 		},
 	}).ToConfig()
@@ -274,8 +407,11 @@ func TestGeminiSTTExplicitFieldsOverrideAdditionalParams(t *testing.T) {
 	if params["api_key"] != "gemini-key" || params["model"] != "gemini-3.7-transcribe-live" {
 		t.Fatalf("explicit credentials/model did not win: %#v", params)
 	}
-	if params["language"] != "en-US" || params["word_timestamp"] != false {
+	if params["language"] != "en-US" || params["word_timestamp"] != false || params["diarization"] != false {
 		t.Fatalf("explicit optional fields did not win: %#v", params)
+	}
+	if params["mode"] != GeminiTranscriptionModeSmart {
+		t.Fatalf("explicit transcription mode did not win: %#v", params)
 	}
 	if !reflect.DeepEqual(params["language_hints"], []string{"en-US"}) ||
 		!reflect.DeepEqual(params["custom_vocabulary"], []string{"Agora"}) {

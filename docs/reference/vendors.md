@@ -727,10 +727,12 @@ Panics if `APIKey` is empty. `Model` defaults to `gemini-3.5-transcribe-live`.
 | `LanguageCodes` | `[]string` | No | Deprecated alias for `LanguageHints`; used only when `LanguageHints` is nil |
 | `CustomVocabulary` | `[]string` | No | Words and phrases used to bias recognition |
 | `SampleRate` | `int` | No | Audio sample rate; defaults to `16000` |
-| `WordTimestamp` | `*bool` | No | Include word-level timestamps |
+| `WordTimestamp` | `*bool` | No | Include word-level timestamps; incompatible with non-empty `CustomVocabulary` and SMART mode |
+| `Mode` | `GeminiTranscriptionMode` | No | `GeminiTranscriptionModeSmart` or `GeminiTranscriptionModeVerbatim`; an empty value is validated as VERBATIM and omitted from the request |
+| `Diarization` | `*bool` | No | Include speaker labels; nil is omitted and treated as `false` during validation; `true` is incompatible with SMART mode |
 | `AdditionalParams` | `map[string]interface{}` | No | Additional vendor-specific parameters |
 
-`LanguageHints` takes precedence when both it and `LanguageCodes` are set. `CustomVocabulary` cannot be combined with `WordTimestamp: true`.
+`LanguageHints` takes precedence when both it and `LanguageCodes` are set. `NewGeminiSTT` panics when `CustomVocabulary` is combined with `WordTimestamp: true`, or when SMART mode is combined with `WordTimestamp: true` or `Diarization: true`. `AdditionalParams` remains an unchecked passthrough map.
 
 ### NewAmazonSTT
 

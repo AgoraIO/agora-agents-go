@@ -134,7 +134,7 @@ Use `TurnDetectionConfig.Language` for Agora interaction language; it defaults t
 | `NewSarvamSTT` | `SarvamSTTOptions` | `APIKey`, `Language` |
 | `NewXaiSTT` | `XaiSTTOptions` | `APIKey` |
 
-For Gemini ASR, use `LanguageHints` for candidate transcription languages. The deprecated `LanguageCodes` field remains as a fallback and is ignored when `LanguageHints` is set.
+For Gemini ASR, use `LanguageHints` for candidate transcription languages. The deprecated `LanguageCodes` field remains as a fallback and is ignored when `LanguageHints` is set. `Mode` accepts the generated `GeminiTranscriptionModeSmart` and `GeminiTranscriptionModeVerbatim` values; SMART cannot be combined with word timestamps or diarization.
 
 For Ares, `Keywords` is emitted as top-level `asr.keywords`, while `AdditionalParams` is copied unchanged under `asr.params`.
 
