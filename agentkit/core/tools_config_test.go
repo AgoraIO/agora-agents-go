@@ -8,7 +8,8 @@ import (
 
 func TestLlmToolsSurviveAgentPropertiesBuildWithToolGate(t *testing.T) {
 	tool := &Agora.LlmTool{
-		Function: &Agora.LlmToolFunction{Name: "lookup"},
+		Function:  &Agora.LlmToolFunction{Name: "lookup"},
+		Execution: &Agora.LlmToolExecution{Mode: Agora.LlmToolExecutionModeSync.Ptr()},
 		Server: &Agora.LlmToolServer{
 			Method: Agora.LlmToolServerMethodGet,
 			URL:    "https://example.com/items/{{args.id}}",
@@ -35,5 +36,8 @@ func TestLlmToolsSurviveAgentPropertiesBuildWithToolGate(t *testing.T) {
 	llm := props["llm"].(map[string]interface{})
 	if _, ok := llm["tools"].([]*Agora.LlmTool); !ok {
 		t.Fatalf("llm.tools = %#v, want generated tool definitions", llm["tools"])
+	}
+	if tool.Execution.Mode == nil || *tool.Execution.Mode != Agora.LlmToolExecutionModeSync {
+		t.Fatalf("execution mode = %#v, want sync", tool.Execution.Mode)
 	}
 }
