@@ -12,7 +12,24 @@ Everything in this guide is temporary by design. When a preview provider goes GA
 
 ## Using a preview provider
 
-There are currently no providers registered for preview routing. Gemini ASR uses the production endpoint.
+OpenAI GPT Live is registered for preview routing with the `live-models` feature. Gemini ASR uses the production
+endpoint.
+
+```go
+agent := agentkit.NewAgent(client).WithMllm(
+    vendors.NewOpenAIGPTLive(vendors.OpenAIGPTLiveOptions{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Prompt: "Be concise",
+    }),
+)
+session := agent.CreateSession(agentkit.CreateSessionOptions{
+    Channel: "demo", AgentUID: "1", RemoteUIDs: []string{"100"},
+})
+agentID, err := session.Start(ctx)
+```
+
+This session uses the preview base URL and sends `agora-feature: live-models`. Gemini ASR sessions use the normal
+GA regional endpoint without that header.
 
 There is no separate preview client. On `Start`, the SDK calls `RequiredPreviewFeatures` on the resolved body. Preview sessions bind the preview base URL and gate transport for their full lifecycle; GA sessions keep production regional routing.
 
@@ -24,9 +41,10 @@ The gateway routes preview traffic on a single request header:
 agora-feature: <feature-name>
 ```
 
-| Constant               | Value           |
-| ---------------------- | --------------- |
-| `PreviewFeatureHeader` | `agora-feature` |
+| Constant                   | Value           |
+| -------------------------- | --------------- |
+| `PreviewFeatureHeader`     | `agora-feature` |
+| `PreviewFeatureLiveModels` | `live-models`   |
 
 The SDK derives the feature list from the resolved session body; callers do not select it manually.
 
@@ -83,13 +101,15 @@ The SDK cannot control the intake node, and this does not affect SDK users becau
 
 ## Session-scoped detection
 
-`RequiredPreviewFeatures` reads the resolved request body rather than the vendor types, so hand-written configs and preset-enriched bodies are covered too. It keys on `asr.vendor`, using `previewASRVendors` in `preview_client.go`.
+`RequiredPreviewFeatures` reads the resolved request body rather than the vendor types, so hand-written configs and preset-enriched bodies are covered too. GPT Live is detected from `mllm.vendor = "openai_gpt_live"`; future ASR preview vendors can be registered in `previewASRVendors`.
 
 Routing state is stored on the `AgentSession`, not `AgoraClient`. One client can therefore start GA and preview sessions without leaking the preview host or gate header between them.
 
 ## Preview vendors
 
-No providers are currently registered. Add provider-specific usage and wire-format guidance here when the next preview family is introduced.
+| Type               | Wire vendor                     | Default model                      |
+| ------------------ | ------------------------------- | ---------------------------------- |
+| `NewOpenAIGPTLive` | `mllm.vendor = "openai_gpt_live"` | `gpt-live-1-diamond-alpha`         |
 
 ## The vendor type is not the whole wire shape
 
@@ -116,7 +136,7 @@ So when a preview provider documents a field that appears in that table, putting
 `ToConfig()` returning the right map proves nothing about what ships, because the builder runs after it. Both checks are needed:
 
 1. A unit test on the vendor constructor, for the keys the vendor owns.
-2. An **end-to-end test that starts a session against a stub HTTP client and asserts on the captured request body** — the only check that sees the builder's injections. Add preview routing coverage alongside `agentkit/preview_client_test.go`.
+2. An **end-to-end test that starts a session against a stub HTTP client and asserts on the captured request body** — the only check that sees the builder's injections. Add preview routing coverage alongside `agentkit/preview_test.go`.
 
 The manual version is `Debug: true`, which logs the fully resolved body. Diff it against the payload the provider documented, key by key. A value sitting under a name the route ignores fails **silently** — no error, no validation complaint, the agent simply never greets. Go's `map[string]interface{}` bodies make this especially easy to miss: an unknown key is not a compile error, so nothing upstream of the gateway objects.
 
@@ -127,7 +147,7 @@ Wire parity across the three SDKs is a hard requirement, so a change here lands 
 The shared routing mechanism remains in `agentkit/preview_client.go`; provider-specific implementations can be removed independently when they reach production. To add a family:
 
 1. Add a `PreviewFeature*` constant in `preview_client.go`. The value is what goes in the `agora-feature` header.
-2. Add the vendor constructors to `vendors/preview.go`, returning the same config types as production vendors so the builder accepts them unchanged.
+2. Add a dedicated vendor implementation under `agentkit/vendors`, returning the same config shape as production vendors so the builder accepts it unchanged.
 3. Register the detection keys — for an ASR family, the vendor name in `previewASRVendors` — so `RequiredPreviewFeatures()` recognises configs that need the new family.
 4. **Diff the resolved request body against the payload the provider documented**, not the vendor constructor output — see [The vendor type is not the whole wire shape](#the-vendor-type-is-not-the-whole-wire-shape).
 5. Add an end-to-end test that starts a session and asserts on the captured body, alongside the vendor unit test.

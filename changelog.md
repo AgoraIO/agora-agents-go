@@ -16,6 +16,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - **Ares and Fengming STT parameters** — `Keywords` is emitted as top-level `asr.keywords`; other `AdditionalParams` remain under `asr.params`, while nested `AdditionalParams["keywords"]` is rejected to prevent ambiguous requests.
 - **Restricted single-value options** — Inline tool execution mode and generated filler fallback strategy now use named string types and exported constants instead of unrestricted string pointers.
 
+### Fixed
+
+- **GPT Live v3 contract selection** — `NewOpenAIGPTLive` now serializes `params.alpha_selector: "quicksilver=v3"` by default so preview workers consistently send the required OpenAI alpha header. Callers can still override the selector explicitly.
+
 ## [v2.7.0] — 2026-08-26
 
 ### Added
