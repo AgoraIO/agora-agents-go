@@ -33,7 +33,7 @@ Source: [github.com/AgoraIO/agora-agents-go](https://github.com/AgoraIO/agora-ag
 ## Installation
 
 ```sh
-go get github.com/AgoraIO/agora-agents-go/v2@v2.0.0
+go get github.com/AgoraIO/agora-agents-go/v2@latest
 ```
 
 Requires Go 1.21 or later.
