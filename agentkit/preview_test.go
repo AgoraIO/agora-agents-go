@@ -1,9 +1,11 @@
 package agentkit
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -66,7 +68,7 @@ func TestGeminiSTTSerialisesDocumentedASRShape(t *testing.T) {
 			"api_key": "test-google-api-key",
 			"model": "gemini-3.5-transcribe-live",
 			"sample_rate": 16000,
-			"language_codes": ["en-US"]
+			"language_hints": ["en-US"]
 		}
 	}`)
 }
@@ -92,18 +94,18 @@ func TestEmitsNoTopLevelLanguageOfItsOwn(t *testing.T) {
 	}
 }
 
-func TestLanguageCodesIsSentVerbatimWhenSupplied(t *testing.T) {
+func TestLegacyLanguageCodesMapToGALanguageHints(t *testing.T) {
 	single := vendors.NewGeminiSTT(vendors.GeminiSTTOptions{
 		APIKey:        previewAPIKey,
 		LanguageCodes: []string{"es-ES"},
 	}).ToConfig()
-	assertJSONEqual(t, single["params"].(map[string]interface{})["language_codes"], `["es-ES"]`)
+	assertJSONEqual(t, single["params"].(map[string]interface{})["language_hints"], `["es-ES"]`)
 
 	multiple := vendors.NewGeminiSTT(vendors.GeminiSTTOptions{
 		APIKey:        previewAPIKey,
 		LanguageCodes: []string{"en-US", "es-ES"},
 	}).ToConfig()
-	assertJSONEqual(t, multiple["params"].(map[string]interface{})["language_codes"], `["en-US","es-ES"]`)
+	assertJSONEqual(t, multiple["params"].(map[string]interface{})["language_hints"], `["en-US","es-ES"]`)
 }
 
 func TestExplicitEmptyLanguageCodesStillReachesTheWire(t *testing.T) {
@@ -114,7 +116,7 @@ func TestExplicitEmptyLanguageCodesStillReachesTheWire(t *testing.T) {
 		LanguageCodes: []string{},
 	}).ToConfig()
 
-	assertJSONEqual(t, config["params"].(map[string]interface{})["language_codes"], `[]`)
+	assertJSONEqual(t, config["params"].(map[string]interface{})["language_hints"], `[]`)
 }
 
 func TestCustomVocabularyIsSentOnlyWhenSupplied(t *testing.T) {
@@ -159,18 +161,6 @@ func TestCustomVocabularyRejectsEnabledWordTimestamps(t *testing.T) {
 			CustomVocabulary: []string{"Agora"},
 			WordTimestamp:    &explicitTrue,
 		},
-		"explicit empty vocabulary": {
-			APIKey:           previewAPIKey,
-			CustomVocabulary: []string{},
-			WordTimestamp:    &explicitTrue,
-		},
-		"additional params": {
-			APIKey: previewAPIKey,
-			AdditionalParams: map[string]interface{}{
-				"custom_vocabulary": []string{"Agora"},
-				"word_timestamp":    true,
-			},
-		},
 	}
 
 	for name, options := range tests {
@@ -202,7 +192,7 @@ func TestCustomVocabularyAllowsExplicitlyDisabledWordTimestamps(t *testing.T) {
 
 // --- Routing ----------------------------------------------------------------
 
-func newPreviewSession(rec *recordingClient) *AgentSession {
+func newGeminiASRSession(rec *recordingClient) *AgentSession {
 	client := newTestPreviewClient(rec)
 	agent := NewAgent(client).
 		WithStt(vendors.NewGeminiSTT(vendors.GeminiSTTOptions{APIKey: previewAPIKey})).
@@ -220,12 +210,19 @@ func newPreviewSession(rec *recordingClient) *AgentSession {
 	})
 }
 
-func TestNewAgoraClientRoutesPreviewSessionLifecycle(t *testing.T) {
+func TestGeminiASRSessionLifecycleUsesProductionRouting(t *testing.T) {
 	rec := &recordingClient{}
-	session := newPreviewSession(rec)
+	session := newGeminiASRSession(rec)
 	ctx := context.Background()
 	if _, err := session.Start(ctx); err != nil {
 		t.Fatal(err)
+	}
+	var startBody map[string]interface{}
+	if err := json.Unmarshal(rec.bodies[0], &startBody); err != nil {
+		t.Fatalf("decode start body: %v", err)
+	}
+	if got := startBody["appid"]; got != "81190c52971d4004b7244bdcd93e2f34" {
+		t.Errorf("start body appid = %v, want SDK app ID", got)
 	}
 	_ = session.Say(ctx, "hello", nil, nil)
 	_ = session.Interrupt(ctx)
@@ -240,21 +237,18 @@ func TestNewAgoraClientRoutesPreviewSessionLifecycle(t *testing.T) {
 		t.Fatalf("captured %d requests, want 9 lifecycle requests", len(rec.requests))
 	}
 	for i, req := range rec.requests {
-		if got := req.Header.Get(PreviewFeatureHeader); got != PreviewFeatureGeminiLive {
-			t.Errorf("request %d: %s = %q", i, PreviewFeatureHeader, got)
+		if got := req.Header.Get(PreviewFeatureHeader); got != "" {
+			t.Errorf("request %d: %s = %q, want no preview gate", i, PreviewFeatureHeader, got)
 		}
-		if !strings.HasPrefix(req.URL.String(), PreviewAPIBaseURL) {
-			t.Errorf("request %d went to %q, want preview host", i, req.URL)
+		if strings.HasPrefix(req.URL.String(), PreviewAPIBaseURL) {
+			t.Errorf("request %d unexpectedly used preview host: %s", i, req.URL)
 		}
 	}
 }
 
-func TestPerCallHeaderOptionCannotDropTheGate(t *testing.T) {
-	// option.WithHTTPHeader replaces the whole header map, so the gate is pinned
-	// below the option layer. A request that loses it is routed to production,
-	// where the preview providers do not exist.
+func TestGeminiASRSessionPreservesPerCallHeaders(t *testing.T) {
 	rec := &recordingClient{}
-	session := newPreviewSession(rec)
+	session := newGeminiASRSession(rec)
 	if _, err := session.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -269,8 +263,8 @@ func TestPerCallHeaderOptionCannotDropTheGate(t *testing.T) {
 	}, reqOpts...)
 
 	req := rec.requests[len(rec.requests)-1]
-	if got := req.Header.Get(PreviewFeatureHeader); got != "gemini-live" {
-		t.Errorf("%s = %q, want it to survive a per-call header option", PreviewFeatureHeader, got)
+	if got := req.Header.Get(PreviewFeatureHeader); got != "" {
+		t.Errorf("%s = %q, want no preview gate", PreviewFeatureHeader, got)
 	}
 	if got := req.Header.Get("x-custom"); got != "kept" {
 		t.Errorf("x-custom = %q, want %q", got, "kept")
@@ -313,10 +307,10 @@ func TestGASessionRemainsOnProductionRouting(t *testing.T) {
 
 // --- Preview feature detection ---------------------------------------------
 
-func TestRequiredPreviewFeaturesFlagsTheGeminiASRVendor(t *testing.T) {
+func TestRequiredPreviewFeaturesLeavesGeminiASROnGA(t *testing.T) {
 	asr := map[string]interface{}{"asr": map[string]interface{}{"vendor": "gemini"}}
-	if got := RequiredPreviewFeatures(asr); len(got) != 1 || got[0] != PreviewFeatureGeminiLive {
-		t.Errorf("RequiredPreviewFeatures(gemini asr) = %v, want [gemini-live]", got)
+	if got := RequiredPreviewFeatures(asr); len(got) != 0 {
+		t.Errorf("RequiredPreviewFeatures(gemini asr) = %v, want none", got)
 	}
 }
 
@@ -328,88 +322,126 @@ func TestRequiredPreviewFeaturesLeavesAGAPipelineAlone(t *testing.T) {
 	}
 }
 
-// --- Debug redaction --------------------------------------------------------
-
-func TestRedactSecretsWalksNestedStructures(t *testing.T) {
-	redacted := RedactSecrets(map[string]interface{}{
-		"appid": "81190c52971d4004b7244bdcd93e2f34",
-		"properties": map[string]interface{}{
-			"token": "007eJxTYKhsrH10",
-			"asr": map[string]interface{}{
-				"vendor": "gemini",
-				"params": map[string]interface{}{"api_key": previewAPIKey, "model": "m"},
-			},
-			"mcp_servers": []interface{}{
-				map[string]interface{}{"name": "a", "headers": map[string]interface{}{"authorization": "Bearer x"}},
-			},
-		},
-	})
-
-	assertJSONEqual(t, redacted, `{
-		"appid": "[REDACTED]",
-		"properties": {
-			"token": "[REDACTED]",
-			"asr": {"vendor": "gemini", "params": {"api_key": "[REDACTED]", "model": "m"}},
-			"mcp_servers": [{"name": "a", "headers": {"authorization": "[REDACTED]"}}]
-		}
-	}`)
-}
-
-func TestRedactSecretsCoversGeminiURLAndGoogleTTSCredentials(t *testing.T) {
-	redacted := RedactSecrets(map[string]interface{}{
-		"llm": map[string]interface{}{
-			"url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key=" + previewAPIKey,
-		},
-		"tts": map[string]interface{}{
-			"params": map[string]interface{}{"credentials": previewAPIKey},
-		},
-	})
-
-	got, _ := json.Marshal(redacted)
-	if strings.Contains(string(got), previewAPIKey) {
-		t.Errorf("live Google key leaked into debug dump: %s", got)
+func TestDebugHTTPClientLogsFinalRedactedRequest(t *testing.T) {
+	// The debug client must be below the preview gate: users need to see the
+	// actual endpoint and feature header, not the partial request assembled by
+	// AgentSession before routing options run.
+	recorder := &recordingClient{}
+	client := &previewGateClient{
+		features: PreviewFeatureLiveModels,
+		inner:    &debugHTTPClient{inner: recorder},
 	}
-}
-
-func TestRedactSecretsLeavesEmptyValuesVisible(t *testing.T) {
-	// "" is the signature of an unset env var and must stay diagnosable.
-	redacted := RedactSecrets(map[string]interface{}{"params": map[string]interface{}{"api_key": ""}})
-
-	assertJSONEqual(t, redacted, `{"params": {"api_key": ""}}`)
-}
-
-func TestRedactSecretsDoesNotMutateInput(t *testing.T) {
-	params := map[string]interface{}{"api_key": previewAPIKey}
-	original := map[string]interface{}{"asr": map[string]interface{}{"params": params}}
-
-	RedactSecrets(original)
-
-	if params["api_key"] != previewAPIKey {
-		t.Errorf("input mutated: api_key = %v", params["api_key"])
-	}
-}
-
-// --- helpers ----------------------------------------------------------------
-
-func assertJSONEqual(t *testing.T, got interface{}, wantJSON string) {
-	t.Helper()
-
-	gotBytes, err := json.Marshal(got)
+	body := `{"appid":"secret-app-id","properties":{"mllm":{"api_key":"secret-api-key"}}}`
+	req, err := http.NewRequest(http.MethodPost, PreviewAPIBaseURL+"/v1/projects/apps/app-1/agents?key=url-secret", strings.NewReader(body))
 	if err != nil {
-		t.Fatalf("marshal got: %v", err)
+		t.Fatal(err)
 	}
-	var gotAny, wantAny interface{}
-	if err := json.Unmarshal(gotBytes, &gotAny); err != nil {
-		t.Fatalf("unmarshal got: %v", err)
+	req.Header.Set("Authorization", "Bearer secret-token")
+	req.Header.Set("X-Goog-Api-Key", "google-secret")
+	req.Header.Set("X-Request-ID", "trace-123")
+
+	var output bytes.Buffer
+	previousOutput := log.Writer()
+	log.SetOutput(&output)
+	t.Cleanup(func() { log.SetOutput(previousOutput) })
+
+	response, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if err := json.Unmarshal([]byte(wantJSON), &wantAny); err != nil {
-		t.Fatalf("unmarshal want: %v", err)
+	_ = response.Body.Close()
+
+	got := output.String()
+	for _, secret := range []string{"secret-app-id", "secret-api-key", "secret-token", "google-secret", "url-secret", "app-1"} {
+		if strings.Contains(got, secret) {
+			t.Errorf("debug request log leaked %q: %s", secret, got)
+		}
 	}
-	gotNorm, _ := json.Marshal(gotAny)
-	wantNorm, _ := json.Marshal(wantAny)
-	if string(gotNorm) != string(wantNorm) {
-		t.Errorf("wire shape mismatch\n got: %s\nwant: %s", gotNorm, wantNorm)
+	for _, want := range []string{
+		`"method":"POST"`,
+		PreviewAPIBaseURL + "/v1/projects/apps/%5BREDACTED%5D/agents",
+		`"agora-feature":["live-models"]`,
+		`"x-request-id":["trace-123"]`,
+		`"api_key":"[REDACTED]"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("debug request log missing %q: %s", want, got)
+		}
+	}
+	if len(recorder.bodies) != 1 || string(recorder.bodies[0]) != body {
+		t.Errorf("debug logging changed body delivered to transport: %q", recorder.bodies)
 	}
 }
 
 // --- Preview wire-shape translation -----------------------------------------
+
+func TestGPTLiveJSONHeadersAreRedacted(t *testing.T) {
+	config := map[string]interface{}{"params": map[string]interface{}{"headers": `{"Authorization":"private-value"}`}}
+	redacted := RedactSecrets(config).(map[string]interface{})
+	if redacted["params"].(map[string]interface{})["headers"] != Redacted {
+		t.Fatal("JSON headers leaked")
+	}
+	if config["params"].(map[string]interface{})["headers"] != `{"Authorization":"private-value"}` {
+		t.Fatal("mutated headers")
+	}
+}
+
+func TestDebugLoggerLeavesNonReplayableBodyUntouched(t *testing.T) {
+	body := io.NopCloser(strings.NewReader(`{"test":true}`))
+	req, err := http.NewRequest(http.MethodPost, "https://example.test", body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.GetBody != nil {
+		t.Fatal("test requires a non-replayable body")
+	}
+	_, err = readRequestBody(req)
+	if err == nil {
+		t.Fatal("expected unavailable-body error")
+	}
+	got, err := io.ReadAll(req.Body)
+	if err != nil || string(got) != `{"test":true}` {
+		t.Fatalf("debug read consumed body: %s, %v", got, err)
+	}
+}
+
+func TestGPTLiveV3RoutesSessionLifecycle(t *testing.T) {
+	rec := &recordingClient{}
+	zero := 0
+	session := NewAgent(newTestPreviewClient(rec)).WithMllm(vendors.NewOpenAIGPTLive(vendors.OpenAIGPTLiveOptions{
+		APIKey: "test", Prompt: "Be brief", OutputIdleEndMs: &zero,
+	})).CreateSession(CreateSessionOptions{Channel: "preview", AgentUID: "1", RemoteUIDs: []string{"100"}})
+	ctx := context.Background()
+	if _, err := session.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := session.Say(ctx, "hello", nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := session.Interrupt(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := session.GetHistory(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := session.Stop(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if len(rec.requests) != 5 {
+		t.Fatalf("got %d requests", len(rec.requests))
+	}
+	for _, req := range rec.requests {
+		if req.Header.Get(PreviewFeatureHeader) != PreviewFeatureLiveModels || !strings.HasPrefix(req.URL.String(), PreviewAPIBaseURL) {
+			t.Fatal("lost preview route")
+		}
+	}
+	var body map[string]interface{}
+	if err := json.Unmarshal(rec.bodies[0], &body); err != nil {
+		t.Fatal(err)
+	}
+	mllm := body["properties"].(map[string]interface{})["mllm"].(map[string]interface{})
+	if mllm["enable"] != true || mllm["url"] != "wss://api.openai.com/v1/live/sessions" {
+		t.Fatalf("mllm = %#v", mllm)
+	}
+	assertJSONEqual(t, mllm["params"], `{"model":"gpt-live-1-diamond-alpha","alpha_selector":"quicksilver=v3","prompt":"Be brief","output_idle_end_ms":0}`)
+}

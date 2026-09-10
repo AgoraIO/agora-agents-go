@@ -12,52 +12,39 @@ Everything in this guide is temporary by design. When a preview provider goes GA
 
 ## Using a preview provider
 
+OpenAI GPT Live is registered for preview routing with the `live-models` feature. Gemini ASR uses the production
+endpoint.
+
 ```go
-client := agentkit.NewAgoraClient(agentkit.AgoraClientOptions{
-    Area:           option.AreaUS,
-    AppID:          os.Getenv("AGORA_APP_ID"),
-    AppCertificate: os.Getenv("AGORA_APP_CERTIFICATE"),
-})
-
-agent := agentkit.NewAgent(client).
-    WithStt(vendors.NewGeminiSTT(vendors.GeminiSTTOptions{
-        APIKey:        os.Getenv("GOOGLE_API_KEY"),
-        LanguageCodes: []string{"en-US"},
-    })).
-    WithLlm(vendors.NewGemini(vendors.GeminiOptions{
-        APIKey: os.Getenv("GOOGLE_API_KEY"),
-        Model:  "gemini-2.0-flash",
-    })).
-    WithTts(vendors.NewGoogleTTS(vendors.GoogleTTSOptions{
-        Key:          os.Getenv("GOOGLE_API_KEY"),
-        VoiceName:    "en-US-Chirp3-HD-Charon",
-        LanguageCode: "en-US",
-    }))
-
+agent := agentkit.NewAgent(client).WithMllm(
+    vendors.NewOpenAIGPTLive(vendors.OpenAIGPTLiveOptions{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Prompt: "Be concise",
+    }),
+)
 session := agent.CreateSession(agentkit.CreateSessionOptions{
-    Channel:    "demo",
-    AgentUID:   "1",
-    RemoteUIDs: []string{"100"},
+    Channel: "demo", AgentUID: "1", RemoteUIDs: []string{"100"},
 })
 agentID, err := session.Start(ctx)
 ```
 
-There is no separate preview client. On `Start`, the SDK calls `RequiredPreviewFeatures` on the resolved body. Preview sessions bind the preview base URL and gate transport for their full lifecycle; GA sessions keep production regional routing.
+This session uses the preview base URL and sends `agora-feature: live-models`. Gemini ASR sessions use the normal
+GA regional endpoint without that header.
 
-The sample above is compiled as `ExampleNewAgoraClient_previewRouting` in `agentkit/preview_example_test.go`, so it cannot drift from the API.
+There is no separate preview client. On `Start`, the SDK calls `RequiredPreviewFeatures` on the resolved body. Preview sessions bind the preview base URL and gate transport for their full lifecycle; GA sessions keep production regional routing.
 
 ## The gate header
 
 The gateway routes preview traffic on a single request header:
 
 ```
-agora-feature: gemini-live
+agora-feature: <feature-name>
 ```
 
 | Constant                   | Value           |
 | -------------------------- | --------------- |
 | `PreviewFeatureHeader`     | `agora-feature` |
-| `PreviewFeatureGeminiLive` | `gemini-live`   |
+| `PreviewFeatureLiveModels` | `live-models`   |
 
 The SDK derives the feature list from the resolved session body; callers do not select it manually.
 
@@ -99,8 +86,6 @@ The gateway decides where a request goes before it validates the body. That prod
 
 The 503 is the one that misleads. It reads as a partner-side outage and invites waiting it out, when the fix is usually a one-line header change.
 
-Observed on the `gemini-live` rollout in August 2026, when the gateway had not yet been configured to route on `agora-feature` and every request fell through to a 503. That was fixed server-side on 2026-08-09, so the 503 is not currently reproducible — the mapping is recorded here because it is the failure signature a newly provisioned preview family is most likely to hit first.
-
 ### Diagnosing without starting a billable agent
 
 Two probes, neither of which allocates an agent:
@@ -116,71 +101,15 @@ The SDK cannot control the intake node, and this does not affect SDK users becau
 
 ## Session-scoped detection
 
-`RequiredPreviewFeatures` reads the resolved request body rather than the vendor types, so hand-written configs and preset-enriched bodies are covered too. It keys on `asr.vendor`, using `previewASRVendors` in `preview_client.go`.
+`RequiredPreviewFeatures` reads the resolved request body rather than the vendor types, so hand-written configs and preset-enriched bodies are covered too. GPT Live is detected from `mllm.vendor = "openai_gpt_live"`; future ASR preview vendors can be registered in `previewASRVendors`.
 
 Routing state is stored on the `AgentSession`, not `AgoraClient`. One client can therefore start GA and preview sessions without leaking the preview host or gate header between them.
 
 ## Preview vendors
 
-| Type           | Wire vendor             | Model                        |
-| -------------- | ----------------------- | ---------------------------- |
-| `NewGeminiSTT` | `asr.vendor = "gemini"` | `gemini-3.5-transcribe-live` |
-
-`NewGeminiSTT` is an ASR stage, so it needs an LLM and a TTS vendor alongside it. The sample above uses Gemini LLM and Google TTS with the same Google API key. Mixing in other vendors is still valid; preview routing only triggers on `asr.vendor`.
-
-### ASR language selection
-
-Gemini Transcribe takes `params.language_codes`, an **array**, in place of the singular `params.language` other ASR vendors use.
-
-```go
-// Auto-detect (the default) — language_codes is not sent at all
-vendors.NewGeminiSTT(vendors.GeminiSTTOptions{APIKey: apiKey})
-
-// Commit to one language
-vendors.NewGeminiSTT(vendors.GeminiSTTOptions{
-    APIKey:        apiKey,
-    LanguageCodes: []string{"en-US"},
-})
-
-// Let the model choose between several
-vendors.NewGeminiSTT(vendors.GeminiSTTOptions{
-    APIKey:        apiKey,
-    LanguageCodes: []string{"en-US", "es-ES"},
-})
-
-// Auto-detect, stated outright
-vendors.NewGeminiSTT(vendors.GeminiSTTOptions{
-    APIKey:        apiKey,
-    LanguageCodes: []string{},
-})
-```
-
-`LanguageCodes` is omitted from the request unless you supply it, which is how the provider spells auto-detect. Omitting the field and sending `[]` mean the same thing — nil versus empty is the distinction in Go: a `nil` slice omits `language_codes`, an empty-but-non-nil slice reaches the wire as `[]`.
-
-`GeminiSTTOptions` has **no `Language` field**. The `Agent` always derives the top-level `asr.language` from the turn detection language — as it does for every STT vendor — so a vendor-level copy would be a no-op the builder overwrites. Set the interaction language on turn detection, and the transcription languages on `LanguageCodes`; they are separate settings and neither feeds the other.
-
-| Setting                 | Where it belongs              | What it controls            |
-| ----------------------- | ----------------------------- | --------------------------- |
-| interaction language    | turn detection `Language`     | top-level `asr.language`    |
-| transcription languages | `LanguageCodes` on the vendor | `asr.params.language_codes` |
-
-`CustomVocabulary` biases recognition toward words the model would otherwise mis-hear — product names, jargon, proper nouns. It is omitted from the request entirely when nil.
-
-```go
-vendors.NewGeminiSTT(vendors.GeminiSTTOptions{
-    APIKey:           apiKey,
-    CustomVocabulary: []string{"Agora", "Kubernetes"},
-})
-```
-
-`WordTimestamp` is also omitted unless you set its pointer explicitly. Gemini does not support enabled word timestamps together with `CustomVocabulary`, so `ToConfig()` panics if both are requested. Explicit `WordTimestamp: Agora.Bool(false)` remains compatible with custom vocabulary.
-
-```go
-vendors.NewGeminiSTT(vendors.GeminiSTTOptions{
-    APIKey:        apiKey,
-    WordTimestamp: Agora.Bool(true),
-})
-```
+| Type               | Wire vendor                     | Default model                      |
+| ------------------ | ------------------------------- | ---------------------------------- |
+| `NewOpenAIGPTLive` | `mllm.vendor = "openai_gpt_live"` | `gpt-live-1-diamond-alpha`         |
 
 ## The vendor type is not the whole wire shape
 
@@ -198,16 +127,16 @@ Every field the builder injects is listed below. Each one is a candidate for a s
 
 So when a preview provider documents a field that appears in that table, putting it on the vendor options struct is not the whole fix. One of three things applies:
 
-- **The builder always overwrites it** (`asr.language`) — do not expose it on the options struct at all; it would be a field the builder silently discards. `GeminiSTTOptions` has no `Language` for exactly this reason.
+- **The builder always overwrites it** (`asr.language`) — confirm whether a vendor-level option belongs under `asr.params` instead.
 - **It is an Agora engine field rather than the provider's** (`failure_message`) — leave it in the schema spelling.
-- **The preview route spells it differently** — the translation belongs in `preview_client.go`, applied at session start, so it disappears with that file at GA rather than leaving a vestigial hook in the shared builder. Nothing in this release needs one, but a future preview family may.
+- **The preview route spells it differently** — keep any preview-only translation isolated from the shared builder so it can be removed when that provider reaches production.
 
 ### Verify against the request body, not the vendor output
 
 `ToConfig()` returning the right map proves nothing about what ships, because the builder runs after it. Both checks are needed:
 
 1. A unit test on the vendor constructor, for the keys the vendor owns.
-2. An **end-to-end test that starts a session against a stub HTTP client and asserts on the captured request body** — the only check that sees the builder's injections. Every preview vendor has one in `agentkit/preview_test.go`.
+2. An **end-to-end test that starts a session against a stub HTTP client and asserts on the captured request body** — the only check that sees the builder's injections. Add preview routing coverage alongside `agentkit/preview_test.go`.
 
 The manual version is `Debug: true`, which logs the fully resolved body. Diff it against the payload the provider documented, key by key. A value sitting under a name the route ignores fails **silently** — no error, no validation complaint, the agent simply never greets. Go's `map[string]interface{}` bodies make this especially easy to miss: an unknown key is not a compile error, so nothing upstream of the gateway objects.
 
@@ -215,15 +144,15 @@ Wire parity across the three SDKs is a hard requirement, so a change here lands 
 
 ## Adding a future preview family
 
-Everything preview-only lives in `agentkit/preview_client.go` and `agentkit/vendors/preview.go` so it can be deleted wholesale at GA. To add a family:
+The shared routing mechanism remains in `agentkit/preview_client.go`; provider-specific implementations can be removed independently when they reach production. To add a family:
 
-1. Add a `PreviewFeature*` constant in `preview_client.go` alongside `PreviewFeatureGeminiLive`. The value is what goes in the `agora-feature` header.
-2. Add the vendor constructors to `vendors/preview.go`, returning the same config types as production vendors so the builder accepts them unchanged.
+1. Add a `PreviewFeature*` constant in `preview_client.go`. The value is what goes in the `agora-feature` header.
+2. Add a dedicated vendor implementation under `agentkit/vendors`, returning the same config shape as production vendors so the builder accepts it unchanged.
 3. Register the detection keys — for an ASR family, the vendor name in `previewASRVendors` — so `RequiredPreviewFeatures()` recognises configs that need the new family.
 4. **Diff the resolved request body against the payload the provider documented**, not the vendor constructor output — see [The vendor type is not the whole wire shape](#the-vendor-type-is-not-the-whole-wire-shape).
 5. Add an end-to-end test that starts a session and asserts on the captured body, alongside the vendor unit test.
 
-Generated files are overwritten on the next Fern run; `.fernignore` protects `agentkit/`. At GA, delete the preview files and move the vendor constructors into `vendors/stt.go`.
+Generated files are overwritten on the next Fern run; `.fernignore` protects `agentkit/`. At GA, remove the provider's registry entry and move its constructor into the appropriate production vendor file.
 
 ## Base URL
 

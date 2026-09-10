@@ -13,9 +13,9 @@ import (
 // Preview providers are detected from the resolved start body. AgentSession
 // then pins their gate header and base URL to every request in that session.
 //
-// Everything in preview_client.go and vendors/preview.go is temporary. When
-// these providers ship on the production gateway, delete both files and move
-// the vendor types into vendors/stt.go.
+// Preview registrations are temporary. When a provider ships on the production
+// gateway, remove its registration and move its implementation into the
+// corresponding production vendor module.
 
 // PreviewAPIBaseURL is the base URL that serves the preview providers.
 const PreviewAPIBaseURL = "https://partner.ai.agora.io/preview/api/conversational-ai-agent"
@@ -28,7 +28,13 @@ const PreviewAPIBaseURL = "https://partner.ai.agora.io/preview/api/conversationa
 const PreviewFeatureHeader = "agora-feature"
 
 // PreviewFeatureGeminiLive gates the Gemini 3.5 Transcribe ASR provider.
+//
+// Deprecated: Gemini ASR is available through the production endpoint. This
+// value remains for source compatibility with the former preview API.
 const PreviewFeatureGeminiLive = "gemini-live"
+
+// PreviewFeatureLiveModels gates the OpenAI GPT Live MLLM provider.
+const PreviewFeatureLiveModels = "live-models"
 
 // previewGateClient pins the gate header onto every request.
 //
@@ -45,12 +51,18 @@ func (p *previewGateClient) Do(req *http.Request) (*http.Response, error) {
 	return p.inner.Do(req)
 }
 
-func previewRequestOptions(features []string, inner core.HTTPClient) []option.RequestOption {
-	if len(features) == 0 {
+func previewRequestOptions(features []string, inner core.HTTPClient, debug bool) []option.RequestOption {
+	if len(features) == 0 && !debug {
 		return nil
 	}
 	if inner == nil {
 		inner = http.DefaultClient
+	}
+	if debug {
+		inner = &debugHTTPClient{inner: inner}
+	}
+	if len(features) == 0 {
+		return []option.RequestOption{option.WithHTTPClient(inner)}
 	}
 	return []option.RequestOption{
 		option.WithBaseURL(PreviewAPIBaseURL),
@@ -59,8 +71,11 @@ func previewRequestOptions(features []string, inner core.HTTPClient) []option.Re
 }
 
 // previewASRVendors are served only by the preview endpoint.
-var previewASRVendors = map[string]struct{}{
-	"gemini": {},
+var previewASRVendors = map[string]string{}
+
+func isPreviewOpenAIModel(properties map[string]interface{}) bool {
+	mllm, ok := properties["mllm"].(map[string]interface{})
+	return ok && mllm["vendor"] == "openai_gpt_live"
 }
 
 // RequiredPreviewFeatures returns the preview features a start request needs.
@@ -68,6 +83,10 @@ var previewASRVendors = map[string]struct{}{
 // Derived from the request body rather than from the vendor types, so
 // hand-written configs are covered too.
 func RequiredPreviewFeatures(properties map[string]interface{}) []string {
+	return requiredPreviewFeatures(properties, previewASRVendors)
+}
+
+func requiredPreviewFeatures(properties map[string]interface{}, previewVendors map[string]string) []string {
 	var features []string
 	add := func(feature string) {
 		for _, existing := range features {
@@ -80,10 +99,13 @@ func RequiredPreviewFeatures(properties map[string]interface{}) []string {
 
 	if asr, ok := properties["asr"].(map[string]interface{}); ok {
 		if vendor, ok := asr["vendor"].(string); ok {
-			if _, found := previewASRVendors[vendor]; found {
-				add(PreviewFeatureGeminiLive)
+			if feature, found := previewVendors[vendor]; found {
+				add(feature)
 			}
 		}
+	}
+	if isPreviewOpenAIModel(properties) {
+		add(PreviewFeatureLiveModels)
 	}
 
 	return features

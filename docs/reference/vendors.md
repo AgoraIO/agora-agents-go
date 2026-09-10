@@ -707,6 +707,33 @@ Panics if `ProjectID`, `Location`, `ADCCredentialsString`, or `Language` is empt
 | `Model` | `string` | No | Model identifier |
 | `AdditionalParams` | `map[string]interface{}` | No | Additional vendor params |
 
+### NewGeminiSTT
+
+<!-- snippet: fragment -->
+```go
+func NewGeminiSTT(opts GeminiSTTOptions) *GeminiSTT
+```
+
+Panics if `APIKey` is empty. `Model` defaults to `gemini-3.5-transcribe-live`.
+
+#### GeminiSTTOptions
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `APIKey` | `string` | Yes | Google Gemini API key |
+| `Model` | `string` | No | Gemini transcription model identifier; defaults to `gemini-3.5-transcribe-live` |
+| `Language` | `string` | No | Recognition language code |
+| `LanguageHints` | `[]string` | No | Candidate transcription languages, sent as `params.language_hints`; nil is omitted and an empty slice is sent explicitly |
+| `LanguageCodes` | `[]string` | No | Deprecated alias for `LanguageHints`; used only when `LanguageHints` is nil |
+| `CustomVocabulary` | `[]string` | No | Words and phrases used to bias recognition |
+| `SampleRate` | `int` | No | Audio sample rate; defaults to `16000` |
+| `WordTimestamp` | `*bool` | No | Include word-level timestamps; incompatible with non-empty `CustomVocabulary` and SMART mode |
+| `Mode` | `GeminiTranscriptionMode` | No | `GeminiTranscriptionModeSmart` or `GeminiTranscriptionModeVerbatim`; an empty value is validated as VERBATIM and omitted from the request |
+| `Diarization` | `*bool` | No | Include speaker labels; nil is omitted and treated as `false` during validation; `true` is incompatible with SMART mode |
+| `AdditionalParams` | `map[string]interface{}` | No | Additional vendor-specific parameters |
+
+`LanguageHints` takes precedence when both it and `LanguageCodes` are set. `NewGeminiSTT` panics when `CustomVocabulary` is combined with `WordTimestamp: true`, or when SMART mode is combined with `WordTimestamp: true` or `Diarization: true`. `AdditionalParams` remains an unchecked passthrough map.
+
 ### NewAmazonSTT
 
 <!-- snippet: fragment -->
@@ -827,6 +854,48 @@ Panics if `APIKey` is empty.
 | `Messages`        | `[]map[string]interface{}` | No       | —                           | Conversation messages for short-term memory        |
 | `Params`          | `map[string]interface{}`   | No       | —                           | Additional realtime params such as `voice`         |
 | `TurnDetection`   | `*Agora.MllmTurnDetection` | No | — | MLLM turn detection configuration; overrides top-level turn detection |
+
+### NewOpenAIGPTLive (preview)
+
+GPT Live v3 uses `mllm.vendor: "openai_gpt_live"`, model `gpt-live-1-diamond-alpha`, and `wss://api.openai.com/v1/live/sessions`. Sessions route through the preview gateway automatically. This alpha must not carry production traffic.
+
+The SDK sends `params.alpha_selector: "quicksilver=v3"` by default so the Agora worker selects the required GPT Live v3 OpenAI contract. Set `AlphaSelector` to override it. Other tuning defaults remain owned by the provider. Explicit options override entries in `Params`. Zero and false values are preserved.
+
+| Option | Type | Wire parameter / behavior |
+|---|---|---|
+| `APIKey` | string, required | `mllm.api_key` |
+| `URL` | string | `mllm.url`; overrides base/path. Only the legacy `/v1/live` route on OpenAI's host is rewritten to `/v1/live/sessions`. Custom endpoints are preserved. |
+| `Model` | `string` | `params.model`. Defaults to gpt-live-1-diamond-alpha. |
+| `Voice` | `string` | `params.voice`. Output voice; provider default marin. Custom voice objects require PR #1522; use params after rollout. |
+| `Prompt` | `string` | `params.prompt`. Session instructions. |
+| `BaseURL` | `string` | `params.base_url`. Host when url is omitted; default wss://api.openai.com. |
+| `Path` | `string` | `params.path`. WebSocket path; default /v1/live/sessions. |
+| `AlphaSelector` | `string` | `params.alpha_selector`; defaults to `quicksilver=v3` for the required GPT Live v3 contract. |
+| `Headers` | `string` | `params.headers`. Extra provider request headers as a JSON string; protocol headers win. |
+| `OutputIdleEndMs` | `*int` | `params.output_idle_end_ms`. Assistant silence boundary in ms; provider default 600. Zero disables inference. |
+| `InputIdleEndMs` | `*int` | `params.input_idle_end_ms`. Caller silence boundary in ms; provider default 1500. |
+| `OutputSilencePeak` | `*int` | `params.output_silence_peak`. Speech amplitude threshold on the 16-bit scale; provider default 50. |
+| `OutputSampleRate` | `*int` | `params.output_sample_rate`. Graph PCM sample rate; provider default 24000. |
+| `OutputBufferMs` | `*int` | `params.output_buffer_ms`. Initial audio cushion; provider default 0. Negative disables pacing. |
+| `InputBatchMs` | `*int` | `params.input_batch_ms`. Mic append batching in ms. Join default 0; extension class default 100. |
+| `ToolEnabled` | `*bool` | `params.tool_enabled`. Advertise graph tools; provider default false. Does not control delegate built-ins. |
+| `Delegation` | `string` | `params.delegation`. Tool delegation mode; provider default responses. Fixed for the session. |
+| `ResponsesModel` | `string` | `params.responses_model`. Tool delegate model; provider default gpt-5.6-sol. |
+| `InterruptOnUserTurn` | `*bool` | `params.interrupt_on_user_turn`. Interrupt playback on caller speech; provider default false. |
+| `SessionParams` | `map[string]interface{}` | `params.session_params`. Unmodelled v3 session fields. Cannot override model, delegation, audio, instructions or input. |
+| `Instructions` | string | Compatibility alias for `prompt`; explicit prompt wins. |
+| `GreetingMessage` | string | `mllm.greeting_message`; v3 may reword this request. |
+| `Messages` | list | `mllm.messages`; prior conversation seeded by Agora. |
+| `McpServers` | list | `mllm.mcp_servers`; MCP servers exposed to GPT Live. Requires `WithTools(true)`. |
+| `FailureMessage` | string | `mllm.failure_message` |
+| `InputModalities / OutputModalities` | string lists | Agora outer `mllm.input_modalities` / `mllm.output_modalities` |
+| `Params` | object | Additional snake_case provider parameters. |
+| `TurnDetection` | object | Unsupported in v3; ignored with a warning. |
+| `InputAudioTranscription` | object | Legacy Realtime option; rejected for GPT Live v3. |
+
+Backend PR #1522 is not assumed to be deployed, so custom voice objects, `responses_params`, and first-class `context_management` have no typed options. After rollout, opt in through raw `Params`; before rollout, use `Params.session_params.context_management` for context management. Leaving context management unset preserves the provider default.
+
+For complete examples and main-body settings, see [GPT Live v3](../guides/openai-gpt-live-v3.md).
 
 ### NewAzureOpenAIRealtime
 

@@ -4380,11 +4380,15 @@ func (g *GeminiAsr) String() string {
 
 // Google Gemini ASR configuration parameters.
 var (
-	geminiAsrParamsFieldAPIKey        = big.NewInt(1 << 0)
-	geminiAsrParamsFieldModel         = big.NewInt(1 << 1)
-	geminiAsrParamsFieldSampleRate    = big.NewInt(1 << 2)
-	geminiAsrParamsFieldLanguage      = big.NewInt(1 << 3)
-	geminiAsrParamsFieldWordTimestamp = big.NewInt(1 << 4)
+	geminiAsrParamsFieldAPIKey           = big.NewInt(1 << 0)
+	geminiAsrParamsFieldModel            = big.NewInt(1 << 1)
+	geminiAsrParamsFieldSampleRate       = big.NewInt(1 << 2)
+	geminiAsrParamsFieldLanguage         = big.NewInt(1 << 3)
+	geminiAsrParamsFieldLanguageHints    = big.NewInt(1 << 4)
+	geminiAsrParamsFieldCustomVocabulary = big.NewInt(1 << 5)
+	geminiAsrParamsFieldMode             = big.NewInt(1 << 6)
+	geminiAsrParamsFieldWordTimestamp    = big.NewInt(1 << 7)
+	geminiAsrParamsFieldDiarization      = big.NewInt(1 << 8)
 )
 
 type GeminiAsrParams struct {
@@ -4396,8 +4400,16 @@ type GeminiAsrParams struct {
 	SampleRate *int `json:"sample_rate,omitempty" url:"sample_rate,omitempty"`
 	// The language code for speech recognition. This takes precedence over the top-level `asr.language` value.
 	Language *string `json:"language,omitempty" url:"language,omitempty"`
-	// Whether to include word-level timestamps in the transcription results.
+	// Candidate language codes for transcription. When non-empty, these take precedence over language.
+	LanguageHints []string `json:"language_hints,omitempty" url:"language_hints,omitempty"`
+	// Words and phrases used to bias transcription. A non-empty custom vocabulary cannot be combined with word_timestamp.
+	CustomVocabulary []string `json:"custom_vocabulary,omitempty" url:"custom_vocabulary,omitempty"`
+	// Transcription output mode. SMART removes disfluencies and applies formatting; VERBATIM preserves literal speech. When omitted, the service defaults to VERBATIM. SMART cannot be combined with word_timestamp or diarization.
+	Mode *GeminiAsrParamsMode `json:"mode,omitempty" url:"mode,omitempty"`
+	// Whether to include word-level timestamps in the transcription results. Cannot be enabled when mode is SMART or custom_vocabulary is non-empty.
 	WordTimestamp *bool `json:"word_timestamp,omitempty" url:"word_timestamp,omitempty"`
+	// Whether to include speaker labels in the transcription results. Cannot be enabled when mode is SMART.
+	Diarization *bool `json:"diarization,omitempty" url:"diarization,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
 	explicitFields *big.Int `json:"-" url:"-"`
@@ -4435,11 +4447,39 @@ func (g *GeminiAsrParams) GetLanguage() *string {
 	return g.Language
 }
 
+func (g *GeminiAsrParams) GetLanguageHints() []string {
+	if g == nil {
+		return nil
+	}
+	return g.LanguageHints
+}
+
+func (g *GeminiAsrParams) GetCustomVocabulary() []string {
+	if g == nil {
+		return nil
+	}
+	return g.CustomVocabulary
+}
+
+func (g *GeminiAsrParams) GetMode() *GeminiAsrParamsMode {
+	if g == nil {
+		return nil
+	}
+	return g.Mode
+}
+
 func (g *GeminiAsrParams) GetWordTimestamp() *bool {
 	if g == nil {
 		return nil
 	}
 	return g.WordTimestamp
+}
+
+func (g *GeminiAsrParams) GetDiarization() *bool {
+	if g == nil {
+		return nil
+	}
+	return g.Diarization
 }
 
 func (g *GeminiAsrParams) GetExtraProperties() map[string]interface{} {
@@ -4481,11 +4521,39 @@ func (g *GeminiAsrParams) SetLanguage(language *string) {
 	g.require(geminiAsrParamsFieldLanguage)
 }
 
+// SetLanguageHints sets the LanguageHints field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiAsrParams) SetLanguageHints(languageHints []string) {
+	g.LanguageHints = languageHints
+	g.require(geminiAsrParamsFieldLanguageHints)
+}
+
+// SetCustomVocabulary sets the CustomVocabulary field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiAsrParams) SetCustomVocabulary(customVocabulary []string) {
+	g.CustomVocabulary = customVocabulary
+	g.require(geminiAsrParamsFieldCustomVocabulary)
+}
+
+// SetMode sets the Mode field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiAsrParams) SetMode(mode *GeminiAsrParamsMode) {
+	g.Mode = mode
+	g.require(geminiAsrParamsFieldMode)
+}
+
 // SetWordTimestamp sets the WordTimestamp field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
 func (g *GeminiAsrParams) SetWordTimestamp(wordTimestamp *bool) {
 	g.WordTimestamp = wordTimestamp
 	g.require(geminiAsrParamsFieldWordTimestamp)
+}
+
+// SetDiarization sets the Diarization field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiAsrParams) SetDiarization(diarization *bool) {
+	g.Diarization = diarization
+	g.require(geminiAsrParamsFieldDiarization)
 }
 
 func (g *GeminiAsrParams) UnmarshalJSON(data []byte) error {
@@ -4529,6 +4597,29 @@ func (g *GeminiAsrParams) String() string {
 		return value
 	}
 	return fmt.Sprintf("%#v", g)
+}
+
+// Transcription output mode. SMART removes disfluencies and applies formatting; VERBATIM preserves literal speech. When omitted, the service defaults to VERBATIM. SMART cannot be combined with word_timestamp or diarization.
+type GeminiAsrParamsMode string
+
+const (
+	GeminiAsrParamsModeSmart    GeminiAsrParamsMode = "SMART"
+	GeminiAsrParamsModeVerbatim GeminiAsrParamsMode = "VERBATIM"
+)
+
+func NewGeminiAsrParamsModeFromString(s string) (GeminiAsrParamsMode, error) {
+	switch s {
+	case "SMART":
+		return GeminiAsrParamsModeSmart, nil
+	case "VERBATIM":
+		return GeminiAsrParamsModeVerbatim, nil
+	}
+	var t GeminiAsrParamsMode
+	return "", fmt.Errorf("%s is not a valid %T", s, t)
+}
+
+func (g GeminiAsrParamsMode) Ptr() *GeminiAsrParamsMode {
+	return &g
 }
 
 // Generic OpenAI-compatible Text-to-Speech configuration.
@@ -6911,7 +7002,7 @@ var (
 
 type LlmToolExecution struct {
 	// Execution mode. Phase 1a only accepts `sync`.
-	Mode *string `json:"mode,omitempty" url:"mode,omitempty"`
+	Mode *LlmToolExecutionMode `json:"mode,omitempty" url:"mode,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
 	explicitFields *big.Int `json:"-" url:"-"`
@@ -6934,9 +7025,20 @@ func (l *LlmToolExecution) require(field *big.Int) {
 
 // SetMode sets the Mode field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (l *LlmToolExecution) SetMode(mode *string) {
+func (l *LlmToolExecution) SetMode(mode *LlmToolExecutionMode) {
 	l.Mode = mode
 	l.require(llmToolExecutionFieldMode)
+}
+
+// LlmToolExecutionMode controls how an inline REST tool is executed.
+type LlmToolExecutionMode string
+
+const (
+	LlmToolExecutionModeSync LlmToolExecutionMode = "sync"
+)
+
+func (l LlmToolExecutionMode) Ptr() *LlmToolExecutionMode {
+	return &l
 }
 
 func (l *LlmToolExecution) UnmarshalJSON(data []byte) error {
@@ -17946,7 +18048,7 @@ type StartAgentsRequestPropertiesAdvancedFeatures struct {
 	EnableRtm *bool `json:"enable_rtm,omitempty" url:"enable_rtm,omitempty"`
 	// Enable Selective Attention Locking (SAL). When enabled, configure the `sal` field to set up speaker recognition or locking modes.
 	EnableSal *bool `json:"enable_sal,omitempty" url:"enable_sal,omitempty"`
-	// Enable tool invocation. When enabled, the agent can invoke tools provided by the MCP server to implement advanced functionality.
+	// Enable invocation for MCP servers and inline REST tools.
 	EnableTools *bool `json:"enable_tools,omitempty" url:"enable_tools,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
@@ -18476,7 +18578,7 @@ type StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig struct {
 	// System prompt used to generate a short filler phrase based on the last user message. The generated text should be conversational and must not answer the user's question.
 	Prompt *string `json:"prompt,omitempty" url:"prompt,omitempty"`
 	// Fallback strategy when generated filler text is not ready, fails, or returns empty text. Phase 1 only supports `static`.
-	FallbackStrategy *string `json:"fallback_strategy,omitempty" url:"fallback_strategy,omitempty"`
+	FallbackStrategy *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy `json:"fallback_strategy,omitempty" url:"fallback_strategy,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
 	explicitFields *big.Int `json:"-" url:"-"`
@@ -18526,9 +18628,20 @@ func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetPromp
 
 // SetFallbackStrategy sets the FallbackStrategy field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetFallbackStrategy(fallbackStrategy *string) {
+func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetFallbackStrategy(fallbackStrategy *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy) {
 	s.FallbackStrategy = fallbackStrategy
 	s.require(startAgentsRequestPropertiesFillerWordsContentGeneratedConfigFieldFallbackStrategy)
+}
+
+// StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy controls fallback behavior for generated filler words.
+type StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy string
+
+const (
+	StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategyStatic StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy = "static"
+)
+
+func (s StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy) Ptr() *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy {
+	return &s
 }
 
 func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) UnmarshalJSON(data []byte) error {

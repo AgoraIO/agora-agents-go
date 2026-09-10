@@ -4,16 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [v2.8.0] — 2026-09-10
 
 ### Added
 
 - **Generated filler words** — AgentKit now exposes generated filler content types and mode constants, including optional service-default generation and custom OpenAI-compatible filler LLM configuration.
 - **Inline LLM tools** — Global and mainland China LLM vendor options now accept typed `Tools` definitions for inline REST function calls. AgentKit exposes the generated `LlmTool` types, and tool execution is enabled with `WithTools(true)` alongside MCP tools.
+- **OpenAI GPT Live v3** — Added the preview `NewOpenAIGPTLive` MLLM vendor with typed session, audio, tool-delegation, endpoint, and MCP options. It routes sessions through the preview gateway and defaults to the `gpt-live-1-diamond-alpha` model and required `quicksilver=v3` contract selector.
+- **Gemini ASR production support** — `NewGeminiSTT` is now a global production vendor backed by the generated Gemini schema. It supports recognition language, language hints, custom vocabulary, word timestamps, SMART/VERBATIM transcription modes, diarization, sample rate, and additional vendor parameters.
 
 ### Changed
 
-- **Ares and Fengming STT parameters** — `Keywords` is emitted as top-level `asr.keywords`; `AdditionalParams` remains an unchanged passthrough map under `asr.params` for both providers.
+- **Ares and Fengming STT parameters** — `Keywords` is emitted as top-level `asr.keywords`; other `AdditionalParams` remain under `asr.params`, while nested `AdditionalParams["keywords"]` is rejected to prevent ambiguous requests.
+- **Restricted single-value options** — Inline tool execution mode and generated filler fallback strategy now use named string types and exported constants instead of unrestricted string pointers.
+- **Gemini ASR routing and compatibility** — Gemini ASR now uses the normal regional production endpoint and generated request validation. The deprecated `LanguageCodes` option remains compatible as an alias for `LanguageHints`, which serializes as `params.language_hints` and takes precedence when both are set.
+
+### Fixed
+
+- **GPT Live v3 contract selection** — `NewOpenAIGPTLive` now serializes `params.alpha_selector: "quicksilver=v3"` by default so preview workers consistently send the required OpenAI alpha header. Callers can still override the selector explicitly.
 
 ## [v2.7.0] — 2026-08-26
 

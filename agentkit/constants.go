@@ -121,7 +121,10 @@ const (
 	FillerWordsTriggerModeFixedTime = "fixed_time"
 
 	// FillerWordsFallbackStrategyStatic falls back to static filler words.
-	FillerWordsFallbackStrategyStatic = "static"
+	FillerWordsFallbackStrategyStatic = Agora.StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategyStatic
+
+	// LlmToolExecutionModeSync executes an inline REST tool synchronously.
+	LlmToolExecutionModeSync = Agora.LlmToolExecutionModeSync
 )
 
 // =============================================================================

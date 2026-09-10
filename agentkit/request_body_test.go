@@ -133,7 +133,7 @@ func TestGeneratedFillerWordsPropertiesShape(t *testing.T) {
 							Params: map[string]interface{}{"model": "gpt-4o-mini"},
 						},
 						Prompt:           Agora.String("Reply with a short conversational filler phrase."),
-						FallbackStrategy: Agora.String(FillerWordsFallbackStrategyStatic),
+						FallbackStrategy: FillerWordsFallbackStrategyStatic.Ptr(),
 					},
 				},
 			},
@@ -720,6 +720,38 @@ func TestBYOKASRVendorShapes(t *testing.T) {
 		assert.Equal(t, `{"type":"service_account"}`, p["adc_credentials_string"])
 		assert.Equal(t, "en-US", p["language"])
 		assert.Equal(t, "long", p["model"])
+	})
+
+	t.Run("Gemini", func(t *testing.T) {
+		wordTimestamp := false
+		diarization := true
+		agent := NewAgent(testAgoraClient()).
+			WithStt(vendors.NewGeminiSTT(vendors.GeminiSTTOptions{
+				APIKey:           "gemini-key",
+				Model:            "gemini-3.7-transcribe-live",
+				Language:         "en-US",
+				LanguageHints:    []string{"en-US", "es-ES"},
+				CustomVocabulary: []string{"Agora"},
+				SampleRate:       24000,
+				WordTimestamp:    &wordTimestamp,
+				Mode:             vendors.GeminiTranscriptionModeVerbatim,
+				Diarization:      &diarization,
+			}))
+		props, err := agent.ToPropertiesMap(asrOpts())
+		require.NoError(t, err)
+		asr := props["asr"].(map[string]interface{})
+		assert.Equal(t, "gemini", asr["vendor"])
+		assert.Equal(t, "en-US", asr["language"])
+		p := asr["params"].(map[string]interface{})
+		assert.Equal(t, "gemini-key", p["api_key"])
+		assert.Equal(t, "gemini-3.7-transcribe-live", p["model"])
+		assert.Equal(t, "en-US", p["language"])
+		assert.Equal(t, []string{"en-US", "es-ES"}, p["language_hints"])
+		assert.Equal(t, []string{"Agora"}, p["custom_vocabulary"])
+		assert.Equal(t, 24000, p["sample_rate"])
+		assert.Equal(t, false, p["word_timestamp"])
+		assert.Equal(t, vendors.GeminiTranscriptionModeVerbatim, p["mode"])
+		assert.Equal(t, true, p["diarization"])
 	})
 
 	t.Run("Amazon", func(t *testing.T) {
