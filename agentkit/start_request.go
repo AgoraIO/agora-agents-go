@@ -20,6 +20,7 @@ func startAgentsWithMapBody(
 	opts ...option.RequestOption,
 ) (*Agora.StartAgentsResponse, error) {
 	body := map[string]interface{}{
+		"appid":      appID,
 		"name":       name,
 		"properties": properties,
 	}
