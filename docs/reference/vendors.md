@@ -707,6 +707,33 @@ Panics if `ProjectID`, `Location`, `ADCCredentialsString`, or `Language` is empt
 | `Model` | `string` | No | Model identifier |
 | `AdditionalParams` | `map[string]interface{}` | No | Additional vendor params |
 
+### NewGeminiSTT
+
+<!-- snippet: fragment -->
+```go
+func NewGeminiSTT(opts GeminiSTTOptions) *GeminiSTT
+```
+
+Panics if `APIKey` is empty. `Model` defaults to `gemini-3.5-transcribe-live`.
+
+#### GeminiSTTOptions
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `APIKey` | `string` | Yes | Google Gemini API key |
+| `Model` | `string` | No | Gemini transcription model identifier; defaults to `gemini-3.5-transcribe-live` |
+| `Language` | `string` | No | Recognition language code |
+| `LanguageHints` | `[]string` | No | Candidate transcription languages, sent as `params.language_hints`; nil is omitted and an empty slice is sent explicitly |
+| `LanguageCodes` | `[]string` | No | Deprecated alias for `LanguageHints`; used only when `LanguageHints` is nil |
+| `CustomVocabulary` | `[]string` | No | Words and phrases used to bias recognition |
+| `SampleRate` | `int` | No | Audio sample rate; defaults to `16000` |
+| `WordTimestamp` | `*bool` | No | Include word-level timestamps; incompatible with non-empty `CustomVocabulary` and SMART mode |
+| `Mode` | `GeminiTranscriptionMode` | No | `GeminiTranscriptionModeSmart` or `GeminiTranscriptionModeVerbatim`; an empty value is validated as VERBATIM and omitted from the request |
+| `Diarization` | `*bool` | No | Include speaker labels; nil is omitted and treated as `false` during validation; `true` is incompatible with SMART mode |
+| `AdditionalParams` | `map[string]interface{}` | No | Additional vendor-specific parameters |
+
+`LanguageHints` takes precedence when both it and `LanguageCodes` are set. `NewGeminiSTT` panics when `CustomVocabulary` is combined with `WordTimestamp: true`, or when SMART mode is combined with `WordTimestamp: true` or `Diarization: true`. `AdditionalParams` remains an unchecked passthrough map.
+
 ### NewAmazonSTT
 
 <!-- snippet: fragment -->

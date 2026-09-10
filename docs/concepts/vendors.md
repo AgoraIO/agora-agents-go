@@ -127,11 +127,14 @@ Use `TurnDetectionConfig.Language` for Agora interaction language; it defaults t
 | `NewMicrosoftSTT` | `MicrosoftSTTOptions` | `Key`, `Region`, `Language` |
 | `NewOpenAISTT` | `OpenAISTTOptions` | `APIKey` |
 | `NewGoogleSTT` | `GoogleSTTOptions` | `ProjectID`, `Location`, `ADCCredentialsString`, `Language` |
+| `NewGeminiSTT` | `GeminiSTTOptions` | `APIKey`; `Model` defaults to `gemini-3.5-transcribe-live` |
 | `NewAmazonSTT` | `AmazonSTTOptions` | `AccessKey`, `SecretKey`, `Region`, `Language` |
 | `NewAssemblyAISTT` | `AssemblyAISTTOptions` | `APIKey`, `Language` |
 | `NewAresSTT` | `AresSTTOptions` | None; optional `Keywords` and `AdditionalParams` |
 | `NewSarvamSTT` | `SarvamSTTOptions` | `APIKey`, `Language` |
 | `NewXaiSTT` | `XaiSTTOptions` | `APIKey` |
+
+For Gemini ASR, use `LanguageHints` for candidate transcription languages. The deprecated `LanguageCodes` field remains as a fallback and is ignored when `LanguageHints` is set. `Mode` accepts the generated `GeminiTranscriptionModeSmart` and `GeminiTranscriptionModeVerbatim` values; SMART cannot be combined with word timestamps or diarization.
 
 For Ares, `Keywords` is emitted as top-level `asr.keywords`, while `AdditionalParams` is copied unchanged under `asr.params`.
 
@@ -145,8 +148,6 @@ stt := vendors.NewDeepgramSTT(vendors.DeepgramSTTOptions{
 
 agent = agent.WithStt(stt)
 ```
-
-> **Preview providers** — `NewGeminiSTT` (ASR) is served only by the preview gateway. `NewAgoraClient` detects and routes it automatically when the session starts. See [Preview Endpoint](../guides/preview-endpoint.md).
 
 ## MLLM Vendors
 

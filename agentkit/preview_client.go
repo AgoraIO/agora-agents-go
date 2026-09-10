@@ -27,9 +27,6 @@ const PreviewAPIBaseURL = "https://partner.ai.agora.io/preview/api/conversationa
 // environment, where the preview providers do not exist.
 const PreviewFeatureHeader = "agora-feature"
 
-// PreviewFeatureGeminiLive gates the Gemini 3.5 Transcribe ASR provider.
-const PreviewFeatureGeminiLive = "gemini-live"
-
 // previewGateClient pins the gate header onto every request.
 //
 // The header is applied here rather than via option.WithHTTPHeader because that
@@ -59,15 +56,17 @@ func previewRequestOptions(features []string, inner core.HTTPClient) []option.Re
 }
 
 // previewASRVendors are served only by the preview endpoint.
-var previewASRVendors = map[string]struct{}{
-	"gemini": {},
-}
+var previewASRVendors = map[string]string{}
 
 // RequiredPreviewFeatures returns the preview features a start request needs.
 //
 // Derived from the request body rather than from the vendor types, so
 // hand-written configs are covered too.
 func RequiredPreviewFeatures(properties map[string]interface{}) []string {
+	return requiredPreviewFeatures(properties, previewASRVendors)
+}
+
+func requiredPreviewFeatures(properties map[string]interface{}, previewVendors map[string]string) []string {
 	var features []string
 	add := func(feature string) {
 		for _, existing := range features {
@@ -80,8 +79,8 @@ func RequiredPreviewFeatures(properties map[string]interface{}) []string {
 
 	if asr, ok := properties["asr"].(map[string]interface{}); ok {
 		if vendor, ok := asr["vendor"].(string); ok {
-			if _, found := previewASRVendors[vendor]; found {
-				add(PreviewFeatureGeminiLive)
+			if feature, found := previewVendors[vendor]; found {
+				add(feature)
 			}
 		}
 	}
