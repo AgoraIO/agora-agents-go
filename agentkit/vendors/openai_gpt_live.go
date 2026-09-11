@@ -28,7 +28,7 @@ type OpenAIGPTLiveOptions struct {
 	InputAudioTranscription map[string]interface{}
 	// Deprecated: Ignored with a warning; v3 performs endpointing internally.
 	TurnDetection *Agora.MllmTurnDetection
-	// Defaults to gpt-live-1-diamond-alpha.
+	// Defaults to gpt-live-1.
 	Model string
 	// Output voice; provider default marin. Custom voice objects require PR #1522; use params after rollout.
 	Voice string
@@ -38,7 +38,7 @@ type OpenAIGPTLiveOptions struct {
 	BaseURL string
 	// WebSocket path; default /v1/live/sessions.
 	Path string
-	// OpenAI-Alpha selector. Leave empty to use the required GPT Live v3 contract.
+	// Optional OpenAI-Alpha selector for preview contracts. Omitted when empty.
 	AlphaSelector string
 	// Extra provider request headers as a JSON string; protocol headers win.
 	Headers string
@@ -79,8 +79,7 @@ func NewOpenAIGPTLive(opts OpenAIGPTLiveOptions) *OpenAIGPTLive {
 func (o *OpenAIGPTLive) ToConfig() map[string]interface{} {
 	opts := o.options
 	params := map[string]interface{}{
-		"model":          "gpt-live-1-diamond-alpha",
-		"alpha_selector": "quicksilver=v3",
+		"model": "gpt-live-1",
 	}
 	for k, v := range opts.Params {
 		params[k] = v

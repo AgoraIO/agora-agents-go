@@ -53,8 +53,7 @@ func TestOpenAIGPTLiveWireShape(t *testing.T) {
 		"url":              "wss://api.openai.com/v1/live/sessions",
 		"greeting_message": "Hello from GPT Live",
 		"params": map[string]interface{}{
-			"model":          "gpt-live-1-diamond-alpha",
-			"alpha_selector": "quicksilver=v3",
+			"model": "gpt-live-1",
 		},
 		"mcp_servers": []map[string]interface{}{{"name": "lookup", "endpoint": "https://tools.example/mcp", "transport": "streamable_http"}},
 	}
