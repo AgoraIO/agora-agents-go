@@ -109,7 +109,7 @@ Routing state is stored on the `AgentSession`, not `AgoraClient`. One client can
 
 | Type               | Wire vendor                     | Default model                      |
 | ------------------ | ------------------------------- | ---------------------------------- |
-| `NewOpenAIGPTLive` | `mllm.vendor = "openai_gpt_live"` | `gpt-live-1-diamond-alpha`         |
+| `NewOpenAIGPTLive` | `mllm.vendor = "openai_gpt_live"` | `gpt-live-1`         |
 
 ## The vendor type is not the whole wire shape
 
