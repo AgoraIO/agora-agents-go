@@ -13,7 +13,7 @@ description: Install the Agora Conversational AI Go SDK and configure your proje
 ## Install
 
 ```sh
-go get github.com/AgoraIO/agora-agents-go/v2@v2.0.0
+go get github.com/AgoraIO/agora-agents-go/v2@latest
 ```
 
 ## Import Paths

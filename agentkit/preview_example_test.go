@@ -12,13 +12,11 @@ import (
 	"github.com/AgoraIO/agora-agents-go/v2/option"
 )
 
-func ExampleNewAgoraPreviewClient() {
-	client := agentkit.NewAgoraPreviewClient(agentkit.AgoraPreviewClientOptions{
-		AgoraClientOptions: agentkit.AgoraClientOptions{
-			Area:           option.AreaUS,
-			AppID:          os.Getenv("AGORA_APP_ID"),
-			AppCertificate: os.Getenv("AGORA_APP_CERTIFICATE"),
-		},
+func ExampleGeminiCleverChatter() {
+	client := agentkit.NewAgoraClient(agentkit.AgoraClientOptions{
+		Area:           option.AreaUS,
+		AppID:          os.Getenv("AGORA_APP_ID"),
+		AppCertificate: os.Getenv("AGORA_APP_CERTIFICATE"),
 	})
 
 	agent := agentkit.NewAgent(client).

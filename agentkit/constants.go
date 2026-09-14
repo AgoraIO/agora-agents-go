@@ -99,15 +99,32 @@ var (
 )
 
 // =============================================================================
-// Filler words selection rule constants
+// Filler words constants
 // =============================================================================
 
 var (
+	// FillerWordsContentModeStatic uses a predefined list of filler words.
+	FillerWordsContentModeStatic = Agora.StartAgentsRequestPropertiesFillerWordsContentModeStatic
+
+	// FillerWordsContentModeGenerated generates filler words from the last user message.
+	FillerWordsContentModeGenerated = Agora.StartAgentsRequestPropertiesFillerWordsContentModeGenerated
+
 	// FillerWordsSelectionRuleShuffle plays filler words in random order (no repeats until all used).
 	FillerWordsSelectionRuleShuffle = Agora.StartAgentsRequestPropertiesFillerWordsContentStaticConfigSelectionRuleShuffle
 
 	// FillerWordsSelectionRuleRoundRobin plays filler words sequentially.
 	FillerWordsSelectionRuleRoundRobin = Agora.StartAgentsRequestPropertiesFillerWordsContentStaticConfigSelectionRuleRoundRobin
+)
+
+const (
+	// FillerWordsTriggerModeFixedTime triggers after the configured response wait threshold.
+	FillerWordsTriggerModeFixedTime = "fixed_time"
+
+	// FillerWordsFallbackStrategyStatic falls back to static filler words.
+	FillerWordsFallbackStrategyStatic = Agora.StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategyStatic
+
+	// LlmToolExecutionModeSync executes an inline REST tool synchronously.
+	LlmToolExecutionModeSync = Agora.LlmToolExecutionModeSync
 )
 
 // =============================================================================

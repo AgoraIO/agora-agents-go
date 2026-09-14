@@ -50,8 +50,9 @@ type EventHandler func(data interface{})
 
 type AgentSession struct {
 	client          *agents.Client
-	previewFeatures []string
 	agentManagement *agentmanagement.Client
+	httpClient      core.HTTPClient
+	routingOpts     []option.RequestOption
 	agent           agentcore.AgentRuntime
 	appID           string
 	appCertificate  string
@@ -76,10 +77,8 @@ type AgentSession struct {
 }
 
 type AgentSessionOptions struct {
-	Client *agents.Client
-	// PreviewFeatures are the preview families the client can reach. Empty for
-	// a production client; NewSession fills it from the bound AgoraClient.
-	PreviewFeatures       []string
+	Client                *agents.Client
+	HTTPClient            core.HTTPClient
 	AgentManagementClient *agentmanagement.Client
 	Agent                 agentcore.AgentRuntime
 	AppID                 string
@@ -117,6 +116,7 @@ func NewAgentSession(opts AgentSessionOptions) *AgentSession {
 	return &AgentSession{
 		client:          opts.Client,
 		agentManagement: opts.AgentManagementClient,
+		httpClient:      opts.HTTPClient,
 		agent:           opts.Agent,
 		appID:           opts.AppID,
 		appCertificate:  opts.AppCertificate,
@@ -132,7 +132,6 @@ func NewAgentSession(opts AgentSessionOptions) *AgentSession {
 		preset:          append([]string(nil), opts.Preset...),
 		pipelineID:      opts.PipelineID,
 		debug:           opts.Debug,
-		previewFeatures: opts.PreviewFeatures,
 		warn:            opts.Warn,
 		status:          StatusIdle,
 		handlers:        make(map[string][]EventHandler),
@@ -141,8 +140,11 @@ func NewAgentSession(opts AgentSessionOptions) *AgentSession {
 
 // convoAIRequestOpts returns per-request options with ConvoAI token when using app credentials.
 func (s *AgentSession) convoAIRequestOpts(ctx context.Context) ([]option.RequestOption, error) {
+	s.mu.RLock()
+	routingOpts := append([]option.RequestOption(nil), s.routingOpts...)
+	s.mu.RUnlock()
 	if !s.useAppCredsREST {
-		return nil, nil
+		return routingOpts, nil
 	}
 	if s.appCertificate == "" {
 		return nil, fmt.Errorf("appCertificate is required for app-credentials auth mode; pass AppCertificate when creating AgoraClient")
@@ -160,7 +162,7 @@ func (s *AgentSession) convoAIRequestOpts(ctx context.Context) ([]option.Request
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate ConvoAI token for app-credentials auth mode: %w", err)
 	}
-	return []option.RequestOption{option.WithToken(token)}, nil
+	return append([]option.RequestOption{option.WithToken(token)}, routingOpts...), nil
 }
 
 func (s *AgentSession) ID() string {
@@ -311,18 +313,12 @@ func (s *AgentSession) Start(ctx context.Context) (string, error) {
 		s.emit("error", err)
 		return "", err
 	}
-
-	if err := AssertPreviewSupport(s.previewFeatures, resolvedProperties); err != nil {
-		s.mu.Lock()
-		s.status = StatusError
-		s.mu.Unlock()
-		s.emit("error", err)
-		return "", err
-	}
-
-	// Retarget MLLM fields the shared builder wrote with production spellings,
-	// so a preview config follows the preview route's structure.
 	ApplyPreviewShape(resolvedProperties)
+
+	previewFeatures := RequiredPreviewFeatures(resolvedProperties)
+	s.mu.Lock()
+	s.routingOpts = previewRequestOptions(previewFeatures, s.httpClient, s.debug)
+	s.mu.Unlock()
 
 	if s.debug {
 		debugPayload := map[string]interface{}{

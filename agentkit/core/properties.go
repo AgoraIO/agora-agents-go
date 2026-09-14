@@ -1,6 +1,9 @@
 package core
 
-import "fmt"
+import (
+	"fmt"
+	"log"
+)
 
 func BuildPropertiesMap(profile Profile, base *BaseAgent, opts ToPropertiesOptions, tokenFactory TokenFactory) (map[string]interface{}, error) {
 	if base == nil {
@@ -127,7 +130,14 @@ func BuildPropertiesMap(profile Profile, base *BaseAgent, opts ToPropertiesOptio
 	}
 
 	if base.MLLM != nil {
-		if base.TurnDetection != nil {
+		if base.MLLM["vendor"] == "openai_gpt_live" && base.TurnDetection != nil {
+			message := "GPT Live v3 ignores agent-level turn_detection; endpointing is internal"
+			if opts.Warn != nil {
+				opts.Warn(message)
+			} else {
+				log.Print(message)
+			}
+		} else if base.TurnDetection != nil {
 			if err := SetStructMap(propsMap, "turn_detection", base.TurnDetection); err != nil {
 				return nil, err
 			}

@@ -1,5 +1,7 @@
 package vendors
 
+import Agora "github.com/AgoraIO/agora-agents-go/v2"
+
 type OpenAIOptions struct {
 	APIKey            string
 	Model             string
@@ -19,6 +21,7 @@ type OpenAIOptions struct {
 	TemplateVariables map[string]string
 	Vendor            string
 	McpServers        []map[string]interface{}
+	Tools             []*Agora.LlmTool
 }
 
 func ensureMcpTransport(servers []map[string]interface{}) []map[string]interface{} {
@@ -113,6 +116,9 @@ func (o *openAICompatibleLLM) ToConfig() map[string]interface{} {
 	}
 	if o.options.McpServers != nil {
 		config["mcp_servers"] = ensureMcpTransport(o.options.McpServers)
+	}
+	if o.options.Tools != nil {
+		config["tools"] = o.options.Tools
 	}
 	if o.options.MaxHistory != nil {
 		config["max_history"] = *o.options.MaxHistory

@@ -47,6 +47,13 @@ var (
 var (
 	FillerWordsSelectionRuleShuffle    = base.FillerWordsSelectionRuleShuffle
 	FillerWordsSelectionRuleRoundRobin = base.FillerWordsSelectionRuleRoundRobin
+	FillerWordsContentModeStatic       = base.FillerWordsContentModeStatic
+	FillerWordsContentModeGenerated    = base.FillerWordsContentModeGenerated
+)
+
+const (
+	FillerWordsTriggerModeFixedTime   = base.FillerWordsTriggerModeFixedTime
+	FillerWordsFallbackStrategyStatic = base.FillerWordsFallbackStrategyStatic
 )
 
 var (

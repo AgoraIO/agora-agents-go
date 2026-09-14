@@ -7,6 +7,7 @@ import (
 	Agora "github.com/AgoraIO/agora-agents-go/v2"
 	agentcore "github.com/AgoraIO/agora-agents-go/v2/agentkit/core"
 	"github.com/AgoraIO/agora-agents-go/v2/agentkit/vendors"
+	sdkcore "github.com/AgoraIO/agora-agents-go/v2/core"
 )
 
 type TurnDetectionConfig = agentcore.TurnDetectionConfig
@@ -76,8 +77,18 @@ type AvatarConfig = agentcore.AvatarConfig
 type FillerWordsTrigger = agentcore.FillerWordsTrigger
 type FillerWordsTriggerFixedTimeConfig = agentcore.FillerWordsTriggerFixedTimeConfig
 type FillerWordsContent = agentcore.FillerWordsContent
+type FillerWordsContentMode = agentcore.FillerWordsContentMode
 type FillerWordsContentStaticConfig = agentcore.FillerWordsContentStaticConfig
 type FillerWordsContentSelectionRule = agentcore.FillerWordsContentSelectionRule
+type FillerWordsContentGeneratedConfig = agentcore.FillerWordsContentGeneratedConfig
+type FillerWordsContentGeneratedLlmProvider = agentcore.FillerWordsContentGeneratedLlmProvider
+type LlmTool = agentcore.LlmTool
+type LlmToolFunction = agentcore.LlmToolFunction
+type LlmToolFunctionParameters = agentcore.LlmToolFunctionParameters
+type LlmToolExecution = agentcore.LlmToolExecution
+type LlmToolExecutionMode = agentcore.LlmToolExecutionMode
+type LlmToolServer = agentcore.LlmToolServer
+type LlmToolServerMethod = agentcore.LlmToolServerMethod
 
 const (
 	ParametersAudioScenarioDefault  ParametersAudioScenario = agentcore.ParametersAudioScenarioDefault
@@ -381,16 +392,14 @@ func NewSession(agent agentcore.AgentRuntime, opts CreateSessionOptions) *AgentS
 		name = fmt.Sprintf("agent-%d", time.Now().UnixMilli())
 	}
 
-	// A preview client advertises the families it can reach; a production client
-	// does not implement this, which leaves the guard with an empty set.
-	var previewFeatures []string
-	if provider, ok := client.(interface{ PreviewFeatureNames() []string }); ok {
-		previewFeatures = provider.PreviewFeatureNames()
+	var httpClient sdkcore.HTTPClient
+	if provider, ok := client.(interface{ HTTPClient() sdkcore.HTTPClient }); ok {
+		httpClient = provider.HTTPClient()
 	}
 
 	return NewAgentSession(AgentSessionOptions{
 		Client:                   client.AgentsClient(),
-		PreviewFeatures:          previewFeatures,
+		HTTPClient:               httpClient,
 		AgentManagementClient:    client.AgentManagementClient(),
 		Agent:                    agent,
 		AppID:                    client.AppID(),

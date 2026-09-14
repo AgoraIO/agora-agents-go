@@ -994,11 +994,14 @@ func (a AmazonTtsParamsEngine) Ptr() *AmazonTtsParamsEngine {
 // Adaptive Recognition Engine for Speech ASR configuration.
 var (
 	aresAsrFieldLanguage = big.NewInt(1 << 0)
-	aresAsrFieldParams   = big.NewInt(1 << 1)
+	aresAsrFieldKeywords = big.NewInt(1 << 1)
+	aresAsrFieldParams   = big.NewInt(1 << 2)
 )
 
 type AresAsr struct {
-	Language *AsrLanguage   `json:"language,omitempty" url:"language,omitempty"`
+	Language *AsrLanguage `json:"language,omitempty" url:"language,omitempty"`
+	// A list of hotwords to improve ASR accuracy.
+	Keywords []string       `json:"keywords,omitempty" url:"keywords,omitempty"`
 	Params   *AresAsrParams `json:"params,omitempty" url:"params,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
@@ -1014,6 +1017,13 @@ func (a *AresAsr) GetLanguage() *AsrLanguage {
 		return nil
 	}
 	return a.Language
+}
+
+func (a *AresAsr) GetKeywords() []string {
+	if a == nil {
+		return nil
+	}
+	return a.Keywords
 }
 
 func (a *AresAsr) GetParams() *AresAsrParams {
@@ -1039,6 +1049,13 @@ func (a *AresAsr) require(field *big.Int) {
 func (a *AresAsr) SetLanguage(language *AsrLanguage) {
 	a.Language = language
 	a.require(aresAsrFieldLanguage)
+}
+
+// SetKeywords sets the Keywords field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (a *AresAsr) SetKeywords(keywords []string) {
+	a.Keywords = keywords
+	a.require(aresAsrFieldKeywords)
 }
 
 // SetParams sets the Params field and marks it as non-optional;
@@ -1092,89 +1109,7 @@ func (a *AresAsr) String() string {
 }
 
 // ARES ASR configuration parameters.
-var (
-	aresAsrParamsFieldKeywords = big.NewInt(1 << 0)
-)
-
-type AresAsrParams struct {
-	// A list of hotwords to improve ASR accuracy.
-	Keywords []string `json:"keywords,omitempty" url:"keywords,omitempty"`
-
-	// Private bitmask of fields set to an explicit value and therefore not to be omitted
-	explicitFields *big.Int `json:"-" url:"-"`
-
-	ExtraProperties map[string]interface{} `json:"-" url:"-"`
-
-	rawJSON json.RawMessage
-}
-
-func (a *AresAsrParams) GetKeywords() []string {
-	if a == nil {
-		return nil
-	}
-	return a.Keywords
-}
-
-func (a *AresAsrParams) GetExtraProperties() map[string]interface{} {
-	return a.ExtraProperties
-}
-
-func (a *AresAsrParams) require(field *big.Int) {
-	if a.explicitFields == nil {
-		a.explicitFields = big.NewInt(0)
-	}
-	a.explicitFields.Or(a.explicitFields, field)
-}
-
-// SetKeywords sets the Keywords field and marks it as non-optional;
-// this prevents an empty or null value for this field from being omitted during serialization.
-func (a *AresAsrParams) SetKeywords(keywords []string) {
-	a.Keywords = keywords
-	a.require(aresAsrParamsFieldKeywords)
-}
-
-func (a *AresAsrParams) UnmarshalJSON(data []byte) error {
-	type embed AresAsrParams
-	var unmarshaler = struct {
-		embed
-	}{
-		embed: embed(*a),
-	}
-	if err := json.Unmarshal(data, &unmarshaler); err != nil {
-		return err
-	}
-	*a = AresAsrParams(unmarshaler.embed)
-	extraProperties, err := internal.ExtractExtraProperties(data, *a)
-	if err != nil {
-		return err
-	}
-	a.ExtraProperties = extraProperties
-	a.rawJSON = json.RawMessage(data)
-	return nil
-}
-
-func (a *AresAsrParams) MarshalJSON() ([]byte, error) {
-	type embed AresAsrParams
-	var marshaler = struct {
-		embed
-	}{
-		embed: embed(*a),
-	}
-	explicitMarshaler := internal.HandleExplicitFields(marshaler, a.explicitFields)
-	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, a.ExtraProperties)
-}
-
-func (a *AresAsrParams) String() string {
-	if len(a.rawJSON) > 0 {
-		if value, err := internal.StringifyJSON(a.rawJSON); err == nil {
-			return value
-		}
-	}
-	if value, err := internal.StringifyJSON(a); err == nil {
-		return value
-	}
-	return fmt.Sprintf("%#v", a)
-}
+type AresAsrParams = map[string]interface{}
 
 type Asr struct {
 	Vendor        string
@@ -1185,6 +1120,7 @@ type Asr struct {
 	Deepgram      *DeepgramAsr
 	Openai        *OpenAiAsr
 	Google        *GoogleAsr
+	Gemini        *GeminiAsr
 	Amazon        *AmazonAsr
 	Assemblyai    *AssemblyAiAsr
 	Speechmatics  *SpeechmaticsAsr
@@ -1249,6 +1185,13 @@ func (a *Asr) GetGoogle() *GoogleAsr {
 		return nil
 	}
 	return a.Google
+}
+
+func (a *Asr) GetGemini() *GeminiAsr {
+	if a == nil {
+		return nil
+	}
+	return a.Gemini
 }
 
 func (a *Asr) GetAmazon() *AmazonAsr {
@@ -1361,6 +1304,12 @@ func (a *Asr) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		a.Google = value
+	case "gemini":
+		value := new(GeminiAsr)
+		if err := json.Unmarshal(data, &value); err != nil {
+			return err
+		}
+		a.Gemini = value
 	case "amazon":
 		value := new(AmazonAsr)
 		if err := json.Unmarshal(data, &value); err != nil {
@@ -1438,6 +1387,9 @@ func (a Asr) MarshalJSON() ([]byte, error) {
 	if a.Google != nil {
 		return internal.MarshalJSONWithExtraProperty(a.Google, "vendor", "google")
 	}
+	if a.Gemini != nil {
+		return internal.MarshalJSONWithExtraProperty(a.Gemini, "vendor", "gemini")
+	}
 	if a.Amazon != nil {
 		return internal.MarshalJSONWithExtraProperty(a.Amazon, "vendor", "amazon")
 	}
@@ -1473,6 +1425,7 @@ type AsrVisitor interface {
 	VisitDeepgram(*DeepgramAsr) error
 	VisitOpenai(*OpenAiAsr) error
 	VisitGoogle(*GoogleAsr) error
+	VisitGemini(*GeminiAsr) error
 	VisitAmazon(*AmazonAsr) error
 	VisitAssemblyai(*AssemblyAiAsr) error
 	VisitSpeechmatics(*SpeechmaticsAsr) error
@@ -1504,6 +1457,9 @@ func (a *Asr) Accept(visitor AsrVisitor) error {
 	}
 	if a.Google != nil {
 		return visitor.VisitGoogle(a.Google)
+	}
+	if a.Gemini != nil {
+		return visitor.VisitGemini(a.Gemini)
 	}
 	if a.Amazon != nil {
 		return visitor.VisitAmazon(a.Amazon)
@@ -1557,6 +1513,9 @@ func (a *Asr) validate() error {
 	}
 	if a.Google != nil {
 		fields = append(fields, "google")
+	}
+	if a.Gemini != nil {
+		fields = append(fields, "gemini")
 	}
 	if a.Amazon != nil {
 		fields = append(fields, "amazon")
@@ -1822,7 +1781,7 @@ func (a *AssemblyAiAsr) String() string {
 var (
 	assemblyAiAsrParamsFieldAPIKey   = big.NewInt(1 << 0)
 	assemblyAiAsrParamsFieldLanguage = big.NewInt(1 << 1)
-	assemblyAiAsrParamsFieldURI      = big.NewInt(1 << 2)
+	assemblyAiAsrParamsFieldWsURL    = big.NewInt(1 << 2)
 )
 
 type AssemblyAiAsrParams struct {
@@ -1831,7 +1790,7 @@ type AssemblyAiAsrParams struct {
 	// Language code for speech recognition
 	Language string `json:"language" url:"language"`
 	// WebSocket URL for AssemblyAI's streaming API
-	URI *string `json:"uri,omitempty" url:"uri,omitempty"`
+	WsURL *string `json:"ws_url,omitempty" url:"ws_url,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
 	explicitFields *big.Int `json:"-" url:"-"`
@@ -1855,11 +1814,11 @@ func (a *AssemblyAiAsrParams) GetLanguage() string {
 	return a.Language
 }
 
-func (a *AssemblyAiAsrParams) GetURI() *string {
+func (a *AssemblyAiAsrParams) GetWsURL() *string {
 	if a == nil {
 		return nil
 	}
-	return a.URI
+	return a.WsURL
 }
 
 func (a *AssemblyAiAsrParams) GetExtraProperties() map[string]interface{} {
@@ -1887,11 +1846,11 @@ func (a *AssemblyAiAsrParams) SetLanguage(language string) {
 	a.require(assemblyAiAsrParamsFieldLanguage)
 }
 
-// SetURI sets the URI field and marks it as non-optional;
+// SetWsURL sets the WsURL field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (a *AssemblyAiAsrParams) SetURI(uri *string) {
-	a.URI = uri
-	a.require(assemblyAiAsrParamsFieldURI)
+func (a *AssemblyAiAsrParams) SetWsURL(wsURL *string) {
+	a.WsURL = wsURL
+	a.require(assemblyAiAsrParamsFieldWsURL)
 }
 
 func (a *AssemblyAiAsrParams) UnmarshalJSON(data []byte) error {
@@ -3987,11 +3946,14 @@ func (e *ElevenLabsTtsParams) String() string {
 // Agora Fengming ASR configuration.
 var (
 	fengmingAsrFieldLanguage = big.NewInt(1 << 0)
-	fengmingAsrFieldParams   = big.NewInt(1 << 1)
+	fengmingAsrFieldKeywords = big.NewInt(1 << 1)
+	fengmingAsrFieldParams   = big.NewInt(1 << 2)
 )
 
 type FengmingAsr struct {
-	Language *AsrLanguage       `json:"language,omitempty" url:"language,omitempty"`
+	Language *AsrLanguage `json:"language,omitempty" url:"language,omitempty"`
+	// A list of hotwords to improve ASR accuracy.
+	Keywords []string           `json:"keywords,omitempty" url:"keywords,omitempty"`
 	Params   *FengmingAsrParams `json:"params,omitempty" url:"params,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
@@ -4007,6 +3969,13 @@ func (f *FengmingAsr) GetLanguage() *AsrLanguage {
 		return nil
 	}
 	return f.Language
+}
+
+func (f *FengmingAsr) GetKeywords() []string {
+	if f == nil {
+		return nil
+	}
+	return f.Keywords
 }
 
 func (f *FengmingAsr) GetParams() *FengmingAsrParams {
@@ -4032,6 +4001,13 @@ func (f *FengmingAsr) require(field *big.Int) {
 func (f *FengmingAsr) SetLanguage(language *AsrLanguage) {
 	f.Language = language
 	f.require(fengmingAsrFieldLanguage)
+}
+
+// SetKeywords sets the Keywords field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (f *FengmingAsr) SetKeywords(keywords []string) {
+	f.Keywords = keywords
+	f.require(fengmingAsrFieldKeywords)
 }
 
 // SetParams sets the Params field and marks it as non-optional;
@@ -4085,89 +4061,7 @@ func (f *FengmingAsr) String() string {
 }
 
 // Agora Fengming ASR configuration parameters.
-var (
-	fengmingAsrParamsFieldKeywords = big.NewInt(1 << 0)
-)
-
-type FengmingAsrParams struct {
-	// A list of hotwords to improve ASR accuracy.
-	Keywords []string `json:"keywords,omitempty" url:"keywords,omitempty"`
-
-	// Private bitmask of fields set to an explicit value and therefore not to be omitted
-	explicitFields *big.Int `json:"-" url:"-"`
-
-	ExtraProperties map[string]interface{} `json:"-" url:"-"`
-
-	rawJSON json.RawMessage
-}
-
-func (f *FengmingAsrParams) GetKeywords() []string {
-	if f == nil {
-		return nil
-	}
-	return f.Keywords
-}
-
-func (f *FengmingAsrParams) GetExtraProperties() map[string]interface{} {
-	return f.ExtraProperties
-}
-
-func (f *FengmingAsrParams) require(field *big.Int) {
-	if f.explicitFields == nil {
-		f.explicitFields = big.NewInt(0)
-	}
-	f.explicitFields.Or(f.explicitFields, field)
-}
-
-// SetKeywords sets the Keywords field and marks it as non-optional;
-// this prevents an empty or null value for this field from being omitted during serialization.
-func (f *FengmingAsrParams) SetKeywords(keywords []string) {
-	f.Keywords = keywords
-	f.require(fengmingAsrParamsFieldKeywords)
-}
-
-func (f *FengmingAsrParams) UnmarshalJSON(data []byte) error {
-	type embed FengmingAsrParams
-	var unmarshaler = struct {
-		embed
-	}{
-		embed: embed(*f),
-	}
-	if err := json.Unmarshal(data, &unmarshaler); err != nil {
-		return err
-	}
-	*f = FengmingAsrParams(unmarshaler.embed)
-	extraProperties, err := internal.ExtractExtraProperties(data, *f)
-	if err != nil {
-		return err
-	}
-	f.ExtraProperties = extraProperties
-	f.rawJSON = json.RawMessage(data)
-	return nil
-}
-
-func (f *FengmingAsrParams) MarshalJSON() ([]byte, error) {
-	type embed FengmingAsrParams
-	var marshaler = struct {
-		embed
-	}{
-		embed: embed(*f),
-	}
-	explicitMarshaler := internal.HandleExplicitFields(marshaler, f.explicitFields)
-	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, f.ExtraProperties)
-}
-
-func (f *FengmingAsrParams) String() string {
-	if len(f.rawJSON) > 0 {
-		if value, err := internal.StringifyJSON(f.rawJSON); err == nil {
-			return value
-		}
-	}
-	if value, err := internal.StringifyJSON(f); err == nil {
-		return value
-	}
-	return fmt.Sprintf("%#v", f)
-}
+type FengmingAsrParams = map[string]interface{}
 
 // Fish Audio Text-to-Speech configuration (Beta).
 var (
@@ -4382,6 +4276,350 @@ func (f *FishAudioTtsParams) String() string {
 		return value
 	}
 	return fmt.Sprintf("%#v", f)
+}
+
+// Google Gemini ASR configuration.
+var (
+	geminiAsrFieldLanguage = big.NewInt(1 << 0)
+	geminiAsrFieldParams   = big.NewInt(1 << 1)
+)
+
+type GeminiAsr struct {
+	Language *AsrLanguage     `json:"language,omitempty" url:"language,omitempty"`
+	Params   *GeminiAsrParams `json:"params" url:"params"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (g *GeminiAsr) GetLanguage() *AsrLanguage {
+	if g == nil {
+		return nil
+	}
+	return g.Language
+}
+
+func (g *GeminiAsr) GetParams() *GeminiAsrParams {
+	if g == nil {
+		return nil
+	}
+	return g.Params
+}
+
+func (g *GeminiAsr) GetExtraProperties() map[string]interface{} {
+	return g.ExtraProperties
+}
+
+func (g *GeminiAsr) require(field *big.Int) {
+	if g.explicitFields == nil {
+		g.explicitFields = big.NewInt(0)
+	}
+	g.explicitFields.Or(g.explicitFields, field)
+}
+
+// SetLanguage sets the Language field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiAsr) SetLanguage(language *AsrLanguage) {
+	g.Language = language
+	g.require(geminiAsrFieldLanguage)
+}
+
+// SetParams sets the Params field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiAsr) SetParams(params *GeminiAsrParams) {
+	g.Params = params
+	g.require(geminiAsrFieldParams)
+}
+
+func (g *GeminiAsr) UnmarshalJSON(data []byte) error {
+	type embed GeminiAsr
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*g),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*g = GeminiAsr(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *g)
+	if err != nil {
+		return err
+	}
+	g.ExtraProperties = extraProperties
+	g.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (g *GeminiAsr) MarshalJSON() ([]byte, error) {
+	type embed GeminiAsr
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*g),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, g.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, g.ExtraProperties)
+}
+
+func (g *GeminiAsr) String() string {
+	if len(g.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(g.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(g); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", g)
+}
+
+// Google Gemini ASR configuration parameters.
+var (
+	geminiAsrParamsFieldAPIKey           = big.NewInt(1 << 0)
+	geminiAsrParamsFieldModel            = big.NewInt(1 << 1)
+	geminiAsrParamsFieldSampleRate       = big.NewInt(1 << 2)
+	geminiAsrParamsFieldLanguage         = big.NewInt(1 << 3)
+	geminiAsrParamsFieldLanguageHints    = big.NewInt(1 << 4)
+	geminiAsrParamsFieldCustomVocabulary = big.NewInt(1 << 5)
+	geminiAsrParamsFieldMode             = big.NewInt(1 << 6)
+	geminiAsrParamsFieldWordTimestamp    = big.NewInt(1 << 7)
+	geminiAsrParamsFieldDiarization      = big.NewInt(1 << 8)
+)
+
+type GeminiAsrParams struct {
+	// The Google Gemini API key used to authenticate requests.
+	APIKey string `json:"api_key" url:"api_key"`
+	// The Gemini transcription model identifier.
+	Model string `json:"model" url:"model"`
+	// The audio sample rate in Hz.
+	SampleRate *int `json:"sample_rate,omitempty" url:"sample_rate,omitempty"`
+	// The language code for speech recognition. This takes precedence over the top-level `asr.language` value.
+	Language *string `json:"language,omitempty" url:"language,omitempty"`
+	// Candidate language codes for transcription. When non-empty, these take precedence over language.
+	LanguageHints []string `json:"language_hints,omitempty" url:"language_hints,omitempty"`
+	// Words and phrases used to bias transcription. A non-empty custom vocabulary cannot be combined with word_timestamp.
+	CustomVocabulary []string `json:"custom_vocabulary,omitempty" url:"custom_vocabulary,omitempty"`
+	// Transcription output mode. SMART removes disfluencies and applies formatting; VERBATIM preserves literal speech. When omitted, the service defaults to VERBATIM. SMART cannot be combined with word_timestamp or diarization.
+	Mode *GeminiAsrParamsMode `json:"mode,omitempty" url:"mode,omitempty"`
+	// Whether to include word-level timestamps in the transcription results. Cannot be enabled when mode is SMART or custom_vocabulary is non-empty.
+	WordTimestamp *bool `json:"word_timestamp,omitempty" url:"word_timestamp,omitempty"`
+	// Whether to include speaker labels in the transcription results. Cannot be enabled when mode is SMART.
+	Diarization *bool `json:"diarization,omitempty" url:"diarization,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (g *GeminiAsrParams) GetAPIKey() string {
+	if g == nil {
+		return ""
+	}
+	return g.APIKey
+}
+
+func (g *GeminiAsrParams) GetModel() string {
+	if g == nil {
+		return ""
+	}
+	return g.Model
+}
+
+func (g *GeminiAsrParams) GetSampleRate() *int {
+	if g == nil {
+		return nil
+	}
+	return g.SampleRate
+}
+
+func (g *GeminiAsrParams) GetLanguage() *string {
+	if g == nil {
+		return nil
+	}
+	return g.Language
+}
+
+func (g *GeminiAsrParams) GetLanguageHints() []string {
+	if g == nil {
+		return nil
+	}
+	return g.LanguageHints
+}
+
+func (g *GeminiAsrParams) GetCustomVocabulary() []string {
+	if g == nil {
+		return nil
+	}
+	return g.CustomVocabulary
+}
+
+func (g *GeminiAsrParams) GetMode() *GeminiAsrParamsMode {
+	if g == nil {
+		return nil
+	}
+	return g.Mode
+}
+
+func (g *GeminiAsrParams) GetWordTimestamp() *bool {
+	if g == nil {
+		return nil
+	}
+	return g.WordTimestamp
+}
+
+func (g *GeminiAsrParams) GetDiarization() *bool {
+	if g == nil {
+		return nil
+	}
+	return g.Diarization
+}
+
+func (g *GeminiAsrParams) GetExtraProperties() map[string]interface{} {
+	return g.ExtraProperties
+}
+
+func (g *GeminiAsrParams) require(field *big.Int) {
+	if g.explicitFields == nil {
+		g.explicitFields = big.NewInt(0)
+	}
+	g.explicitFields.Or(g.explicitFields, field)
+}
+
+// SetAPIKey sets the APIKey field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiAsrParams) SetAPIKey(apiKey string) {
+	g.APIKey = apiKey
+	g.require(geminiAsrParamsFieldAPIKey)
+}
+
+// SetModel sets the Model field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiAsrParams) SetModel(model string) {
+	g.Model = model
+	g.require(geminiAsrParamsFieldModel)
+}
+
+// SetSampleRate sets the SampleRate field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiAsrParams) SetSampleRate(sampleRate *int) {
+	g.SampleRate = sampleRate
+	g.require(geminiAsrParamsFieldSampleRate)
+}
+
+// SetLanguage sets the Language field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiAsrParams) SetLanguage(language *string) {
+	g.Language = language
+	g.require(geminiAsrParamsFieldLanguage)
+}
+
+// SetLanguageHints sets the LanguageHints field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiAsrParams) SetLanguageHints(languageHints []string) {
+	g.LanguageHints = languageHints
+	g.require(geminiAsrParamsFieldLanguageHints)
+}
+
+// SetCustomVocabulary sets the CustomVocabulary field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiAsrParams) SetCustomVocabulary(customVocabulary []string) {
+	g.CustomVocabulary = customVocabulary
+	g.require(geminiAsrParamsFieldCustomVocabulary)
+}
+
+// SetMode sets the Mode field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiAsrParams) SetMode(mode *GeminiAsrParamsMode) {
+	g.Mode = mode
+	g.require(geminiAsrParamsFieldMode)
+}
+
+// SetWordTimestamp sets the WordTimestamp field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiAsrParams) SetWordTimestamp(wordTimestamp *bool) {
+	g.WordTimestamp = wordTimestamp
+	g.require(geminiAsrParamsFieldWordTimestamp)
+}
+
+// SetDiarization sets the Diarization field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiAsrParams) SetDiarization(diarization *bool) {
+	g.Diarization = diarization
+	g.require(geminiAsrParamsFieldDiarization)
+}
+
+func (g *GeminiAsrParams) UnmarshalJSON(data []byte) error {
+	type embed GeminiAsrParams
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*g),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*g = GeminiAsrParams(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *g)
+	if err != nil {
+		return err
+	}
+	g.ExtraProperties = extraProperties
+	g.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (g *GeminiAsrParams) MarshalJSON() ([]byte, error) {
+	type embed GeminiAsrParams
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*g),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, g.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, g.ExtraProperties)
+}
+
+func (g *GeminiAsrParams) String() string {
+	if len(g.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(g.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(g); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", g)
+}
+
+// Transcription output mode. SMART removes disfluencies and applies formatting; VERBATIM preserves literal speech. When omitted, the service defaults to VERBATIM. SMART cannot be combined with word_timestamp or diarization.
+type GeminiAsrParamsMode string
+
+const (
+	GeminiAsrParamsModeSmart    GeminiAsrParamsMode = "SMART"
+	GeminiAsrParamsModeVerbatim GeminiAsrParamsMode = "VERBATIM"
+)
+
+func NewGeminiAsrParamsModeFromString(s string) (GeminiAsrParamsMode, error) {
+	switch s {
+	case "SMART":
+		return GeminiAsrParamsModeSmart, nil
+	case "VERBATIM":
+		return GeminiAsrParamsModeVerbatim, nil
+	}
+	var t GeminiAsrParamsMode
+	return "", fmt.Errorf("%s is not a valid %T", s, t)
+}
+
+func (g GeminiAsrParamsMode) Ptr() *GeminiAsrParamsMode {
+	return &g
 }
 
 // Generic OpenAI-compatible Text-to-Speech configuration.
@@ -5924,7 +6162,8 @@ var (
 	llmFieldGreetingConfigs   = big.NewInt(1 << 17)
 	llmFieldTemplateVariables = big.NewInt(1 << 18)
 	llmFieldMcpServers        = big.NewInt(1 << 19)
-	llmFieldHeaders           = big.NewInt(1 << 20)
+	llmFieldTools             = big.NewInt(1 << 20)
+	llmFieldHeaders           = big.NewInt(1 << 21)
 )
 
 type Llm struct {
@@ -5967,6 +6206,16 @@ type Llm struct {
 	TemplateVariables map[string]string `json:"template_variables,omitempty" url:"template_variables,omitempty"`
 	// MCP server configuration.
 	McpServers []map[string]interface{} `json:"mcp_servers,omitempty" url:"mcp_servers,omitempty"`
+	// Inline REST (pass-through sync) tool definitions for standard text LLM function calling.
+	// Required fields per tool: `type`, `function.name`, `function.parameters`
+	// (`type: object` with `properties`), `server.method` (`GET` or `POST`), and `server.url`.
+	// The combination of `type: function` and `server` identifies a REST tool.
+	// Phase 1a supports GET and POST only; `execution.mode` defaults to and only accepts `sync`.
+	// Template rules:
+	// - Values must be a constant, or exactly one single-level placeholder.
+	// - `{{args.<name>}}`: `server.url` and `server.body` only; not allowed in headers.
+	// - `{{template_variables.<name>}}` and `{{tool_call_id}}`: `server.url`, `server.headers`, and `server.body`.
+	Tools []*LlmTool `json:"tools,omitempty" url:"tools,omitempty"`
 	// Custom headers to include in requests to the LLM.
 	Headers map[string]string `json:"headers,omitempty" url:"headers,omitempty"`
 
@@ -6116,6 +6365,13 @@ func (l *Llm) GetMcpServers() []map[string]interface{} {
 		return nil
 	}
 	return l.McpServers
+}
+
+func (l *Llm) GetTools() []*LlmTool {
+	if l == nil {
+		return nil
+	}
+	return l.Tools
 }
 
 func (l *Llm) GetHeaders() map[string]string {
@@ -6274,6 +6530,13 @@ func (l *Llm) SetTemplateVariables(templateVariables map[string]string) {
 func (l *Llm) SetMcpServers(mcpServers []map[string]interface{}) {
 	l.McpServers = mcpServers
 	l.require(llmFieldMcpServers)
+}
+
+// SetTools sets the Tools field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (l *Llm) SetTools(tools []*LlmTool) {
+	l.Tools = tools
+	l.require(llmFieldTools)
 }
 
 // SetHeaders sets the Headers field and marks it as non-optional;
@@ -6599,6 +6862,646 @@ func NewLlmStyleFromString(s string) (LlmStyle, error) {
 }
 
 func (l LlmStyle) Ptr() *LlmStyle {
+	return &l
+}
+
+// Inline REST tool definition. `type: function` combined with `server` declares a REST tool.
+// Phase 1a executes the HTTP request synchronously and returns the raw result to the model context.
+var (
+	llmToolFieldFunction  = big.NewInt(1 << 0)
+	llmToolFieldExecution = big.NewInt(1 << 1)
+	llmToolFieldServer    = big.NewInt(1 << 2)
+)
+
+type LlmTool struct {
+	// Tool type. Must be `function`.
+	Function  *LlmToolFunction  `json:"function" url:"function"`
+	Execution *LlmToolExecution `json:"execution,omitempty" url:"execution,omitempty"`
+	Server    *LlmToolServer    `json:"server" url:"server"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+	type_          string
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (l *LlmTool) GetFunction() *LlmToolFunction {
+	if l == nil {
+		return nil
+	}
+	return l.Function
+}
+
+func (l *LlmTool) GetExecution() *LlmToolExecution {
+	if l == nil {
+		return nil
+	}
+	return l.Execution
+}
+
+func (l *LlmTool) GetServer() *LlmToolServer {
+	if l == nil {
+		return nil
+	}
+	return l.Server
+}
+
+func (l *LlmTool) Type() string {
+	return l.type_
+}
+
+func (l *LlmTool) GetExtraProperties() map[string]interface{} {
+	return l.ExtraProperties
+}
+
+func (l *LlmTool) require(field *big.Int) {
+	if l.explicitFields == nil {
+		l.explicitFields = big.NewInt(0)
+	}
+	l.explicitFields.Or(l.explicitFields, field)
+}
+
+// SetFunction sets the Function field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (l *LlmTool) SetFunction(function *LlmToolFunction) {
+	l.Function = function
+	l.require(llmToolFieldFunction)
+}
+
+// SetExecution sets the Execution field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (l *LlmTool) SetExecution(execution *LlmToolExecution) {
+	l.Execution = execution
+	l.require(llmToolFieldExecution)
+}
+
+// SetServer sets the Server field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (l *LlmTool) SetServer(server *LlmToolServer) {
+	l.Server = server
+	l.require(llmToolFieldServer)
+}
+
+func (l *LlmTool) UnmarshalJSON(data []byte) error {
+	type embed LlmTool
+	var unmarshaler = struct {
+		embed
+		Type string `json:"type"`
+	}{
+		embed: embed(*l),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*l = LlmTool(unmarshaler.embed)
+	if unmarshaler.Type != "function" {
+		return fmt.Errorf("unexpected value for literal on type %T; expected %v got %v", l, "function", unmarshaler.Type)
+	}
+	l.type_ = unmarshaler.Type
+	extraProperties, err := internal.ExtractExtraProperties(data, *l, "type")
+	if err != nil {
+		return err
+	}
+	l.ExtraProperties = extraProperties
+	l.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (l *LlmTool) MarshalJSON() ([]byte, error) {
+	type embed LlmTool
+	var marshaler = struct {
+		embed
+		Type string `json:"type"`
+	}{
+		embed: embed(*l),
+		Type:  "function",
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, l.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, l.ExtraProperties)
+}
+
+func (l *LlmTool) String() string {
+	if len(l.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(l.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(l); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", l)
+}
+
+// Tool execution configuration. Defaults to `{"mode": "sync"}`. Phase 1a only allows `sync`.
+var (
+	llmToolExecutionFieldMode = big.NewInt(1 << 0)
+)
+
+type LlmToolExecution struct {
+	// Execution mode. Phase 1a only accepts `sync`.
+	Mode *LlmToolExecutionMode `json:"mode,omitempty" url:"mode,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (l *LlmToolExecution) GetExtraProperties() map[string]interface{} {
+	return l.ExtraProperties
+}
+
+func (l *LlmToolExecution) require(field *big.Int) {
+	if l.explicitFields == nil {
+		l.explicitFields = big.NewInt(0)
+	}
+	l.explicitFields.Or(l.explicitFields, field)
+}
+
+// SetMode sets the Mode field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (l *LlmToolExecution) SetMode(mode *LlmToolExecutionMode) {
+	l.Mode = mode
+	l.require(llmToolExecutionFieldMode)
+}
+
+// LlmToolExecutionMode controls how an inline REST tool is executed.
+type LlmToolExecutionMode string
+
+const (
+	LlmToolExecutionModeSync LlmToolExecutionMode = "sync"
+)
+
+func (l LlmToolExecutionMode) Ptr() *LlmToolExecutionMode {
+	return &l
+}
+
+func (l *LlmToolExecution) UnmarshalJSON(data []byte) error {
+	type embed LlmToolExecution
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*l),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*l = LlmToolExecution(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *l)
+	if err != nil {
+		return err
+	}
+	l.ExtraProperties = extraProperties
+	l.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (l *LlmToolExecution) MarshalJSON() ([]byte, error) {
+	type embed LlmToolExecution
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*l),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, l.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, l.ExtraProperties)
+}
+
+func (l *LlmToolExecution) String() string {
+	if len(l.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(l.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(l); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", l)
+}
+
+// Tool interface exposed to the model. `parameters` defines LLM arguments, not the HTTP request shape.
+var (
+	llmToolFunctionFieldName        = big.NewInt(1 << 0)
+	llmToolFunctionFieldDescription = big.NewInt(1 << 1)
+	llmToolFunctionFieldParameters  = big.NewInt(1 << 2)
+)
+
+type LlmToolFunction struct {
+	// Function name visible to the model. Used as the REST tool index key (ASCII case-insensitive).
+	Name string `json:"name" url:"name"`
+	// Function description visible to the model.
+	Description *string `json:"description,omitempty" url:"description,omitempty"`
+	// JSON Schema defining the LLM tool-call arguments (`args`). Must be an object schema with `type: object` and `properties`.
+	Parameters *LlmToolFunctionParameters `json:"parameters" url:"parameters"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (l *LlmToolFunction) GetName() string {
+	if l == nil {
+		return ""
+	}
+	return l.Name
+}
+
+func (l *LlmToolFunction) GetDescription() *string {
+	if l == nil {
+		return nil
+	}
+	return l.Description
+}
+
+func (l *LlmToolFunction) GetParameters() *LlmToolFunctionParameters {
+	if l == nil {
+		return nil
+	}
+	return l.Parameters
+}
+
+func (l *LlmToolFunction) GetExtraProperties() map[string]interface{} {
+	return l.ExtraProperties
+}
+
+func (l *LlmToolFunction) require(field *big.Int) {
+	if l.explicitFields == nil {
+		l.explicitFields = big.NewInt(0)
+	}
+	l.explicitFields.Or(l.explicitFields, field)
+}
+
+// SetName sets the Name field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (l *LlmToolFunction) SetName(name string) {
+	l.Name = name
+	l.require(llmToolFunctionFieldName)
+}
+
+// SetDescription sets the Description field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (l *LlmToolFunction) SetDescription(description *string) {
+	l.Description = description
+	l.require(llmToolFunctionFieldDescription)
+}
+
+// SetParameters sets the Parameters field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (l *LlmToolFunction) SetParameters(parameters *LlmToolFunctionParameters) {
+	l.Parameters = parameters
+	l.require(llmToolFunctionFieldParameters)
+}
+
+func (l *LlmToolFunction) UnmarshalJSON(data []byte) error {
+	type embed LlmToolFunction
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*l),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*l = LlmToolFunction(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *l)
+	if err != nil {
+		return err
+	}
+	l.ExtraProperties = extraProperties
+	l.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (l *LlmToolFunction) MarshalJSON() ([]byte, error) {
+	type embed LlmToolFunction
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*l),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, l.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, l.ExtraProperties)
+}
+
+func (l *LlmToolFunction) String() string {
+	if len(l.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(l.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(l); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", l)
+}
+
+// JSON Schema defining the LLM tool-call arguments (`args`). Must be an object schema with `type: object` and `properties`.
+var (
+	llmToolFunctionParametersFieldProperties = big.NewInt(1 << 0)
+	llmToolFunctionParametersFieldRequired   = big.NewInt(1 << 1)
+)
+
+type LlmToolFunctionParameters struct {
+	// JSON Schema type. Must be `object`.
+	// Argument property definitions keyed by argument name.
+	Properties map[string]interface{} `json:"properties" url:"properties"`
+	// List of required argument names.
+	Required []string `json:"required,omitempty" url:"required,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+	type_          string
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (l *LlmToolFunctionParameters) GetProperties() map[string]interface{} {
+	if l == nil {
+		return nil
+	}
+	return l.Properties
+}
+
+func (l *LlmToolFunctionParameters) GetRequired() []string {
+	if l == nil {
+		return nil
+	}
+	return l.Required
+}
+
+func (l *LlmToolFunctionParameters) Type() string {
+	return l.type_
+}
+
+func (l *LlmToolFunctionParameters) GetExtraProperties() map[string]interface{} {
+	return l.ExtraProperties
+}
+
+func (l *LlmToolFunctionParameters) require(field *big.Int) {
+	if l.explicitFields == nil {
+		l.explicitFields = big.NewInt(0)
+	}
+	l.explicitFields.Or(l.explicitFields, field)
+}
+
+// SetProperties sets the Properties field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (l *LlmToolFunctionParameters) SetProperties(properties map[string]interface{}) {
+	l.Properties = properties
+	l.require(llmToolFunctionParametersFieldProperties)
+}
+
+// SetRequired sets the Required field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (l *LlmToolFunctionParameters) SetRequired(required []string) {
+	l.Required = required
+	l.require(llmToolFunctionParametersFieldRequired)
+}
+
+func (l *LlmToolFunctionParameters) UnmarshalJSON(data []byte) error {
+	type embed LlmToolFunctionParameters
+	var unmarshaler = struct {
+		embed
+		Type string `json:"type"`
+	}{
+		embed: embed(*l),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*l = LlmToolFunctionParameters(unmarshaler.embed)
+	if unmarshaler.Type != "object" {
+		return fmt.Errorf("unexpected value for literal on type %T; expected %v got %v", l, "object", unmarshaler.Type)
+	}
+	l.type_ = unmarshaler.Type
+	extraProperties, err := internal.ExtractExtraProperties(data, *l, "type")
+	if err != nil {
+		return err
+	}
+	l.ExtraProperties = extraProperties
+	l.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (l *LlmToolFunctionParameters) MarshalJSON() ([]byte, error) {
+	type embed LlmToolFunctionParameters
+	var marshaler = struct {
+		embed
+		Type string `json:"type"`
+	}{
+		embed: embed(*l),
+		Type:  "object",
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, l.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, l.ExtraProperties)
+}
+
+func (l *LlmToolFunctionParameters) String() string {
+	if len(l.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(l.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(l); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", l)
+}
+
+// Actual HTTP request configuration for this REST tool.
+// Does not use top-level `parameters`, `path_params`, standalone `query`,
+// `response`, `json_path`, or `max_chars`.
+var (
+	llmToolServerFieldMethod    = big.NewInt(1 << 0)
+	llmToolServerFieldURL       = big.NewInt(1 << 1)
+	llmToolServerFieldHeaders   = big.NewInt(1 << 2)
+	llmToolServerFieldBody      = big.NewInt(1 << 3)
+	llmToolServerFieldTimeoutMs = big.NewInt(1 << 4)
+)
+
+type LlmToolServer struct {
+	// HTTP method. Must be `GET` or `POST`.
+	Method LlmToolServerMethod `json:"method" url:"method"`
+	// Full request URL. Write path and query templates directly in the URL.
+	// Placeholders allowed: `{{args.<name>}}`, `{{template_variables.<name>}}`,
+	// and `{{tool_call_id}}`. URL values may be string, number, or boolean.
+	URL string `json:"url" url:"url"`
+	// Request headers as a string dictionary.
+	// Each header value must be a constant or exactly one placeholder.
+	// Placeholders allowed: `{{template_variables.<name>}}` and `{{tool_call_id}}`.
+	// `{{args.*}}` is not allowed in headers.
+	Headers map[string]string `json:"headers,omitempty" url:"headers,omitempty"`
+	// POST JSON body template. Must not be configured for `GET` requests.
+	// Supports arbitrary nested JSON. Only fields declared in `server.body` are sent.
+	// Leaf values may be constants or exactly one of `{{args.<name>}}`,
+	// `{{template_variables.<name>}}`, or `{{tool_call_id}}`.
+	// JSON body preserves original types after rendering.
+	Body map[string]interface{} `json:"body,omitempty" url:"body,omitempty"`
+	// Request timeout in milliseconds. Defaults to `10000`. Valid range is `1000` to `100000`.
+	TimeoutMs *int `json:"timeout_ms,omitempty" url:"timeout_ms,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (l *LlmToolServer) GetMethod() LlmToolServerMethod {
+	if l == nil {
+		return ""
+	}
+	return l.Method
+}
+
+func (l *LlmToolServer) GetURL() string {
+	if l == nil {
+		return ""
+	}
+	return l.URL
+}
+
+func (l *LlmToolServer) GetHeaders() map[string]string {
+	if l == nil {
+		return nil
+	}
+	return l.Headers
+}
+
+func (l *LlmToolServer) GetBody() map[string]interface{} {
+	if l == nil {
+		return nil
+	}
+	return l.Body
+}
+
+func (l *LlmToolServer) GetTimeoutMs() *int {
+	if l == nil {
+		return nil
+	}
+	return l.TimeoutMs
+}
+
+func (l *LlmToolServer) GetExtraProperties() map[string]interface{} {
+	return l.ExtraProperties
+}
+
+func (l *LlmToolServer) require(field *big.Int) {
+	if l.explicitFields == nil {
+		l.explicitFields = big.NewInt(0)
+	}
+	l.explicitFields.Or(l.explicitFields, field)
+}
+
+// SetMethod sets the Method field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (l *LlmToolServer) SetMethod(method LlmToolServerMethod) {
+	l.Method = method
+	l.require(llmToolServerFieldMethod)
+}
+
+// SetURL sets the URL field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (l *LlmToolServer) SetURL(url string) {
+	l.URL = url
+	l.require(llmToolServerFieldURL)
+}
+
+// SetHeaders sets the Headers field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (l *LlmToolServer) SetHeaders(headers map[string]string) {
+	l.Headers = headers
+	l.require(llmToolServerFieldHeaders)
+}
+
+// SetBody sets the Body field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (l *LlmToolServer) SetBody(body map[string]interface{}) {
+	l.Body = body
+	l.require(llmToolServerFieldBody)
+}
+
+// SetTimeoutMs sets the TimeoutMs field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (l *LlmToolServer) SetTimeoutMs(timeoutMs *int) {
+	l.TimeoutMs = timeoutMs
+	l.require(llmToolServerFieldTimeoutMs)
+}
+
+func (l *LlmToolServer) UnmarshalJSON(data []byte) error {
+	type embed LlmToolServer
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*l),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*l = LlmToolServer(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *l)
+	if err != nil {
+		return err
+	}
+	l.ExtraProperties = extraProperties
+	l.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (l *LlmToolServer) MarshalJSON() ([]byte, error) {
+	type embed LlmToolServer
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*l),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, l.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, l.ExtraProperties)
+}
+
+func (l *LlmToolServer) String() string {
+	if len(l.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(l.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(l); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", l)
+}
+
+// HTTP method. Must be `GET` or `POST`.
+type LlmToolServerMethod string
+
+const (
+	LlmToolServerMethodGet  LlmToolServerMethod = "GET"
+	LlmToolServerMethodPost LlmToolServerMethod = "POST"
+)
+
+func NewLlmToolServerMethodFromString(s string) (LlmToolServerMethod, error) {
+	switch s {
+	case "GET":
+		return LlmToolServerMethodGet, nil
+	case "POST":
+		return LlmToolServerMethodPost, nil
+	}
+	var t LlmToolServerMethod
+	return "", fmt.Errorf("%s is not a valid %T", s, t)
+}
+
+func (l LlmToolServerMethod) Ptr() *LlmToolServerMethod {
 	return &l
 }
 
@@ -11308,14 +12211,16 @@ func (s *SpeechmaticsAsr) String() string {
 
 // Speechmatics ASR configuration parameters.
 var (
-	speechmaticsAsrParamsFieldAPIKey   = big.NewInt(1 << 0)
+	speechmaticsAsrParamsFieldKey      = big.NewInt(1 << 0)
 	speechmaticsAsrParamsFieldLanguage = big.NewInt(1 << 1)
 	speechmaticsAsrParamsFieldURI      = big.NewInt(1 << 2)
 )
 
 type SpeechmaticsAsrParams struct {
 	// Speechmatics API key
-	APIKey string `json:"api_key" url:"api_key"`
+	Key string `json:"key" url:"key"`
+	// Deprecated: Use Key instead. APIKey is normalized to Key during serialization.
+	APIKey string `json:"-" url:"-"`
 	// Language code to use for transcription
 	Language string `json:"language" url:"language"`
 	// WebSocket URL for the Speechmatics streaming API
@@ -11329,11 +12234,19 @@ type SpeechmaticsAsrParams struct {
 	rawJSON json.RawMessage
 }
 
-func (s *SpeechmaticsAsrParams) GetAPIKey() string {
+func (s *SpeechmaticsAsrParams) GetKey() string {
 	if s == nil {
 		return ""
 	}
+	if s.Key != "" {
+		return s.Key
+	}
 	return s.APIKey
+}
+
+// Deprecated: Use GetKey instead.
+func (s *SpeechmaticsAsrParams) GetAPIKey() string {
+	return s.GetKey()
 }
 
 func (s *SpeechmaticsAsrParams) GetLanguage() string {
@@ -11361,11 +12274,19 @@ func (s *SpeechmaticsAsrParams) require(field *big.Int) {
 	s.explicitFields.Or(s.explicitFields, field)
 }
 
-// SetAPIKey sets the APIKey field and marks it as non-optional;
+// SetKey sets the Key field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
+func (s *SpeechmaticsAsrParams) SetKey(key string) {
+	s.Key = key
+	s.require(speechmaticsAsrParamsFieldKey)
+}
+
+// SetAPIKey sets the deprecated APIKey field and normalizes it to Key.
+// Deprecated: Use SetKey instead.
 func (s *SpeechmaticsAsrParams) SetAPIKey(apiKey string) {
 	s.APIKey = apiKey
-	s.require(speechmaticsAsrParamsFieldAPIKey)
+	s.Key = apiKey
+	s.require(speechmaticsAsrParamsFieldKey)
 }
 
 // SetLanguage sets the Language field and marks it as non-optional;
@@ -11398,19 +12319,37 @@ func (s *SpeechmaticsAsrParams) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	s.ExtraProperties = extraProperties
+	if legacyKey, ok := s.ExtraProperties["api_key"].(string); ok {
+		if s.Key == "" {
+			s.Key = legacyKey
+		}
+		delete(s.ExtraProperties, "api_key")
+	}
+	s.APIKey = s.Key
 	s.rawJSON = json.RawMessage(data)
 	return nil
 }
 
 func (s *SpeechmaticsAsrParams) MarshalJSON() ([]byte, error) {
 	type embed SpeechmaticsAsrParams
+	normalized := *s
+	if normalized.Key == "" {
+		normalized.Key = normalized.APIKey
+	}
+	normalized.APIKey = ""
 	var marshaler = struct {
 		embed
 	}{
-		embed: embed(*s),
+		embed: embed(normalized),
 	}
 	explicitMarshaler := internal.HandleExplicitFields(marshaler, s.explicitFields)
-	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, s.ExtraProperties)
+	extraProperties := make(map[string]interface{}, len(s.ExtraProperties))
+	for key, value := range s.ExtraProperties {
+		if key != "api_key" {
+			extraProperties[key] = value
+		}
+	}
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, extraProperties)
 }
 
 func (s *SpeechmaticsAsrParams) String() string {
@@ -17109,7 +18048,7 @@ type StartAgentsRequestPropertiesAdvancedFeatures struct {
 	EnableRtm *bool `json:"enable_rtm,omitempty" url:"enable_rtm,omitempty"`
 	// Enable Selective Attention Locking (SAL). When enabled, configure the `sal` field to set up speaker recognition or locking modes.
 	EnableSal *bool `json:"enable_sal,omitempty" url:"enable_sal,omitempty"`
-	// Enable tool invocation. When enabled, the agent can invoke tools provided by the MCP server to implement advanced functionality.
+	// Enable invocation for MCP servers and inline REST tools.
 	EnableTools *bool `json:"enable_tools,omitempty" url:"enable_tools,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
@@ -17512,16 +18451,20 @@ func (s *StartAgentsRequestPropertiesFillerWords) String() string {
 
 // Filler word content configuration. Defines the source and selection rules for filler words.
 var (
-	startAgentsRequestPropertiesFillerWordsContentFieldMode         = big.NewInt(1 << 0)
-	startAgentsRequestPropertiesFillerWordsContentFieldStaticConfig = big.NewInt(1 << 1)
+	startAgentsRequestPropertiesFillerWordsContentFieldMode            = big.NewInt(1 << 0)
+	startAgentsRequestPropertiesFillerWordsContentFieldStaticConfig    = big.NewInt(1 << 1)
+	startAgentsRequestPropertiesFillerWordsContentFieldGeneratedConfig = big.NewInt(1 << 2)
 )
 
 type StartAgentsRequestPropertiesFillerWordsContent struct {
 	// Filler word content mode:
 	// - `static`: Static filler words. Uses a predefined list of filler words.
-	Mode *string `json:"mode,omitempty" url:"mode,omitempty"`
-	// Static filler word configuration. Used when `mode` is `static`.
+	// - `generated`: LLM-generated filler words based on the last user message.
+	Mode *StartAgentsRequestPropertiesFillerWordsContentMode `json:"mode,omitempty" url:"mode,omitempty"`
+	// Static filler word configuration. Required when `mode` is `static`.
 	StaticConfig *StartAgentsRequestPropertiesFillerWordsContentStaticConfig `json:"static_config,omitempty" url:"static_config,omitempty"`
+	// Optional configuration for generated filler words. When omitted, the service uses its default generator settings.
+	GeneratedConfig *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig `json:"generated_config,omitempty" url:"generated_config,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
 	explicitFields *big.Int `json:"-" url:"-"`
@@ -17530,11 +18473,25 @@ type StartAgentsRequestPropertiesFillerWordsContent struct {
 	rawJSON         json.RawMessage
 }
 
+func (s *StartAgentsRequestPropertiesFillerWordsContent) GetMode() *StartAgentsRequestPropertiesFillerWordsContentMode {
+	if s == nil {
+		return nil
+	}
+	return s.Mode
+}
+
 func (s *StartAgentsRequestPropertiesFillerWordsContent) GetStaticConfig() *StartAgentsRequestPropertiesFillerWordsContentStaticConfig {
 	if s == nil {
 		return nil
 	}
 	return s.StaticConfig
+}
+
+func (s *StartAgentsRequestPropertiesFillerWordsContent) GetGeneratedConfig() *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig {
+	if s == nil {
+		return nil
+	}
+	return s.GeneratedConfig
 }
 
 func (s *StartAgentsRequestPropertiesFillerWordsContent) GetExtraProperties() map[string]interface{} {
@@ -17550,7 +18507,7 @@ func (s *StartAgentsRequestPropertiesFillerWordsContent) require(field *big.Int)
 
 // SetMode sets the Mode field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (s *StartAgentsRequestPropertiesFillerWordsContent) SetMode(mode *string) {
+func (s *StartAgentsRequestPropertiesFillerWordsContent) SetMode(mode *StartAgentsRequestPropertiesFillerWordsContentMode) {
 	s.Mode = mode
 	s.require(startAgentsRequestPropertiesFillerWordsContentFieldMode)
 }
@@ -17560,6 +18517,13 @@ func (s *StartAgentsRequestPropertiesFillerWordsContent) SetMode(mode *string) {
 func (s *StartAgentsRequestPropertiesFillerWordsContent) SetStaticConfig(staticConfig *StartAgentsRequestPropertiesFillerWordsContentStaticConfig) {
 	s.StaticConfig = staticConfig
 	s.require(startAgentsRequestPropertiesFillerWordsContentFieldStaticConfig)
+}
+
+// SetGeneratedConfig sets the GeneratedConfig field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *StartAgentsRequestPropertiesFillerWordsContent) SetGeneratedConfig(generatedConfig *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) {
+	s.GeneratedConfig = generatedConfig
+	s.require(startAgentsRequestPropertiesFillerWordsContentFieldGeneratedConfig)
 }
 
 func (s *StartAgentsRequestPropertiesFillerWordsContent) UnmarshalJSON(data []byte) error {
@@ -17601,7 +18565,264 @@ func (s *StartAgentsRequestPropertiesFillerWordsContent) String() string {
 	return fmt.Sprintf("%#v", s)
 }
 
-// Static filler word configuration. Used when `mode` is `static`.
+// Optional configuration for generated filler words. When omitted, the service uses its default generator settings.
+var (
+	startAgentsRequestPropertiesFillerWordsContentGeneratedConfigFieldLlmProvider      = big.NewInt(1 << 0)
+	startAgentsRequestPropertiesFillerWordsContentGeneratedConfigFieldPrompt           = big.NewInt(1 << 1)
+	startAgentsRequestPropertiesFillerWordsContentGeneratedConfigFieldFallbackStrategy = big.NewInt(1 << 2)
+)
+
+type StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig struct {
+	// OpenAI-compatible LLM provider used to generate filler words. Runs in parallel with the main business LLM and only uses the last user message as input.
+	LlmProvider *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProvider `json:"llm_provider,omitempty" url:"llm_provider,omitempty"`
+	// System prompt used to generate a short filler phrase based on the last user message. The generated text should be conversational and must not answer the user's question.
+	Prompt *string `json:"prompt,omitempty" url:"prompt,omitempty"`
+	// Fallback strategy when generated filler text is not ready, fails, or returns empty text. Phase 1 only supports `static`.
+	FallbackStrategy *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy `json:"fallback_strategy,omitempty" url:"fallback_strategy,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	extraProperties map[string]interface{}
+	rawJSON         json.RawMessage
+}
+
+func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) GetLlmProvider() *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProvider {
+	if s == nil {
+		return nil
+	}
+	return s.LlmProvider
+}
+
+func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) GetPrompt() *string {
+	if s == nil {
+		return nil
+	}
+	return s.Prompt
+}
+
+func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) GetExtraProperties() map[string]interface{} {
+	return s.extraProperties
+}
+
+func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) require(field *big.Int) {
+	if s.explicitFields == nil {
+		s.explicitFields = big.NewInt(0)
+	}
+	s.explicitFields.Or(s.explicitFields, field)
+}
+
+// SetLlmProvider sets the LlmProvider field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetLlmProvider(llmProvider *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProvider) {
+	s.LlmProvider = llmProvider
+	s.require(startAgentsRequestPropertiesFillerWordsContentGeneratedConfigFieldLlmProvider)
+}
+
+// SetPrompt sets the Prompt field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetPrompt(prompt *string) {
+	s.Prompt = prompt
+	s.require(startAgentsRequestPropertiesFillerWordsContentGeneratedConfigFieldPrompt)
+}
+
+// SetFallbackStrategy sets the FallbackStrategy field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetFallbackStrategy(fallbackStrategy *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy) {
+	s.FallbackStrategy = fallbackStrategy
+	s.require(startAgentsRequestPropertiesFillerWordsContentGeneratedConfigFieldFallbackStrategy)
+}
+
+// StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy controls fallback behavior for generated filler words.
+type StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy string
+
+const (
+	StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategyStatic StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy = "static"
+)
+
+func (s StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy) Ptr() *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy {
+	return &s
+}
+
+func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) UnmarshalJSON(data []byte) error {
+	type unmarshaler StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig
+	var value unmarshaler
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	*s = StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig(value)
+	extraProperties, err := internal.ExtractExtraProperties(data, *s)
+	if err != nil {
+		return err
+	}
+	s.extraProperties = extraProperties
+	s.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) MarshalJSON() ([]byte, error) {
+	type embed StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*s),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, s.explicitFields)
+	return json.Marshal(explicitMarshaler)
+}
+
+func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) String() string {
+	if len(s.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(s.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(s); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", s)
+}
+
+// OpenAI-compatible LLM provider used to generate filler words. Runs in parallel with the main business LLM and only uses the last user message as input.
+var (
+	startAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProviderFieldURL    = big.NewInt(1 << 0)
+	startAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProviderFieldAPIKey = big.NewInt(1 << 1)
+	startAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProviderFieldParams = big.NewInt(1 << 2)
+)
+
+type StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProvider struct {
+	// URL of the OpenAI-compatible chat completions endpoint. If the URL does not end with `/chat/completions`, the engine appends it automatically.
+	URL string `json:"url" url:"url"`
+	// API key for authenticating requests to the filler LLM provider.
+	APIKey string `json:"api_key" url:"api_key"`
+	// Additional request parameters merged into the generated filler LLM request body, such as `model`.
+	Params map[string]interface{} `json:"params,omitempty" url:"params,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	extraProperties map[string]interface{}
+	rawJSON         json.RawMessage
+}
+
+func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProvider) GetURL() string {
+	if s == nil {
+		return ""
+	}
+	return s.URL
+}
+
+func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProvider) GetAPIKey() string {
+	if s == nil {
+		return ""
+	}
+	return s.APIKey
+}
+
+func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProvider) GetParams() map[string]interface{} {
+	if s == nil {
+		return nil
+	}
+	return s.Params
+}
+
+func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProvider) GetExtraProperties() map[string]interface{} {
+	return s.extraProperties
+}
+
+func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProvider) require(field *big.Int) {
+	if s.explicitFields == nil {
+		s.explicitFields = big.NewInt(0)
+	}
+	s.explicitFields.Or(s.explicitFields, field)
+}
+
+// SetURL sets the URL field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProvider) SetURL(url string) {
+	s.URL = url
+	s.require(startAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProviderFieldURL)
+}
+
+// SetAPIKey sets the APIKey field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProvider) SetAPIKey(apiKey string) {
+	s.APIKey = apiKey
+	s.require(startAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProviderFieldAPIKey)
+}
+
+// SetParams sets the Params field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProvider) SetParams(params map[string]interface{}) {
+	s.Params = params
+	s.require(startAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProviderFieldParams)
+}
+
+func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProvider) UnmarshalJSON(data []byte) error {
+	type unmarshaler StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProvider
+	var value unmarshaler
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	*s = StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProvider(value)
+	extraProperties, err := internal.ExtractExtraProperties(data, *s)
+	if err != nil {
+		return err
+	}
+	s.extraProperties = extraProperties
+	s.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProvider) MarshalJSON() ([]byte, error) {
+	type embed StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProvider
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*s),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, s.explicitFields)
+	return json.Marshal(explicitMarshaler)
+}
+
+func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProvider) String() string {
+	if len(s.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(s.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(s); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", s)
+}
+
+// Filler word content mode:
+// - `static`: Static filler words. Uses a predefined list of filler words.
+// - `generated`: LLM-generated filler words based on the last user message.
+type StartAgentsRequestPropertiesFillerWordsContentMode string
+
+const (
+	StartAgentsRequestPropertiesFillerWordsContentModeStatic    StartAgentsRequestPropertiesFillerWordsContentMode = "static"
+	StartAgentsRequestPropertiesFillerWordsContentModeGenerated StartAgentsRequestPropertiesFillerWordsContentMode = "generated"
+)
+
+func NewStartAgentsRequestPropertiesFillerWordsContentModeFromString(s string) (StartAgentsRequestPropertiesFillerWordsContentMode, error) {
+	switch s {
+	case "static":
+		return StartAgentsRequestPropertiesFillerWordsContentModeStatic, nil
+	case "generated":
+		return StartAgentsRequestPropertiesFillerWordsContentModeGenerated, nil
+	}
+	var t StartAgentsRequestPropertiesFillerWordsContentMode
+	return "", fmt.Errorf("%s is not a valid %T", s, t)
+}
+
+func (s StartAgentsRequestPropertiesFillerWordsContentMode) Ptr() *StartAgentsRequestPropertiesFillerWordsContentMode {
+	return &s
+}
+
+// Static filler word configuration. Required when `mode` is `static`.
 var (
 	startAgentsRequestPropertiesFillerWordsContentStaticConfigFieldPhrases       = big.NewInt(1 << 0)
 	startAgentsRequestPropertiesFillerWordsContentStaticConfigFieldSelectionRule = big.NewInt(1 << 1)

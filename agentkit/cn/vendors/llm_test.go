@@ -1,6 +1,10 @@
 package vendors
 
-import "testing"
+import (
+	"testing"
+
+	Agora "github.com/AgoraIO/agora-agents-go/v2"
+)
 
 func TestDomesticOpenAICompatibleLLMVendorsSetVendorHint(t *testing.T) {
 	cases := []struct {
@@ -57,6 +61,26 @@ func TestDomesticOpenAICompatibleLLMVendorsSetVendorHint(t *testing.T) {
 		if params["model"] == "" {
 			t.Fatalf("%s missing model in params: %#v", tc.name, tc.config)
 		}
+	}
+}
+
+func TestDomesticOpenAICompatibleLLMEmitsInlineTools(t *testing.T) {
+	tool := &Agora.LlmTool{
+		Function: &Agora.LlmToolFunction{Name: "lookup"},
+		Server: &Agora.LlmToolServer{
+			Method: Agora.LlmToolServerMethodPost,
+			URL:    "https://example.com/items",
+		},
+	}
+	config := NewDeepSeek(DeepSeekOptions{
+		APIKey:  "key",
+		Model:   "deepseek-chat",
+		BaseURL: "https://api.deepseek.com/chat/completions",
+		Tools:   []*Agora.LlmTool{tool},
+	}).ToConfig()
+
+	if _, ok := config["tools"].([]*Agora.LlmTool); !ok {
+		t.Fatalf("tools = %#v, want generated tool definitions", config["tools"])
 	}
 }
 

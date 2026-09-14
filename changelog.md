@@ -4,32 +4,71 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [v2.8.0] — 2026-09-10
 
 ### Added
 
-- **Preview endpoint support** — `NewAgoraPreviewClient` routes every request to the preview gateway and pins the `agora-feature` gate header. It returns `*AgoraClient`, so it is accepted everywhere a production client is, including `NewAgent`.
-- **Gemini preview MLLMs** — `NewGeminiWalkieTalkie` (`walkie-talkie`) and `NewGeminiCleverChatter` (`clever-chatter`), served only by the preview gateway. `ThinkingLevel` is exclusive to clever-chatter, so it is a separate options type.
-- **Preview MLLM rename constants** — `GeminiPreviewModel35Live` (`gemini-3.5-live`) and `GeminiPreviewModel35LiveThinking` (`gemini-3.5-live-thinking`) are the post-rename IDs for walkie-talkie and clever-chatter. Both spellings are accepted by `RequiredPreviewFeatures`, so the guard works throughout Google's rollout. The vendor types still send the codenames — see `GeminiPreviewDefaultModel*`.
-- **Preview MLLM language** — `LanguageCodes` serializes to `params.language_codes`, omitted when nil. The preview MLLMs never send the singular `params.language`: that field belongs to xAI Grok in the Agora schema, and the production Gemini Live provider sends no language field at all.
-- **Preview MLLM greeting** — the field is `Greeting` (not `GreetingMessage`) and serializes to `greeting`, the spelling the new Gemini preview models read. `WithGreeting` also works — the builder writes it as `mllm.greeting_message` and `ApplyPreviewShape` retargets it.
-- **Preview wire-shape translation** — `ApplyPreviewShape` runs at session start and retargets MLLM fields the shared builder wrote with production spellings, so an agent-level greeting reaches the preview models as `greeting` rather than the `greeting_message` they ignore. A hand-written `greeting_message` migrates too, so an existing config keeps working after only swapping the model. `failure_message` is left alone as an Agora engine field, and production MLLMs are untouched.
-- **Preview support guard** — `AssertPreviewSupport` returns an error before any request when preview providers are paired with a production client. `NewSession` fills the session's feature list from the bound client.
-- **Debug redaction** — `RedactSecrets` replaces vendor API keys, RTC tokens, and the App ID with `[REDACTED]` in `Debug: true` output. Empty strings stay visible so an unset environment variable remains diagnosable.
+- **Generated filler words** — AgentKit now exposes generated filler content types and mode constants, including optional service-default generation and custom OpenAI-compatible filler LLM configuration.
+- **Inline LLM tools** — Global and mainland China LLM vendor options now accept typed `Tools` definitions for inline REST function calls. AgentKit exposes the generated `LlmTool` types, and tool execution is enabled with `WithTools(true)` alongside MCP tools.
+- **OpenAI GPT Live v3** — Added the preview `NewOpenAIGPTLive` MLLM vendor with typed session, audio, tool-delegation, endpoint, and MCP options. It routes sessions through the preview gateway and defaults to the `gpt-live-1-diamond-alpha` model and required `quicksilver=v3` contract selector.
+- **Gemini ASR production support** — `NewGeminiSTT` is now a global production vendor backed by the generated Gemini schema. It supports recognition language, language hints, custom vocabulary, word timestamps, SMART/VERBATIM transcription modes, diarization, sample rate, and additional vendor parameters.
 
-### Notes
+### Changed
 
-- The gate header is applied in a wrapped `core.HTTPClient` rather than via `option.WithHTTPHeader`, because that option replaces the entire header map — a per-call header option would otherwise silently drop the gate. A custom `HTTPClient` passed to `AgoraPreviewClientOptions` is wrapped, not replaced.
+- **Ares and Fengming STT parameters** — `Keywords` is emitted as top-level `asr.keywords`; other `AdditionalParams` remain under `asr.params`, while nested `AdditionalParams["keywords"]` is rejected to prevent ambiguous requests.
+- **Restricted single-value options** — Inline tool execution mode and generated filler fallback strategy now use named string types and exported constants instead of unrestricted string pointers.
+- **Gemini ASR routing and compatibility** — Gemini ASR now uses the normal regional production endpoint and generated request validation. The deprecated `LanguageCodes` option remains compatible as an alias for `LanguageHints`, which serializes as `params.language_hints` and takes precedence when both are set.
 
 ### Fixed
 
-- **An unrecognised MLLM model no longer silently skips the wire-shape translation** — preview detection matched only the four known model names, so overriding `Model` to a rename this SDK had not shipped yet turned off `ApplyPreviewShape` with no error: the greeting stayed in `greeting_message`, which these models ignore, and the agent never greeted. A config is now also recognised by its envelope (`params.api_key` set and `url` on the Gemini Developer API host), which the production `GeminiLive` vendor does not emit.
+- **GPT Live v3 contract selection** — `NewOpenAIGPTLive` now serializes `params.alpha_selector: "quicksilver=v3"` by default so preview workers consistently send the required OpenAI alpha header. Callers can still override the selector explicitly.
+
+## [v2.7.0] — 2026-08-26
+
+### Added
+
+- **Automatic preview routing** — `NewAgoraClient` detects preview providers from the resolved start body and binds preview routing to that session.
+- **Gemini preview ASR** — `NewGeminiSTT` (`gemini-3.5-transcribe-live`), a cascading ASR stage served only by the preview gateway.
+- **Gemini ASR language selection** — `LanguageCodes` serializes to `params.language_codes`, replacing the singular `params.language` this vendor previously sent. Omitted from the request when nil, which is how the provider spells auto-detect. `GeminiSTTOptions` has no `Language` field: the top-level `asr.language` comes from turn detection, as it does for every STT vendor.
+- **Gemini ASR custom vocabulary** — `CustomVocabulary` biases recognition toward supplied words and phrases via `params.custom_vocabulary`. Omitted from the request when nil.
+- **Session-scoped preview state** — preview routing follows every session lifecycle request, while GA sessions and `StopAgent` remain on production routing.
+- **Debug redaction** — `RedactSecrets` replaces vendor API keys, RTC tokens, and the App ID with `[REDACTED]` in `Debug: true` output. Empty strings stay visible so an unset environment variable remains diagnosable.
+
+### Fixed
+
+- **Gemini ASR parameter compatibility** — `WordTimestamp` is now omitted unless explicitly set. Enabling it together with `CustomVocabulary` fails locally instead of sending a combination Gemini does not support.
+
+### Notes
+
+- The gate header is applied in a wrapped `core.HTTPClient` rather than via `option.WithHTTPHeader`, so header-map replacement cannot drop it. A custom `HTTPClient` passed to `AgoraClientOptions` is wrapped for preview sessions.
 
 ### Documentation
 
 - Added [Preview Endpoint](docs/guides/preview-endpoint.md), covering the gate header, intake-node failure signatures, and how to add a future preview family.
 - Documented every key the shared builder injects into a vendor config map, and why a preview provider must be verified against the resolved request body rather than the vendor constructor output — a value written under a spelling the route ignores fails silently.
-- Documented the two signals that mark a config as preview, and why matching on the model name alone was a silent failure.
+
+## [v2.6.1] — 2026-08-19
+
+### Fixed
+
+- **Speechmatics credential field** — `SpeechmaticsSTT` now emits the REST-compatible `asr.params.key`. `SpeechmaticsSTTOptions.Key` is preferred; the deprecated `APIKey` field remains supported and is normalized to `key`.
+
+## [v2.6.0] — 2026-08-10
+
+### Added
+
+- **Azure OpenAI Realtime MLLM** — `vendors.NewAzureOpenAIRealtime` configures Azure-hosted realtime sessions (`mllm.vendor`: `"azure"`) with model, voice, instructions, output modalities, and greeting support.
+- **Qwen Omni MLLM (mainland China)** — `cn/vendors.NewQwenOmni` (`mllm.vendor`: `"qwen_omni"`), plus `cn.Agent.WithMllm` and the `cn/vendors.MLLM` alias, so mainland China agents can run realtime MLLM pipelines.
+- **Typecast TTS** — `vendors.NewTypecastTTS` (`tts.vendor`: `"typecast"`) with `SkipPatterns` and passthrough `AdditionalParams`.
+- **Ares ASR** — `vendors.NewAresSTT`, the Agora-managed global ASR provider, with optional `Keywords` hints.
+- **Fengming keyword hints** — `cn/vendors.NewFengmingSTT` now accepts an optional `FengmingSTTOptions` with `Keywords` and `AdditionalParams`; the existing no-argument call still works.
+- **Configurable API base URL** — Setting `AGORA_AGENTS_API_BASE_URL` pins the client to a fixed base URL, bypassing DNS-based domain selection and region cycling. The area-specific Conversational AI path suffix is still appended.
+
+### Changed
+
+- **AssemblyAI ASR** — `AssemblyAISTTOptions.URI` is renamed to `WsURL` and now serializes as `asr.params.ws_url` instead of `asr.params.uri`. Callers setting `URI` must rename the field.
+- **Generated core refresh** — Regenerated core types for the latest Conversational AI schema, adding `AresAsrParams`, `FengmingAsrParams`, `TypecastTts`, and the `azure` and `qwen_omni` MLLM vendors.
+- **MLLM routing docs** — `docs/guides/regional-routing.md` documents the MLLM package boundary: the global Azure constructor belongs to the global `agentkit` client and Qwen Omni to the `agentkit/cn` facade.
 
 ## [v2.2.0] — 2026-06-05
 

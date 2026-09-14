@@ -45,6 +45,8 @@ type AgoraClientOptions struct {
 	// The SDK sets "Authorization: agora token=<Token>" automatically.
 	// Mutually exclusive with CustomerID/CustomerSecret.
 	Token string
+	// HTTPClient overrides the transport used for requests.
+	HTTPClient core.HTTPClient
 }
 
 // AgoraClient wraps the Fern-generated client with AppID, AppCertificate, and
@@ -60,27 +62,7 @@ type AgoraClient struct {
 	appID           string
 	appCertificate  string
 	AuthMode        AuthMode
-	// previewFeatures is empty for production clients; NewAgoraPreviewClient
-	// populates it so AgentSession can vouch for preview configs.
-	previewFeatures []string
-	// previewBaseURL is empty for production clients, which route through the
-	// regional pool instead.
-	previewBaseURL string
-}
-
-// PreviewFeatureNames returns the preview families this client can reach.
-// Empty for a production client.
-func (c *AgoraClient) PreviewFeatureNames() []string {
-	return c.previewFeatures
-}
-
-// CurrentURL returns the preview endpoint this client targets, or "" for a
-// production client, which resolves its host from the regional pool per request.
-//
-// The preview host is a single partner endpoint with no regional replicas, so
-// there is no failover to perform.
-func (c *AgoraClient) CurrentURL() string {
-	return c.previewBaseURL
+	httpClient      core.HTTPClient
 }
 
 func (c *AgoraClient) AgentsClient() *agents.Client {
@@ -101,6 +83,10 @@ func (c *AgoraClient) AppCertificate() string {
 
 func (c *AgoraClient) IsAppCredentialsMode() bool {
 	return c.AuthMode == AuthModeAppCredentials
+}
+
+func (c *AgoraClient) HTTPClient() core.HTTPClient {
+	return c.httpClient
 }
 
 // NewAgoraClient creates a new AgoraClient with the given options.
@@ -133,6 +119,9 @@ func (c *AgoraClient) IsAppCredentialsMode() bool {
 //	})
 func NewAgoraClient(opts AgoraClientOptions) *AgoraClient {
 	reqOpts := []option.RequestOption{option.WithArea(opts.Area)}
+	if opts.HTTPClient != nil {
+		reqOpts = append(reqOpts, option.WithHTTPClient(opts.HTTPClient))
+	}
 
 	authMode := AuthModeAppCredentials
 	if opts.CustomerID != "" {
@@ -152,6 +141,7 @@ func NewAgoraClient(opts AgoraClientOptions) *AgoraClient {
 		appID:           opts.AppID,
 		appCertificate:  opts.AppCertificate,
 		AuthMode:        authMode,
+		httpClient:      opts.HTTPClient,
 	}
 }
 

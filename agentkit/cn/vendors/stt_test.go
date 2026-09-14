@@ -16,13 +16,11 @@ func TestFengmingSTTKeywordsMatchGeneratedASR(t *testing.T) {
 		Keywords: wantKeywords,
 		AdditionalParams: map[string]interface{}{
 			"custom_param": true,
-			"keywords":     []string{"overridden"},
 		},
 	}).ToConfig()
 
-	params := config["params"].(map[string]interface{})
-	if !reflect.DeepEqual(params["keywords"], wantKeywords) {
-		t.Fatalf("keywords = %#v, want %#v", params["keywords"], wantKeywords)
+	if !reflect.DeepEqual(config["keywords"], wantKeywords) {
+		t.Fatalf("keywords = %#v, want %#v", config["keywords"], wantKeywords)
 	}
 
 	payload, err := json.Marshal(config)
@@ -36,10 +34,10 @@ func TestFengmingSTTKeywordsMatchGeneratedASR(t *testing.T) {
 	if generated.Fengming == nil || generated.Fengming.Params == nil {
 		t.Fatalf("generated Fengming params are nil: %#v", generated)
 	}
-	if !reflect.DeepEqual(generated.Fengming.Params.Keywords, wantKeywords) {
-		t.Fatalf("generated keywords = %#v, want %#v", generated.Fengming.Params.Keywords, wantKeywords)
+	if !reflect.DeepEqual(generated.Fengming.Keywords, wantKeywords) {
+		t.Fatalf("generated keywords = %#v, want %#v", generated.Fengming.Keywords, wantKeywords)
 	}
-	if generated.Fengming.Params.GetExtraProperties()["custom_param"] != true {
+	if (*generated.Fengming.Params)["custom_param"] != true {
 		t.Fatalf("generated params lost custom_param: %#v", generated.Fengming.Params)
 	}
 }
@@ -60,6 +58,32 @@ func TestFengmingSTTKeepsNoArgumentCompatibility(t *testing.T) {
 	if got := nilFengming.ToConfig()["vendor"]; got != "fengming" {
 		t.Fatalf("nil receiver vendor = %v, want fengming", got)
 	}
+}
+
+func TestFengmingSTTAllowsAdditionalParams(t *testing.T) {
+	config := NewFengmingSTT(FengmingSTTOptions{
+		AdditionalParams: map[string]interface{}{
+			"custom_param": true,
+			"sample_rate":  16000,
+		},
+	}).ToConfig()
+
+	params, ok := config["params"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("params = %#v, want map[string]interface{}", config["params"])
+	}
+	if params["custom_param"] != true || params["sample_rate"] != 16000 {
+		t.Fatalf("additional params were not preserved: %#v", params)
+	}
+}
+
+func TestFengmingSTTRejectsKeywordsInAdditionalParams(t *testing.T) {
+	defer func() {
+		if recovered := recover(); recovered == nil {
+			t.Fatal("expected NewFengmingSTT to reject keywords in AdditionalParams")
+		}
+	}()
+	NewFengmingSTT(FengmingSTTOptions{AdditionalParams: map[string]interface{}{"keywords": []string{"Agora"}}})
 }
 
 func TestFengmingSTTRejectsMultipleOptions(t *testing.T) {

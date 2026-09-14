@@ -31,14 +31,17 @@ type AgentThinkAgentManagementRequest struct {
 	// - `inject`: Inject the custom text instruction into the current turn without interrupting it.
 	// - `interrupt`: Immediately interrupt the current flow and initiate a new round of dialogue.
 	// - `ignore`: Ignore the request.
+	// - `append`: Do not interrupt the user. Wait for the user's ASR text to be sent to the LLM and for the resulting response to finish, then send the custom text instruction to the LLM.
 	OnListeningAction *AgentThinkAgentManagementRequestOnListeningAction `json:"on_listening_action,omitempty" url:"-"`
 	// The action to take when the agent is in a thinking state:
 	// - `interrupt`: Interrupt the current state and start a new conversation turn.
 	// - `ignore`: Ignore the request.
+	// - `append`: Do not interrupt the current LLM inference. Allow the current turn to finish generating and playing its response first. After the current turn's LLM output is complete, send the queued custom text instruction to the LLM.
 	OnThinkingAction *AgentThinkAgentManagementRequestOnThinkingAction `json:"on_thinking_action,omitempty" url:"-"`
 	// The action to take when the agent is in a speaking state:
 	// - `interrupt`: Interrupt the current state and start a new conversation turn.
 	// - `ignore`: Ignore the request.
+	// - `append`: Do not interrupt the current TTS playback; the audio stream continues. After the current turn's LLM output is complete, send the custom text instruction directly to the LLM.
 	OnSpeakingAction *AgentThinkAgentManagementRequestOnSpeakingAction `json:"on_speaking_action,omitempty" url:"-"`
 	// Whether user speech can interrupt the injected instruction:
 	// - `true`: User speech can interrupt the instruction.
@@ -118,12 +121,14 @@ func (a *AgentThinkAgentManagementRequest) SetMetadata(metadata map[string]strin
 // - `inject`: Inject the custom text instruction into the current turn without interrupting it.
 // - `interrupt`: Immediately interrupt the current flow and initiate a new round of dialogue.
 // - `ignore`: Ignore the request.
+// - `append`: Do not interrupt the user. Wait for the user's ASR text to be sent to the LLM and for the resulting response to finish, then send the custom text instruction to the LLM.
 type AgentThinkAgentManagementRequestOnListeningAction string
 
 const (
 	AgentThinkAgentManagementRequestOnListeningActionInject    AgentThinkAgentManagementRequestOnListeningAction = "inject"
 	AgentThinkAgentManagementRequestOnListeningActionInterrupt AgentThinkAgentManagementRequestOnListeningAction = "interrupt"
 	AgentThinkAgentManagementRequestOnListeningActionIgnore    AgentThinkAgentManagementRequestOnListeningAction = "ignore"
+	AgentThinkAgentManagementRequestOnListeningActionAppend    AgentThinkAgentManagementRequestOnListeningAction = "append"
 )
 
 func NewAgentThinkAgentManagementRequestOnListeningActionFromString(s string) (AgentThinkAgentManagementRequestOnListeningAction, error) {
@@ -134,6 +139,8 @@ func NewAgentThinkAgentManagementRequestOnListeningActionFromString(s string) (A
 		return AgentThinkAgentManagementRequestOnListeningActionInterrupt, nil
 	case "ignore":
 		return AgentThinkAgentManagementRequestOnListeningActionIgnore, nil
+	case "append":
+		return AgentThinkAgentManagementRequestOnListeningActionAppend, nil
 	}
 	var t AgentThinkAgentManagementRequestOnListeningAction
 	return "", fmt.Errorf("%s is not a valid %T", s, t)
@@ -146,11 +153,13 @@ func (a AgentThinkAgentManagementRequestOnListeningAction) Ptr() *AgentThinkAgen
 // The action to take when the agent is in a speaking state:
 // - `interrupt`: Interrupt the current state and start a new conversation turn.
 // - `ignore`: Ignore the request.
+// - `append`: Do not interrupt the current TTS playback; the audio stream continues. After the current turn's LLM output is complete, send the custom text instruction directly to the LLM.
 type AgentThinkAgentManagementRequestOnSpeakingAction string
 
 const (
 	AgentThinkAgentManagementRequestOnSpeakingActionInterrupt AgentThinkAgentManagementRequestOnSpeakingAction = "interrupt"
 	AgentThinkAgentManagementRequestOnSpeakingActionIgnore    AgentThinkAgentManagementRequestOnSpeakingAction = "ignore"
+	AgentThinkAgentManagementRequestOnSpeakingActionAppend    AgentThinkAgentManagementRequestOnSpeakingAction = "append"
 )
 
 func NewAgentThinkAgentManagementRequestOnSpeakingActionFromString(s string) (AgentThinkAgentManagementRequestOnSpeakingAction, error) {
@@ -159,6 +168,8 @@ func NewAgentThinkAgentManagementRequestOnSpeakingActionFromString(s string) (Ag
 		return AgentThinkAgentManagementRequestOnSpeakingActionInterrupt, nil
 	case "ignore":
 		return AgentThinkAgentManagementRequestOnSpeakingActionIgnore, nil
+	case "append":
+		return AgentThinkAgentManagementRequestOnSpeakingActionAppend, nil
 	}
 	var t AgentThinkAgentManagementRequestOnSpeakingAction
 	return "", fmt.Errorf("%s is not a valid %T", s, t)
@@ -171,11 +182,13 @@ func (a AgentThinkAgentManagementRequestOnSpeakingAction) Ptr() *AgentThinkAgent
 // The action to take when the agent is in a thinking state:
 // - `interrupt`: Interrupt the current state and start a new conversation turn.
 // - `ignore`: Ignore the request.
+// - `append`: Do not interrupt the current LLM inference. Allow the current turn to finish generating and playing its response first. After the current turn's LLM output is complete, send the queued custom text instruction to the LLM.
 type AgentThinkAgentManagementRequestOnThinkingAction string
 
 const (
 	AgentThinkAgentManagementRequestOnThinkingActionInterrupt AgentThinkAgentManagementRequestOnThinkingAction = "interrupt"
 	AgentThinkAgentManagementRequestOnThinkingActionIgnore    AgentThinkAgentManagementRequestOnThinkingAction = "ignore"
+	AgentThinkAgentManagementRequestOnThinkingActionAppend    AgentThinkAgentManagementRequestOnThinkingAction = "append"
 )
 
 func NewAgentThinkAgentManagementRequestOnThinkingActionFromString(s string) (AgentThinkAgentManagementRequestOnThinkingAction, error) {
@@ -184,6 +197,8 @@ func NewAgentThinkAgentManagementRequestOnThinkingActionFromString(s string) (Ag
 		return AgentThinkAgentManagementRequestOnThinkingActionInterrupt, nil
 	case "ignore":
 		return AgentThinkAgentManagementRequestOnThinkingActionIgnore, nil
+	case "append":
+		return AgentThinkAgentManagementRequestOnThinkingActionAppend, nil
 	}
 	var t AgentThinkAgentManagementRequestOnThinkingAction
 	return "", fmt.Errorf("%s is not a valid %T", s, t)

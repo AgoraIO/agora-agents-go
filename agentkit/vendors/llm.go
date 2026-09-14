@@ -4,6 +4,8 @@ import (
 	"fmt"
 	neturl "net/url"
 	"strings"
+
+	Agora "github.com/AgoraIO/agora-agents-go/v2"
 )
 
 // ensureMcpTransport sets transport to "streamable_http" on each MCP server
@@ -45,6 +47,7 @@ type OpenAIOptions struct {
 	TemplateVariables map[string]string
 	Vendor            string
 	McpServers        []map[string]interface{}
+	Tools             []*Agora.LlmTool
 }
 
 type OpenAI struct {
@@ -138,6 +141,9 @@ func (o *OpenAI) ToConfig() map[string]interface{} {
 	if o.options.McpServers != nil {
 		config["mcp_servers"] = ensureMcpTransport(o.options.McpServers)
 	}
+	if o.options.Tools != nil {
+		config["tools"] = o.options.Tools
+	}
 	if o.options.MaxHistory != nil {
 		config["max_history"] = *o.options.MaxHistory
 	}
@@ -169,6 +175,7 @@ type AzureOpenAIOptions struct {
 	TemplateVariables map[string]string
 	Vendor            string
 	McpServers        []map[string]interface{}
+	Tools             []*Agora.LlmTool
 }
 
 type AzureOpenAI struct {
@@ -260,6 +267,9 @@ func (a *AzureOpenAI) ToConfig() map[string]interface{} {
 	if a.options.McpServers != nil {
 		config["mcp_servers"] = ensureMcpTransport(a.options.McpServers)
 	}
+	if a.options.Tools != nil {
+		config["tools"] = a.options.Tools
+	}
 	if a.options.MaxHistory != nil {
 		config["max_history"] = *a.options.MaxHistory
 	}
@@ -286,6 +296,7 @@ type AnthropicOptions struct {
 	TemplateVariables map[string]string
 	Vendor            string
 	McpServers        []map[string]interface{}
+	Tools             []*Agora.LlmTool
 }
 
 type Anthropic struct {
@@ -370,6 +381,9 @@ func (a *Anthropic) ToConfig() map[string]interface{} {
 	if a.options.McpServers != nil {
 		config["mcp_servers"] = ensureMcpTransport(a.options.McpServers)
 	}
+	if a.options.Tools != nil {
+		config["tools"] = a.options.Tools
+	}
 	if a.options.MaxHistory != nil {
 		config["max_history"] = *a.options.MaxHistory
 	}
@@ -397,6 +411,7 @@ type GeminiOptions struct {
 	TemplateVariables map[string]string
 	Vendor            string
 	McpServers        []map[string]interface{}
+	Tools             []*Agora.LlmTool
 }
 
 type Gemini struct {
@@ -477,6 +492,9 @@ func (g *Gemini) ToConfig() map[string]interface{} {
 	}
 	if g.options.McpServers != nil {
 		config["mcp_servers"] = ensureMcpTransport(g.options.McpServers)
+	}
+	if g.options.Tools != nil {
+		config["tools"] = g.options.Tools
 	}
 	if g.options.MaxHistory != nil {
 		config["max_history"] = *g.options.MaxHistory
@@ -626,6 +644,7 @@ type AmazonBedrockOptions struct {
 	TemplateVariables map[string]string
 	Vendor            string
 	McpServers        []map[string]interface{}
+	Tools             []*Agora.LlmTool
 }
 
 type AmazonBedrock struct {
@@ -709,6 +728,9 @@ func (a *AmazonBedrock) ToConfig() map[string]interface{} {
 	if a.options.McpServers != nil {
 		config["mcp_servers"] = ensureMcpTransport(a.options.McpServers)
 	}
+	if a.options.Tools != nil {
+		config["tools"] = a.options.Tools
+	}
 	return config
 }
 
@@ -730,6 +752,7 @@ type DifyOptions struct {
 	TemplateVariables map[string]string
 	Vendor            string
 	McpServers        []map[string]interface{}
+	Tools             []*Agora.LlmTool
 }
 
 type Dify struct {
@@ -797,6 +820,9 @@ func (d *Dify) ToConfig() map[string]interface{} {
 	}
 	if d.options.McpServers != nil {
 		config["mcp_servers"] = ensureMcpTransport(d.options.McpServers)
+	}
+	if d.options.Tools != nil {
+		config["tools"] = d.options.Tools
 	}
 	if d.options.MaxHistory != nil {
 		config["max_history"] = *d.options.MaxHistory

@@ -1,27 +1,21 @@
 package agentkit
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 
-	"github.com/AgoraIO/agora-agents-go/v2/agentkit/vendors"
-	"github.com/AgoraIO/agora-agents-go/v2/client"
 	"github.com/AgoraIO/agora-agents-go/v2/core"
 	"github.com/AgoraIO/agora-agents-go/v2/option"
 )
 
 // Preview endpoint support.
 //
-// Preview providers are not served by the production Conversational AI gateway.
-// They live behind a single partner host and are gated by an "agora-feature"
-// header. NewAgoraPreviewClient returns an *AgoraClient pointed at that host
-// with the header pinned, so the rest of agentkit (Agent, AgentSession, vendor
-// classes) works unchanged.
+// Preview providers are detected from the resolved start body. AgentSession
+// then pins their gate header and base URL to every request in that session.
 //
-// Everything in preview_client.go and vendors/preview.go is temporary. When
-// these providers ship on the production gateway, delete both files and move
-// the vendor types into vendors/mllm.go.
+// Preview registrations are temporary. When a provider ships on the production
+// gateway, remove its registration and move its implementation into the
+// corresponding production vendor module.
 
 // PreviewAPIBaseURL is the base URL that serves the preview providers.
 const PreviewAPIBaseURL = "https://partner.ai.agora.io/preview/api/conversational-ai-agent"
@@ -33,26 +27,13 @@ const PreviewAPIBaseURL = "https://partner.ai.agora.io/preview/api/conversationa
 // environment, where the preview providers do not exist.
 const PreviewFeatureHeader = "agora-feature"
 
-// PreviewFeatureGeminiLive gates Gemini 3.5 Transcribe ASR and the Gemini
-// walkie-talkie / clever-chatter MLLMs.
+// PreviewFeatureGeminiLive gates the Gemini preview MLLM providers.
+//
+// Gemini ASR is available through the production endpoint; the MLLMs remain preview-only.
 const PreviewFeatureGeminiLive = "gemini-live"
 
-var defaultPreviewFeatures = []string{PreviewFeatureGeminiLive}
-
-// AgoraPreviewClientOptions configures a preview client. It is AgoraClientOptions
-// plus the preview-only Features and BaseURL overrides.
-type AgoraPreviewClientOptions struct {
-	AgoraClientOptions
-
-	// Features are the preview families to request via the agora-feature header.
-	// Defaults to ["gemini-live"].
-	Features []string
-	// BaseURL overrides the preview base URL. For internal testing against a
-	// staging host.
-	BaseURL string
-	// HTTPClient is wrapped rather than replaced, so the gate header survives.
-	HTTPClient core.HTTPClient
-}
+// PreviewFeatureLiveModels gates the OpenAI GPT Live MLLM provider.
+const PreviewFeatureLiveModels = "live-models"
 
 // previewGateClient pins the gate header onto every request.
 //
@@ -69,171 +50,68 @@ func (p *previewGateClient) Do(req *http.Request) (*http.Response, error) {
 	return p.inner.Do(req)
 }
 
-// NewAgoraPreviewClient creates a client for the Agora Conversational AI preview
-// endpoint.
-//
-// Use it exactly like NewAgoraClient — same auth modes, same Agent and
-// AgentSession API. It differs only in where requests go and in the
-// agora-feature header it attaches.
-//
-//	c := agentkit.NewAgoraPreviewClient(agentkit.AgoraPreviewClientOptions{
-//	    AgoraClientOptions: agentkit.AgoraClientOptions{
-//	        Area:           option.AreaUS,
-//	        AppID:          appID,
-//	        AppCertificate: appCertificate,
-//	    },
-//	})
-//	agent := agentkit.NewAgent(c)
-//
-// It returns *AgoraClient rather than a distinct type so it is accepted
-// everywhere a production client is — NewAgent takes *AgoraClient.
-func NewAgoraPreviewClient(opts AgoraPreviewClientOptions) *AgoraClient {
-	features := opts.Features
-	if len(features) == 0 {
-		features = defaultPreviewFeatures
+func previewRequestOptions(features []string, inner core.HTTPClient, debug bool) []option.RequestOption {
+	if len(features) == 0 && !debug {
+		return nil
 	}
-	baseURL := opts.BaseURL
-	if baseURL == "" {
-		baseURL = PreviewAPIBaseURL
-	}
-
-	var inner core.HTTPClient = opts.HTTPClient
 	if inner == nil {
 		inner = http.DefaultClient
 	}
-
-	reqOpts := []option.RequestOption{
-		option.WithArea(opts.Area),
-		option.WithBaseURL(baseURL),
+	if debug {
+		inner = &debugHTTPClient{inner: inner}
+	}
+	if len(features) == 0 {
+		return []option.RequestOption{option.WithHTTPClient(inner)}
+	}
+	return []option.RequestOption{
+		option.WithBaseURL(PreviewAPIBaseURL),
 		option.WithHTTPClient(&previewGateClient{inner: inner, features: strings.Join(features, ",")}),
 	}
-
-	authMode := AuthModeAppCredentials
-	if opts.CustomerID != "" {
-		authMode = AuthModeBasic
-		reqOpts = append(reqOpts, option.WithBasicAuth(opts.CustomerID, opts.CustomerSecret))
-	} else if opts.Token != "" {
-		authMode = AuthModeToken
-		reqOpts = append(reqOpts, option.WithToken(opts.Token))
-	}
-
-	c := client.NewClient(reqOpts...)
-	return &AgoraClient{
-		Agents:          c.Agents,
-		AgentManagement: c.AgentManagement,
-		Telephony:       c.Telephony,
-		PhoneNumbers:    c.PhoneNumbers,
-		appID:           opts.AppID,
-		appCertificate:  opts.AppCertificate,
-		AuthMode:        authMode,
-		previewFeatures: features,
-		previewBaseURL:  baseURL,
-	}
 }
 
-// previewMLLMModels are the preview MLLM model names.
-//
-// mllm.vendor is "gemini" for both the production Gemini Live provider and the
-// preview ones, so the model name is one of two things that mark a config as
-// preview-only; see hasPreviewMLLMEnvelope for the other.
-//
-// Both the codenames and their post-rename IDs are listed, so recognition keeps
-// working through Google's rollout whichever name a caller sends.
-var previewMLLMModels = map[string]struct{}{
-	"walkie-talkie":            {},
-	"clever-chatter":           {},
-	"gemini-3.5-live":          {},
-	"gemini-3.5-live-thinking": {},
+// previewASRVendors are served only by the preview endpoint.
+var previewASRVendors = map[string]string{}
+
+func isPreviewOpenAIModel(properties map[string]interface{}) bool {
+	mllm, ok := properties["mllm"].(map[string]interface{})
+	return ok && mllm["vendor"] == "openai_gpt_live"
 }
 
-// hasPreviewMLLMEnvelope reports whether a config carries the envelope the
-// preview MLLM vendor types emit: the API key repeated inside params, and a url
-// on the Gemini Developer API host. The production GeminiLive vendor emits
-// neither — it leaves params.api_key unset and defaults url to "" or a
-// WebSocket endpoint.
-//
-// This is the second recognition path, and it exists because keying only off
-// previewMLLMModels makes an unrecognised model name fail silently:
-// ApplyPreviewShape would stop retargeting greeting_message, the greeting would
-// land in a field these models ignore, and the agent would simply never greet.
-// A model name we have not listed yet is reachable by following this SDK's own
-// advice to override Model when Google renames one ahead of a release, so the
-// failure has to not be silent.
-func hasPreviewMLLMEnvelope(mllm map[string]interface{}) bool {
+var previewGeminiModels = map[string]bool{
+	"walkie-talkie":            true,
+	"clever-chatter":           true,
+	"gemini-3.5-live":          true,
+	"gemini-3.5-live-thinking": true,
+}
+
+func previewGeminiMLLM(properties map[string]interface{}) (map[string]interface{}, bool) {
+	mllm, ok := properties["mllm"].(map[string]interface{})
+	if !ok || mllm["vendor"] != "gemini" {
+		return nil, false
+	}
 	params, ok := mllm["params"].(map[string]interface{})
 	if !ok {
-		return false
-	}
-	if _, ok := params["api_key"].(string); !ok {
-		return false
-	}
-	url, ok := mllm["url"].(string)
-	return ok && strings.HasPrefix(url, vendors.GeminiPreviewMLLMURL)
-}
-
-// isPreviewMLLM reports whether an MLLM config targets a preview model —
-// by model name, or by the wire envelope only the preview vendor types produce.
-func isPreviewMLLM(properties map[string]interface{}) (map[string]interface{}, bool) {
-	mllm, ok := properties["mllm"].(map[string]interface{})
-	if !ok {
 		return nil, false
 	}
-	if vendor, _ := mllm["vendor"].(string); vendor != "gemini" {
-		return nil, false
-	}
-	if params, ok := mllm["params"].(map[string]interface{}); ok {
-		if model, ok := params["model"].(string); ok {
-			if _, found := previewMLLMModels[model]; found {
-				return mllm, true
-			}
-		}
-	}
-	if hasPreviewMLLMEnvelope(mllm) {
+	if model, ok := params["model"].(string); ok && previewGeminiModels[model] {
 		return mllm, true
 	}
-	return nil, false
+	url, _ := mllm["url"].(string)
+	_, hasKey := params["api_key"].(string)
+	return mllm, hasKey && strings.HasPrefix(url, "https://generativelanguage.googleapis.com")
 }
 
-// previewMLLMFieldRenames are MLLM wire keys the preview route spells
-// differently from the Agora schema, as production spelling -> preview spelling.
-//
-// "failure_message" is deliberately absent: it is an Agora engine feature
-// rather than a Gemini one, so it keeps its schema spelling.
-var previewMLLMFieldRenames = map[string]string{
-	"greeting_message": "greeting",
-}
-
-// ApplyPreviewShape retargets MLLM fields the shared builder wrote with
-// production spellings, so a preview config follows the preview route's
-// structure.
-//
-// The Agent fills mllm.greeting_message from an agent-level greeting whenever
-// the vendor has not set that key — correct for every GA vendor, but the preview
-// Gemini models read "greeting", so the value would land in a field they ignore
-// and the agent would silently never greet.
-//
-// Rather than teach the shared builder about preview providers, the translation
-// lives here and disappears with this file at GA. The vendor's own value wins;
-// the production-spelled one is the fallback, which also migrates a hand-written
-// greeting_message onto the preview key so an existing config keeps working
-// after only swapping the model.
-//
-// Mutates the mllm map in place. Safe because the builder hands this a fresh
-// clone of the MLLM config rather than the Agent's stored one.
+// ApplyPreviewShape translates the builder's production greeting field for Gemini preview.
 func ApplyPreviewShape(properties map[string]interface{}) {
-	mllm, ok := isPreviewMLLM(properties)
+	mllm, ok := previewGeminiMLLM(properties)
 	if !ok {
 		return
 	}
-	for production, preview := range previewMLLMFieldRenames {
-		value, found := mllm[production]
-		if !found {
-			continue
+	if greeting, exists := mllm["greeting_message"]; exists {
+		if _, set := mllm["greeting"]; !set {
+			mllm["greeting"] = greeting
 		}
-		if _, exists := mllm[preview]; !exists {
-			mllm[preview] = value
-		}
-		delete(mllm, production)
+		delete(mllm, "greeting_message")
 	}
 }
 
@@ -242,6 +120,10 @@ func ApplyPreviewShape(properties map[string]interface{}) {
 // Derived from the request body rather than from the vendor types, so
 // hand-written configs are covered too.
 func RequiredPreviewFeatures(properties map[string]interface{}) []string {
+	return requiredPreviewFeatures(properties, previewASRVendors)
+}
+
+func requiredPreviewFeatures(properties map[string]interface{}, previewVendors map[string]string) []string {
 	var features []string
 	add := func(feature string) {
 		for _, existing := range features {
@@ -252,44 +134,19 @@ func RequiredPreviewFeatures(properties map[string]interface{}) []string {
 		features = append(features, feature)
 	}
 
-	if _, found := isPreviewMLLM(properties); found {
+	if asr, ok := properties["asr"].(map[string]interface{}); ok {
+		if vendor, ok := asr["vendor"].(string); ok {
+			if feature, found := previewVendors[vendor]; found {
+				add(feature)
+			}
+		}
+	}
+	if isPreviewOpenAIModel(properties) {
+		add(PreviewFeatureLiveModels)
+	}
+	if _, ok := previewGeminiMLLM(properties); ok {
 		add(PreviewFeatureGeminiLive)
 	}
 
 	return features
-}
-
-// AssertPreviewSupport fails fast when preview providers are paired with a
-// client that cannot reach them, instead of surfacing an opaque gateway error —
-// or worse, silently succeeding against the production environment.
-func AssertPreviewSupport(enabledFeatures []string, properties map[string]interface{}) error {
-	required := RequiredPreviewFeatures(properties)
-	if len(required) == 0 {
-		return nil
-	}
-
-	var missing []string
-	for _, feature := range required {
-		found := false
-		for _, enabled := range enabledFeatures {
-			if enabled == feature {
-				found = true
-				break
-			}
-		}
-		if !found {
-			missing = append(missing, feature)
-		}
-	}
-	if len(missing) == 0 {
-		return nil
-	}
-
-	joined := strings.Join(missing, ", ")
-	return fmt.Errorf(
-		"this agent uses preview providers that require the preview endpoint (%s): "+
-			"create the session with NewAgoraPreviewClient instead of NewAgoraClient, "+
-			"and make sure its Features include: %s",
-		joined, joined,
-	)
 }

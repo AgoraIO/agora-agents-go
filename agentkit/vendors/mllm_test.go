@@ -39,6 +39,33 @@ func TestOpenAIRealtimeURL(t *testing.T) {
 	}
 }
 
+func TestOpenAIGPTLiveWireShape(t *testing.T) {
+	servers := []map[string]interface{}{{"name": "lookup", "endpoint": "https://tools.example/mcp"}}
+	config := NewOpenAIGPTLive(OpenAIGPTLiveOptions{
+		APIKey:          "openai-key",
+		GreetingMessage: "Hello from GPT Live",
+		McpServers:      servers,
+	}).ToConfig()
+
+	want := map[string]interface{}{
+		"vendor":           "openai_gpt_live",
+		"api_key":          "openai-key",
+		"url":              "wss://api.openai.com/v1/live/sessions",
+		"greeting_message": "Hello from GPT Live",
+		"params": map[string]interface{}{
+			"model":          "gpt-live-1-diamond-alpha",
+			"alpha_selector": "quicksilver=v3",
+		},
+		"mcp_servers": []map[string]interface{}{{"name": "lookup", "endpoint": "https://tools.example/mcp", "transport": "streamable_http"}},
+	}
+	if !reflect.DeepEqual(config, want) {
+		t.Fatalf("gpt live config = %#v, want %#v", config, want)
+	}
+	if _, ok := servers[0]["transport"]; ok {
+		t.Fatal("mutated MCP input")
+	}
+}
+
 func TestAzureOpenAIRealtimeMatchesGeneratedMLLM(t *testing.T) {
 	maxHistory := 20
 	turnDetection := &Agora.MllmTurnDetection{

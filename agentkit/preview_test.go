@@ -1,9 +1,11 @@
 package agentkit
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -43,575 +45,403 @@ func (r *recordingClient) Do(req *http.Request) (*http.Response, error) {
 	}, nil
 }
 
-func newTestPreviewClient(rec *recordingClient, features ...string) *AgoraClient {
-	return NewAgoraPreviewClient(AgoraPreviewClientOptions{
-		AgoraClientOptions: AgoraClientOptions{
-			Area:           option.AreaUS,
-			AppID:          "81190c52971d4004b7244bdcd93e2f34",
-			AppCertificate: "0123456789abcdef0123456789abcdef",
-		},
-		Features:   features,
-		HTTPClient: rec,
+func newTestPreviewClient(rec *recordingClient) *AgoraClient {
+	return NewAgoraClient(AgoraClientOptions{
+		Area:           option.AreaUS,
+		AppID:          "81190c52971d4004b7244bdcd93e2f34",
+		AppCertificate: "0123456789abcdef0123456789abcdef",
+		HTTPClient:     rec,
 	})
 }
 
 // --- Vendor wire shapes -----------------------------------------------------
 
-func TestWalkieTalkieSerialisesDocumentedMLLMShape(t *testing.T) {
-	config := vendors.NewGeminiWalkieTalkie(vendors.GeminiPreviewMLLMOptions{
+func TestGeminiSTTSerialisesDocumentedASRShape(t *testing.T) {
+	config := vendors.NewGeminiSTT(vendors.GeminiSTTOptions{
+		APIKey:        previewAPIKey,
+		LanguageCodes: []string{"en-US"},
+	}).ToConfig()
+
+	assertJSONEqual(t, config, `{
+		"vendor": "gemini",
+		"params": {
+			"api_key": "test-google-api-key",
+			"model": "gemini-3.5-transcribe-live",
+			"sample_rate": 16000,
+			"language_hints": ["en-US"]
+		}
+	}`)
+}
+
+func TestEmitsNoTopLevelLanguageOfItsOwn(t *testing.T) {
+	// Every STT vendor leaves asr.language to the Agent, which derives it from
+	// the turn detection language. A vendor-level copy would be a no-op the
+	// builder overwrites, so this one does not offer the option at all.
+	config := vendors.NewGeminiSTT(vendors.GeminiSTTOptions{
 		APIKey: previewAPIKey,
 	}).ToConfig()
 
-	assertJSONEqual(t, config, `{
-		"vendor": "gemini",
-		"api_key": "test-google-api-key",
-		"url": "https://generativelanguage.googleapis.com",
-		"params": {
-			"api_key": "test-google-api-key",
-			"model": "walkie-talkie",
-			"voice": "Puck"
-		}
-	}`)
-}
-
-func TestCleverChatterIncludesThinkingLevel(t *testing.T) {
-	config := vendors.NewGeminiCleverChatter(vendors.GeminiCleverChatterOptions{
-		GeminiPreviewMLLMOptions: vendors.GeminiPreviewMLLMOptions{
-			APIKey: previewAPIKey,
-			Voice:  "Puck",
-		},
-		ThinkingLevel: vendors.GeminiThinkingLevelMedium,
-	}).ToConfig()
-
-	assertJSONEqual(t, config, `{
-		"vendor": "gemini",
-		"api_key": "test-google-api-key",
-		"url": "https://generativelanguage.googleapis.com",
-		"params": {
-			"api_key": "test-google-api-key",
-			"model": "clever-chatter",
-			"voice": "Puck",
-			"thinking_level": "medium"
-		}
-	}`)
-}
-
-func TestPreviewMLLMCarriesInstructionsAndTranscriptionFlags(t *testing.T) {
-	enabled := true
-	config := vendors.NewGeminiWalkieTalkie(vendors.GeminiPreviewMLLMOptions{
-		APIKey:          previewAPIKey,
-		Instructions:    "You are Ada.",
-		TranscribeAgent: &enabled,
-		TranscribeUser:  &enabled,
-	}).ToConfig()
-
+	if _, found := config["language"]; found {
+		t.Error("asr.language is the Agent's to set, not the vendor's")
+	}
 	params := config["params"].(map[string]interface{})
-	if params["instructions"] != "You are Ada." {
-		t.Errorf("instructions = %v, want %q", params["instructions"], "You are Ada.")
+	if _, found := params["language"]; found {
+		t.Error("params.language should not be sent; language_codes replaced it")
 	}
-	if params["transcribe_agent"] != true || params["transcribe_user"] != true {
-		t.Errorf("transcription flags = %v / %v, want true / true",
-			params["transcribe_agent"], params["transcribe_user"])
+	// Nor does it invent language_codes — absent means auto-detect.
+	if _, found := params["language_codes"]; found {
+		t.Error("language_codes should be omitted unless the caller sets it")
 	}
 }
 
-func TestSendsGreetingNeverGreetingMessage(t *testing.T) {
-	// The preview Gemini models read "greeting". "greeting_message" is what the
-	// production providers use.
-	withGreeting := vendors.NewGeminiWalkieTalkie(vendors.GeminiPreviewMLLMOptions{
-		APIKey:   previewAPIKey,
-		Greeting: "Hi there.",
+func TestLegacyLanguageCodesMapToGALanguageHints(t *testing.T) {
+	single := vendors.NewGeminiSTT(vendors.GeminiSTTOptions{
+		APIKey:        previewAPIKey,
+		LanguageCodes: []string{"es-ES"},
 	}).ToConfig()
-	if withGreeting["greeting"] != "Hi there." {
-		t.Errorf("greeting = %v, want %q", withGreeting["greeting"], "Hi there.")
-	}
-	if _, found := withGreeting["greeting_message"]; found {
-		t.Error("greeting_message is the production spelling; preview must not send it")
+	assertJSONEqual(t, single["params"].(map[string]interface{})["language_hints"], `["es-ES"]`)
+
+	multiple := vendors.NewGeminiSTT(vendors.GeminiSTTOptions{
+		APIKey:        previewAPIKey,
+		LanguageCodes: []string{"en-US", "es-ES"},
+	}).ToConfig()
+	assertJSONEqual(t, multiple["params"].(map[string]interface{})["language_hints"], `["en-US","es-ES"]`)
+}
+
+func TestExplicitEmptyLanguageCodesStillReachesTheWire(t *testing.T) {
+	// `[]` is the caller spelling auto-detect outright. Nil versus empty is the
+	// distinction: nil omits the field, empty-non-nil sends [].
+	config := vendors.NewGeminiSTT(vendors.GeminiSTTOptions{
+		APIKey:        previewAPIKey,
+		LanguageCodes: []string{},
+	}).ToConfig()
+
+	assertJSONEqual(t, config["params"].(map[string]interface{})["language_hints"], `[]`)
+}
+
+func TestCustomVocabularyIsSentOnlyWhenSupplied(t *testing.T) {
+	withVocab := vendors.NewGeminiSTT(vendors.GeminiSTTOptions{
+		APIKey:           previewAPIKey,
+		CustomVocabulary: []string{"Agora", "Kubernetes"},
+	}).ToConfig()
+	assertJSONEqual(t, withVocab["params"].(map[string]interface{})["custom_vocabulary"], `["Agora","Kubernetes"]`)
+	if _, found := withVocab["params"].(map[string]interface{})["word_timestamp"]; found {
+		t.Error("word_timestamp should be omitted unless explicitly supplied")
 	}
 
-	withoutGreeting := vendors.NewGeminiWalkieTalkie(vendors.GeminiPreviewMLLMOptions{
+	withoutVocab := vendors.NewGeminiSTT(vendors.GeminiSTTOptions{
 		APIKey: previewAPIKey,
 	}).ToConfig()
-	for _, key := range []string{"greeting", "greeting_message"} {
-		if _, found := withoutGreeting[key]; found {
-			t.Errorf("%s should be omitted when no greeting is set", key)
-		}
+	if _, found := withoutVocab["params"].(map[string]interface{})["custom_vocabulary"]; found {
+		t.Error("custom_vocabulary should be omitted when not supplied")
 	}
 }
 
-func TestCleverChatterRejectsInvalidThinkingLevel(t *testing.T) {
-	defer func() {
-		if recover() == nil {
-			t.Error("expected a panic for an invalid thinking level")
-		}
-	}()
-	vendors.NewGeminiCleverChatter(vendors.GeminiCleverChatterOptions{
-		GeminiPreviewMLLMOptions: vendors.GeminiPreviewMLLMOptions{APIKey: previewAPIKey},
-		ThinkingLevel:            "not-a-level",
-	})
+func TestWordTimestampIsSentOnlyWhenExplicitlySupplied(t *testing.T) {
+	withoutTimestamp := vendors.NewGeminiSTT(vendors.GeminiSTTOptions{APIKey: previewAPIKey}).ToConfig()
+	if _, found := withoutTimestamp["params"].(map[string]interface{})["word_timestamp"]; found {
+		t.Error("word_timestamp should be omitted unless explicitly supplied")
+	}
+
+	explicitTrue := true
+	withTimestamp := vendors.NewGeminiSTT(vendors.GeminiSTTOptions{
+		APIKey:        previewAPIKey,
+		WordTimestamp: &explicitTrue,
+	}).ToConfig()
+	if got := withTimestamp["params"].(map[string]interface{})["word_timestamp"]; got != true {
+		t.Fatalf("word_timestamp = %v, want true", got)
+	}
+}
+
+func TestCustomVocabularyRejectsEnabledWordTimestamps(t *testing.T) {
+	explicitTrue := true
+	tests := map[string]vendors.GeminiSTTOptions{
+		"typed options": {
+			APIKey:           previewAPIKey,
+			CustomVocabulary: []string{"Agora"},
+			WordTimestamp:    &explicitTrue,
+		},
+	}
+
+	for name, options := range tests {
+		t.Run(name, func(t *testing.T) {
+			defer func() {
+				if got := recover(); got != "CustomVocabulary cannot be used with WordTimestamp=true" {
+					t.Fatalf("panic = %v, want incompatible-parameter error", got)
+				}
+			}()
+			vendors.NewGeminiSTT(options).ToConfig()
+		})
+	}
+}
+
+func TestCustomVocabularyAllowsExplicitlyDisabledWordTimestamps(t *testing.T) {
+	explicitFalse := false
+	config := vendors.NewGeminiSTT(vendors.GeminiSTTOptions{
+		APIKey:           previewAPIKey,
+		CustomVocabulary: []string{"Agora"},
+		WordTimestamp:    &explicitFalse,
+	}).ToConfig()
+	params := config["params"].(map[string]interface{})
+
+	assertJSONEqual(t, params["custom_vocabulary"], `["Agora"]`)
+	if got := params["word_timestamp"]; got != false {
+		t.Fatalf("word_timestamp = %v, want false", got)
+	}
 }
 
 // --- Routing ----------------------------------------------------------------
 
-func TestPreviewClientReportsPreviewBaseURL(t *testing.T) {
-	client := newTestPreviewClient(&recordingClient{})
-
-	if got := client.CurrentURL(); got != PreviewAPIBaseURL {
-		t.Errorf("CurrentURL() = %q, want %q", got, PreviewAPIBaseURL)
-	}
-}
-
-func TestPreviewClientAcceptsBaseURLOverride(t *testing.T) {
-	client := NewAgoraPreviewClient(AgoraPreviewClientOptions{
-		AgoraClientOptions: AgoraClientOptions{
-			Area:           option.AreaUS,
-			AppID:          "81190c52971d4004b7244bdcd93e2f34",
-			AppCertificate: "0123456789abcdef0123456789abcdef",
-		},
-		BaseURL: "https://staging.example.com/preview/api/conversational-ai-agent",
-	})
-
-	if got := client.CurrentURL(); got != "https://staging.example.com/preview/api/conversational-ai-agent" {
-		t.Errorf("CurrentURL() = %q, want the staging override", got)
-	}
-}
-
-func TestPreviewClientSendsGateHeader(t *testing.T) {
-	rec := &recordingClient{}
+func newGeminiASRSession(rec *recordingClient) *AgentSession {
 	client := newTestPreviewClient(rec)
+	agent := NewAgent(client).
+		WithStt(vendors.NewGeminiSTT(vendors.GeminiSTTOptions{APIKey: previewAPIKey})).
+		WithLlm(vendors.NewGemini(vendors.GeminiOptions{
+			APIKey: previewAPIKey,
+			Model:  "gemini-2.0-flash",
+		})).
+		WithTts(vendors.NewGoogleTTS(vendors.GoogleTTSOptions{
+			Key:          previewAPIKey,
+			VoiceName:    "en-US-Chirp3-HD-Charon",
+			LanguageCode: "en-US",
+		}))
+	return agent.CreateSession(CreateSessionOptions{
+		Channel: "preview", AgentUID: "1", RemoteUIDs: []string{"100"},
+	})
+}
 
-	_ = client.StopAgent(context.Background(), "agent-1")
+func TestGeminiASRSessionLifecycleUsesProductionRouting(t *testing.T) {
+	rec := &recordingClient{}
+	session := newGeminiASRSession(rec)
+	ctx := context.Background()
+	if _, err := session.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var startBody map[string]interface{}
+	if err := json.Unmarshal(rec.bodies[0], &startBody); err != nil {
+		t.Fatalf("decode start body: %v", err)
+	}
+	if got := startBody["appid"]; got != "81190c52971d4004b7244bdcd93e2f34" {
+		t.Errorf("start body appid = %v, want SDK app ID", got)
+	}
+	_ = session.Say(ctx, "hello", nil, nil)
+	_ = session.Interrupt(ctx)
+	_, _ = session.Think(ctx, "think", nil, nil, nil, nil, nil)
+	_ = session.Update(ctx, &Agora.UpdateAgentsRequestProperties{})
+	_, _ = session.GetHistory(ctx)
+	_, _ = session.GetInfo(ctx)
+	_, _ = session.GetTurns(ctx)
+	_ = session.Stop(ctx)
 
-	if len(rec.requests) == 0 {
-		t.Fatal("no request captured")
+	if len(rec.requests) != 9 {
+		t.Fatalf("captured %d requests, want 9 lifecycle requests", len(rec.requests))
 	}
-	req := rec.requests[0]
-	if got := req.Header.Get(PreviewFeatureHeader); got != "gemini-live" {
-		t.Errorf("%s = %q, want %q", PreviewFeatureHeader, got, "gemini-live")
-	}
-	if !strings.HasPrefix(req.URL.String(), PreviewAPIBaseURL) {
-		t.Errorf("request went to %q, want the preview host", req.URL)
-	}
-	// Exactly one header may carry the preview value — the gateway accepts other
-	// spellings that are not part of the public contract, and none may ship here.
-	var carriers []string
-	for name, values := range req.Header {
-		for _, value := range values {
-			if strings.Contains(value, "gemini-live") {
-				carriers = append(carriers, name)
-			}
+	for i, req := range rec.requests {
+		if got := req.Header.Get(PreviewFeatureHeader); got != "" {
+			t.Errorf("request %d: %s = %q, want no preview gate", i, PreviewFeatureHeader, got)
+		}
+		if strings.HasPrefix(req.URL.String(), PreviewAPIBaseURL) {
+			t.Errorf("request %d unexpectedly used preview host: %s", i, req.URL)
 		}
 	}
-	if len(carriers) != 1 || !strings.EqualFold(carriers[0], PreviewFeatureHeader) {
-		t.Errorf("preview value carried by %v, want only %s", carriers, PreviewFeatureHeader)
-	}
 }
 
-func TestPerCallHeaderOptionCannotDropTheGate(t *testing.T) {
-	// option.WithHTTPHeader replaces the whole header map, so the gate is pinned
-	// below the option layer. A request that loses it is routed to production,
-	// where the preview providers do not exist.
+func TestGeminiASRSessionPreservesPerCallHeaders(t *testing.T) {
 	rec := &recordingClient{}
-	client := newTestPreviewClient(rec)
+	session := newGeminiASRSession(rec)
+	if _, err := session.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
 
 	custom := make(http.Header)
 	custom.Set("x-custom", "kept")
-	_ = client.Agents.Stop(context.Background(), &Agora.StopAgentsRequest{
+	reqOpts := append([]option.RequestOption(nil), session.routingOpts...)
+	reqOpts = append(reqOpts, option.WithHTTPHeader(custom))
+	_ = session.client.Stop(context.Background(), &Agora.StopAgentsRequest{
 		Appid:   "81190c52971d4004b7244bdcd93e2f34",
 		AgentID: "agent-1",
-	}, option.WithHTTPHeader(custom))
+	}, reqOpts...)
 
-	if len(rec.requests) == 0 {
-		t.Fatal("no request captured")
-	}
-	req := rec.requests[0]
-	if got := req.Header.Get(PreviewFeatureHeader); got != "gemini-live" {
-		t.Errorf("%s = %q, want it to survive a per-call header option", PreviewFeatureHeader, got)
+	req := rec.requests[len(rec.requests)-1]
+	if got := req.Header.Get(PreviewFeatureHeader); got != "" {
+		t.Errorf("%s = %q, want no preview gate", PreviewFeatureHeader, got)
 	}
 	if got := req.Header.Get("x-custom"); got != "kept" {
 		t.Errorf("x-custom = %q, want %q", got, "kept")
 	}
 }
 
-func TestPreviewClientHonoursCustomFeatureList(t *testing.T) {
+func TestStopAgentRemainsProductionOnly(t *testing.T) {
 	rec := &recordingClient{}
-	client := newTestPreviewClient(rec, "gemini-live", "another-preview")
+	client := newTestPreviewClient(rec)
 
 	_ = client.StopAgent(context.Background(), "agent-1")
 
-	if got := rec.requests[0].Header.Get(PreviewFeatureHeader); got != "gemini-live,another-preview" {
-		t.Errorf("%s = %q, want the joined feature list", PreviewFeatureHeader, got)
+	if got := rec.requests[0].Header.Get(PreviewFeatureHeader); got != "" {
+		t.Errorf("%s = %q, want no preview gate", PreviewFeatureHeader, got)
+	}
+	if strings.HasPrefix(rec.requests[0].URL.String(), PreviewAPIBaseURL) {
+		t.Errorf("StopAgent unexpectedly used preview host: %s", rec.requests[0].URL)
 	}
 }
 
-// --- Preview support guard --------------------------------------------------
-
-func TestRequiredPreviewFeaturesFlagsPreviewMLLMModels(t *testing.T) {
-	mllm := map[string]interface{}{"mllm": map[string]interface{}{
-		"vendor": "gemini",
-		"params": map[string]interface{}{"model": "walkie-talkie"},
-	}}
-	if got := RequiredPreviewFeatures(mllm); len(got) != 1 || got[0] != PreviewFeatureGeminiLive {
-		t.Errorf("RequiredPreviewFeatures(walkie-talkie) = %v, want [gemini-live]", got)
+func TestGASessionRemainsOnProductionRouting(t *testing.T) {
+	rec := &recordingClient{}
+	client := newTestPreviewClient(rec)
+	agent := NewAgent(client).WithMllm(vendors.NewGeminiLive(vendors.GeminiLiveOptions{
+		APIKey: "ga-key", Model: "gemini-live-2.5-flash-preview-native-audio-09-2025",
+	}))
+	session := agent.CreateSession(CreateSessionOptions{
+		Channel: "ga", AgentUID: "1", RemoteUIDs: []string{"100"},
+	})
+	if _, err := session.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if got := rec.requests[0].Header.Get(PreviewFeatureHeader); got != "" {
+		t.Errorf("%s = %q, want no preview gate", PreviewFeatureHeader, got)
+	}
+	if strings.HasPrefix(rec.requests[0].URL.String(), PreviewAPIBaseURL) {
+		t.Errorf("GA session unexpectedly used preview host: %s", rec.requests[0].URL)
 	}
 }
 
-func TestRequiredPreviewFeaturesRecognisesBothSidesOfTheRename(t *testing.T) {
-	// Google is renaming the codenames; the guard has to keep working through
-	// the rollout whichever spelling a caller sends.
-	models := []string{
-		vendors.GeminiPreviewModelWalkieTalkie,
-		vendors.GeminiPreviewModelCleverChatter,
-		vendors.GeminiPreviewModel35Live,
-		vendors.GeminiPreviewModel35LiveThinking,
-	}
-	for _, model := range models {
-		properties := map[string]interface{}{"mllm": map[string]interface{}{
-			"vendor": "gemini",
-			"params": map[string]interface{}{"model": model},
-		}}
-		if got := RequiredPreviewFeatures(properties); len(got) != 1 || got[0] != PreviewFeatureGeminiLive {
-			t.Errorf("RequiredPreviewFeatures(%s) = %v, want [gemini-live]", model, got)
-		}
+// --- Preview feature detection ---------------------------------------------
+
+func TestRequiredPreviewFeaturesLeavesGeminiASROnGA(t *testing.T) {
+	asr := map[string]interface{}{"asr": map[string]interface{}{"vendor": "gemini"}}
+	if got := RequiredPreviewFeatures(asr); len(got) != 0 {
+		t.Errorf("RequiredPreviewFeatures(gemini asr) = %v, want none", got)
 	}
 }
 
-func TestRequiredPreviewFeaturesLeavesGAGeminiLiveAlone(t *testing.T) {
-	ga := map[string]interface{}{"mllm": map[string]interface{}{
-		"vendor": "gemini",
-		"params": map[string]interface{}{"model": "gemini-live-2.5-flash-preview-native-audio-09-2025"},
-	}}
+func TestRequiredPreviewFeaturesLeavesAGAPipelineAlone(t *testing.T) {
+	ga := map[string]interface{}{"asr": map[string]interface{}{"vendor": "microsoft"}}
 
 	if got := RequiredPreviewFeatures(ga); len(got) != 0 {
-		t.Errorf("RequiredPreviewFeatures(GA gemini live) = %v, want none", got)
+		t.Errorf("RequiredPreviewFeatures(GA asr) = %v, want none", got)
 	}
 }
 
-func TestAssertPreviewSupportRejectsProductionClient(t *testing.T) {
-	properties := map[string]interface{}{"mllm": map[string]interface{}{
-		"vendor": "gemini",
-		"params": map[string]interface{}{"model": "walkie-talkie"},
-	}}
-
-	err := AssertPreviewSupport(nil, properties)
-	if err == nil {
-		t.Fatal("expected an error for a production client")
+func TestDebugHTTPClientLogsFinalRedactedRequest(t *testing.T) {
+	// The debug client must be below the preview gate: users need to see the
+	// actual endpoint and feature header, not the partial request assembled by
+	// AgentSession before routing options run.
+	recorder := &recordingClient{}
+	client := &previewGateClient{
+		features: PreviewFeatureLiveModels,
+		inner:    &debugHTTPClient{inner: recorder},
 	}
-	if !strings.Contains(err.Error(), "require the preview endpoint") {
-		t.Errorf("error = %q, want it to name the preview endpoint", err)
-	}
-
-	if err := AssertPreviewSupport([]string{PreviewFeatureGeminiLive}, properties); err != nil {
-		t.Errorf("preview client rejected: %v", err)
-	}
-}
-
-// --- Debug redaction --------------------------------------------------------
-
-func TestRedactSecretsWalksNestedStructures(t *testing.T) {
-	redacted := RedactSecrets(map[string]interface{}{
-		"appid": "81190c52971d4004b7244bdcd93e2f34",
-		"properties": map[string]interface{}{
-			"token": "007eJxTYKhsrH10",
-			"asr": map[string]interface{}{
-				"vendor": "gemini",
-				"params": map[string]interface{}{"api_key": previewAPIKey, "model": "m"},
-			},
-			"mcp_servers": []interface{}{
-				map[string]interface{}{"name": "a", "headers": map[string]interface{}{"authorization": "Bearer x"}},
-			},
-		},
-	})
-
-	assertJSONEqual(t, redacted, `{
-		"appid": "[REDACTED]",
-		"properties": {
-			"token": "[REDACTED]",
-			"asr": {"vendor": "gemini", "params": {"api_key": "[REDACTED]", "model": "m"}},
-			"mcp_servers": [{"name": "a", "headers": {"authorization": "[REDACTED]"}}]
-		}
-	}`)
-}
-
-func TestRedactSecretsLeavesEmptyValuesVisible(t *testing.T) {
-	// "" is the signature of an unset env var and must stay diagnosable.
-	redacted := RedactSecrets(map[string]interface{}{"params": map[string]interface{}{"api_key": ""}})
-
-	assertJSONEqual(t, redacted, `{"params": {"api_key": ""}}`)
-}
-
-func TestRedactSecretsDoesNotMutateInput(t *testing.T) {
-	params := map[string]interface{}{"api_key": previewAPIKey}
-	original := map[string]interface{}{"asr": map[string]interface{}{"params": params}}
-
-	RedactSecrets(original)
-
-	if params["api_key"] != previewAPIKey {
-		t.Errorf("input mutated: api_key = %v", params["api_key"])
-	}
-}
-
-// --- helpers ----------------------------------------------------------------
-
-func assertJSONEqual(t *testing.T, got interface{}, wantJSON string) {
-	t.Helper()
-
-	gotBytes, err := json.Marshal(got)
+	body := `{"appid":"secret-app-id","properties":{"mllm":{"api_key":"secret-api-key"}}}`
+	req, err := http.NewRequest(http.MethodPost, PreviewAPIBaseURL+"/v1/projects/apps/app-1/agents?key=url-secret", strings.NewReader(body))
 	if err != nil {
-		t.Fatalf("marshal got: %v", err)
+		t.Fatal(err)
 	}
-	var gotAny, wantAny interface{}
-	if err := json.Unmarshal(gotBytes, &gotAny); err != nil {
-		t.Fatalf("unmarshal got: %v", err)
-	}
-	if err := json.Unmarshal([]byte(wantJSON), &wantAny); err != nil {
-		t.Fatalf("unmarshal want: %v", err)
-	}
-	gotNorm, _ := json.Marshal(gotAny)
-	wantNorm, _ := json.Marshal(wantAny)
-	if string(gotNorm) != string(wantNorm) {
-		t.Errorf("wire shape mismatch\n got: %s\nwant: %s", gotNorm, wantNorm)
-	}
-}
+	req.Header.Set("Authorization", "Bearer secret-token")
+	req.Header.Set("X-Goog-Api-Key", "google-secret")
+	req.Header.Set("X-Request-ID", "trace-123")
 
-func TestPreviewMLLMSendsLanguageCodesNeverSingularLanguage(t *testing.T) {
-	// params.language belongs to xAI Grok in the Agora schema, and the production
-	// Gemini Live provider sends no language field at all. The preview MLLMs take
-	// the plural array.
-	config := vendors.NewGeminiWalkieTalkie(vendors.GeminiPreviewMLLMOptions{
-		APIKey:        previewAPIKey,
-		LanguageCodes: []string{"en-US"},
-	}).ToConfig()
+	var output bytes.Buffer
+	previousOutput := log.Writer()
+	log.SetOutput(&output)
+	t.Cleanup(func() { log.SetOutput(previousOutput) })
 
-	params := config["params"].(map[string]interface{})
-	assertJSONEqual(t, params["language_codes"], `["en-US"]`)
-	if _, found := params["language"]; found {
-		t.Error("params.language is xAI's field; the preview MLLM must not send it")
+	response, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
 	}
-}
+	_ = response.Body.Close()
 
-func TestPreviewMLLMOmitsLanguageCodesWhenUnset(t *testing.T) {
-	config := vendors.NewGeminiWalkieTalkie(vendors.GeminiPreviewMLLMOptions{
-		APIKey: previewAPIKey,
-	}).ToConfig()
-
-	params := config["params"].(map[string]interface{})
-	for _, key := range []string{"language", "language_codes"} {
-		if _, found := params[key]; found {
-			t.Errorf("%s should be omitted when LanguageCodes is nil", key)
+	got := output.String()
+	for _, secret := range []string{"secret-app-id", "secret-api-key", "secret-token", "google-secret", "url-secret", "app-1"} {
+		if strings.Contains(got, secret) {
+			t.Errorf("debug request log leaked %q: %s", secret, got)
 		}
+	}
+	for _, want := range []string{
+		`"method":"POST"`,
+		PreviewAPIBaseURL + "/v1/projects/apps/%5BREDACTED%5D/agents",
+		`"agora-feature":["live-models"]`,
+		`"x-request-id":["trace-123"]`,
+		`"api_key":"[REDACTED]"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("debug request log missing %q: %s", want, got)
+		}
+	}
+	if len(recorder.bodies) != 1 || string(recorder.bodies[0]) != body {
+		t.Errorf("debug logging changed body delivered to transport: %q", recorder.bodies)
 	}
 }
 
 // --- Preview wire-shape translation -----------------------------------------
 
-func previewMLLMProperties(extra map[string]interface{}) map[string]interface{} {
-	mllm := map[string]interface{}{
-		"vendor": "gemini",
-		"params": map[string]interface{}{"model": "walkie-talkie"},
+func TestGPTLiveJSONHeadersAreRedacted(t *testing.T) {
+	config := map[string]interface{}{"params": map[string]interface{}{"headers": `{"Authorization":"private-value"}`}}
+	redacted := RedactSecrets(config).(map[string]interface{})
+	if redacted["params"].(map[string]interface{})["headers"] != Redacted {
+		t.Fatal("JSON headers leaked")
 	}
-	for k, v := range extra {
-		mllm[k] = v
-	}
-	return map[string]interface{}{"mllm": mllm}
-}
-
-func TestAgentLevelGreetingIsRetargetedToGreeting(t *testing.T) {
-	// The Agent writes agent-level greetings to greeting_message, the production
-	// spelling. Without this step the preview model never greets.
-	properties := previewMLLMProperties(map[string]interface{}{"greeting_message": "AGENT"})
-
-	ApplyPreviewShape(properties)
-
-	mllm := properties["mllm"].(map[string]interface{})
-	if mllm["greeting"] != "AGENT" {
-		t.Errorf("greeting = %v, want AGENT", mllm["greeting"])
-	}
-	if _, found := mllm["greeting_message"]; found {
-		t.Error("greeting_message should have been retargeted, not kept")
+	if config["params"].(map[string]interface{})["headers"] != `{"Authorization":"private-value"}` {
+		t.Fatal("mutated headers")
 	}
 }
 
-func TestHandWrittenGreetingMessageMigratesOntoGreeting(t *testing.T) {
-	// Lets an existing MLLM config keep working after only swapping the model.
-	properties := previewMLLMProperties(map[string]interface{}{"greeting_message": "EXISTING"})
-
-	ApplyPreviewShape(properties)
-
-	mllm := properties["mllm"].(map[string]interface{})
-	if mllm["greeting"] != "EXISTING" {
-		t.Errorf("greeting = %v, want EXISTING", mllm["greeting"])
+func TestDebugLoggerLeavesNonReplayableBodyUntouched(t *testing.T) {
+	body := io.NopCloser(strings.NewReader(`{"test":true}`))
+	req, err := http.NewRequest(http.MethodPost, "https://example.test", body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.GetBody != nil {
+		t.Fatal("test requires a non-replayable body")
+	}
+	_, err = readRequestBody(req)
+	if err == nil {
+		t.Fatal("expected unavailable-body error")
+	}
+	got, err := io.ReadAll(req.Body)
+	if err != nil || string(got) != `{"test":true}` {
+		t.Fatalf("debug read consumed body: %s, %v", got, err)
 	}
 }
 
-func TestVendorGreetingWinsOverAgentLevel(t *testing.T) {
-	properties := previewMLLMProperties(map[string]interface{}{
-		"greeting":         "VENDOR",
-		"greeting_message": "AGENT",
-	})
-
-	ApplyPreviewShape(properties)
-
-	mllm := properties["mllm"].(map[string]interface{})
-	if mllm["greeting"] != "VENDOR" {
-		t.Errorf("greeting = %v, want VENDOR", mllm["greeting"])
-	}
-	if _, found := mllm["greeting_message"]; found {
-		t.Error("greeting_message should be dropped once retargeted")
-	}
-}
-
-func TestFailureMessageIsLeftAlone(t *testing.T) {
-	// failure_message is an Agora engine feature, not a Gemini one.
-	properties := previewMLLMProperties(map[string]interface{}{"failure_message": "One moment."})
-
-	ApplyPreviewShape(properties)
-
-	mllm := properties["mllm"].(map[string]interface{})
-	if mllm["failure_message"] != "One moment." {
-		t.Errorf("failure_message = %v, want it untouched", mllm["failure_message"])
-	}
-}
-
-func TestProductionMLLMIsLeftUntouched(t *testing.T) {
-	properties := map[string]interface{}{"mllm": map[string]interface{}{
-		"vendor":           "gemini",
-		"greeting_message": "PROD",
-		"params":           map[string]interface{}{"model": "gemini-2.0-flash-live-001"},
-	}}
-
-	ApplyPreviewShape(properties)
-
-	mllm := properties["mllm"].(map[string]interface{})
-	if mllm["greeting_message"] != "PROD" {
-		t.Errorf("greeting_message = %v, want PROD", mllm["greeting_message"])
-	}
-	if _, found := mllm["greeting"]; found {
-		t.Error("a production MLLM must not gain the preview spelling")
-	}
-}
-
-func TestApplyPreviewShapeIsANoOpWithoutMLLM(t *testing.T) {
-	properties := map[string]interface{}{"asr": map[string]interface{}{"vendor": "gemini"}}
-
-	ApplyPreviewShape(properties)
-
-	if len(properties) != 1 {
-		t.Errorf("properties = %v, want unchanged", properties)
-	}
-}
-
-func TestStartedRequestCarriesGreetingNotGreetingMessage(t *testing.T) {
-	// End-to-end: proves ApplyPreviewShape is wired into Start(), not merely
-	// exported. An agent-level greeting is the natural usage and must reach the
-	// preview model.
+func TestGPTLiveV3RoutesSessionLifecycle(t *testing.T) {
 	rec := &recordingClient{}
-	client := newTestPreviewClient(rec)
-
-	agent := NewAgent(client, WithGreeting("AGENT")).
-		WithMllm(vendors.NewGeminiWalkieTalkie(vendors.GeminiPreviewMLLMOptions{APIKey: previewAPIKey}))
-	session := agent.CreateSession(CreateSessionOptions{
-		Channel: "c", AgentUID: "1", RemoteUIDs: []string{"100"},
-	})
-	if _, err := session.Start(context.Background()); err != nil {
-		t.Fatalf("start: %v", err)
+	zero := 0
+	session := NewAgent(newTestPreviewClient(rec)).WithMllm(vendors.NewOpenAIGPTLive(vendors.OpenAIGPTLiveOptions{
+		APIKey: "test", Prompt: "Be brief", OutputIdleEndMs: &zero,
+	})).CreateSession(CreateSessionOptions{Channel: "preview", AgentUID: "1", RemoteUIDs: []string{"100"}})
+	ctx := context.Background()
+	if _, err := session.Start(ctx); err != nil {
+		t.Fatal(err)
 	}
-	if len(rec.bodies) == 0 {
-		t.Fatal("no request captured")
+	if err := session.Say(ctx, "hello", nil, nil); err != nil {
+		t.Fatal(err)
 	}
-
-	var body struct {
-		Properties struct {
-			Mllm map[string]interface{} `json:"mllm"`
-		} `json:"properties"`
+	if err := session.Interrupt(ctx); err != nil {
+		t.Fatal(err)
 	}
+	if _, err := session.GetHistory(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := session.Stop(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if len(rec.requests) != 5 {
+		t.Fatalf("got %d requests", len(rec.requests))
+	}
+	for _, req := range rec.requests {
+		if req.Header.Get(PreviewFeatureHeader) != PreviewFeatureLiveModels || !strings.HasPrefix(req.URL.String(), PreviewAPIBaseURL) {
+			t.Fatal("lost preview route")
+		}
+	}
+	var body map[string]interface{}
 	if err := json.Unmarshal(rec.bodies[0], &body); err != nil {
-		t.Fatalf("decode body: %v", err)
+		t.Fatal(err)
 	}
-	if body.Properties.Mllm["greeting"] != "AGENT" {
-		t.Errorf("greeting = %v, want AGENT", body.Properties.Mllm["greeting"])
+	mllm := body["properties"].(map[string]interface{})["mllm"].(map[string]interface{})
+	if mllm["enable"] != true || mllm["url"] != "wss://api.openai.com/v1/live/sessions" {
+		t.Fatalf("mllm = %#v", mllm)
 	}
-	if _, found := body.Properties.Mllm["greeting_message"]; found {
-		t.Error("greeting_message must not reach the preview route")
-	}
-}
-
-func TestUnrecognisedModelOnAPreviewVendorStillGetsTheGreetingRename(t *testing.T) {
-	// Overriding Model is the documented escape hatch for a Google rename that
-	// lands ahead of an SDK release, so a name this SDK has never seen is
-	// reachable by following its own advice. Matching on the model name alone
-	// made that case fail silently: no rename, and an agent-level greeting would
-	// land in a field these models ignore.
-	rec := &recordingClient{}
-	client := newTestPreviewClient(rec)
-
-	agent := NewAgent(client, WithGreeting("AGENT")).
-		WithMllm(vendors.NewGeminiWalkieTalkie(vendors.GeminiPreviewMLLMOptions{
-			APIKey: previewAPIKey,
-			Model:  "gemini-4.0-live-unreleased",
-		}))
-	session := agent.CreateSession(CreateSessionOptions{
-		Channel: "c", AgentUID: "1", RemoteUIDs: []string{"100"},
-	})
-	if _, err := session.Start(context.Background()); err != nil {
-		t.Fatalf("start: %v", err)
-	}
-	if len(rec.bodies) == 0 {
-		t.Fatal("no request captured")
-	}
-
-	var body struct {
-		Properties struct {
-			Mllm map[string]interface{} `json:"mllm"`
-		} `json:"properties"`
-	}
-	if err := json.Unmarshal(rec.bodies[0], &body); err != nil {
-		t.Fatalf("decode body: %v", err)
-	}
-	if body.Properties.Mllm["greeting"] != "AGENT" {
-		t.Errorf("greeting = %v, want AGENT", body.Properties.Mllm["greeting"])
-	}
-	if _, found := body.Properties.Mllm["greeting_message"]; found {
-		t.Error("greeting_message must not reach the preview route")
-	}
-}
-
-func TestUnrecognisedModelOnAPreviewVendorStillRequiresThePreviewEndpoint(t *testing.T) {
-	properties := map[string]interface{}{
-		"mllm": vendors.NewGeminiWalkieTalkie(vendors.GeminiPreviewMLLMOptions{
-			APIKey: previewAPIKey,
-			Model:  "gemini-4.0-live-unreleased",
-		}).ToConfig(),
-	}
-
-	features := RequiredPreviewFeatures(properties)
-	if len(features) != 1 || features[0] != PreviewFeatureGeminiLive {
-		t.Errorf("features = %v, want [%s]", features, PreviewFeatureGeminiLive)
-	}
-}
-
-func TestEnvelopeCheckDoesNotCatchAProductionGeminiLiveConfig(t *testing.T) {
-	// GeminiLive leaves params.api_key unset and does not point url at the
-	// Gemini Developer API host, so widening detection must not retarget
-	// greeting_message for a GA caller.
-	properties := map[string]interface{}{"mllm": map[string]interface{}{
-		"vendor":           "gemini",
-		"api_key":          "prod-key",
-		"url":              "wss://generativelanguage.googleapis.com/ws",
-		"greeting_message": "PROD",
-		"params":           map[string]interface{}{"model": "gemini-2.0-flash-live-001"},
-	}}
-
-	ApplyPreviewShape(properties)
-
-	mllm := properties["mllm"].(map[string]interface{})
-	if mllm["greeting_message"] != "PROD" {
-		t.Errorf("greeting_message = %v, want PROD", mllm["greeting_message"])
-	}
-	if _, found := mllm["greeting"]; found {
-		t.Error("a production MLLM must not gain the preview spelling")
-	}
-	if features := RequiredPreviewFeatures(properties); len(features) != 0 {
-		t.Errorf("features = %v, want none", features)
-	}
+	assertJSONEqual(t, mllm["params"], `{"model":"gpt-live-1-diamond-alpha","alpha_selector":"quicksilver=v3","prompt":"Be brief","output_idle_end_ms":0}`)
 }

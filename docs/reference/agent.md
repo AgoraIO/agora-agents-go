@@ -134,7 +134,7 @@ Sets advanced feature flags such as RTM or tool invocation.
 func WithTools(enabled bool) AgentOption
 ```
 
-Enables or disables MCP tool invocation by setting `AdvancedFeatures.EnableTools`.
+Enables or disables MCP and inline REST tool invocation by setting `AdvancedFeatures.EnableTools`.
 
 ### WithParameters
 
@@ -314,7 +314,7 @@ func (a *Agent) WithAdvancedFeatures(af *AdvancedFeatures) *Agent
 func (a *Agent) WithTools(enabled bool) *Agent
 ```
 
-Enables or disables MCP tool invocation by setting `AdvancedFeatures.EnableTools`.
+Enables or disables MCP and inline REST tool invocation by setting `AdvancedFeatures.EnableTools`.
 
 ### WithAudioScenario (method)
 
@@ -511,6 +511,9 @@ type SessionParams = Agora.StartAgentsRequestPropertiesParameters
 type GeofenceConfig = Agora.StartAgentsRequestPropertiesGeofence
 type RtcConfig = Agora.StartAgentsRequestPropertiesRtc
 type FillerWordsConfig = Agora.StartAgentsRequestPropertiesFillerWords
+type FillerWordsContentMode = Agora.StartAgentsRequestPropertiesFillerWordsContentMode
+type FillerWordsContentGeneratedConfig = Agora.StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig
+type FillerWordsContentGeneratedLlmProvider = Agora.StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigLlmProvider
 type LlmConfig = Agora.Llm
 type MllmConfig = Agora.Mllm
 type AsrConfig = Agora.Asr
@@ -521,6 +524,11 @@ type LlmStyle = Agora.LlmStyle
 type SessionInfo = Agora.GetAgentsResponse
 type ThinkResponse = Agora.AgentThinkAgentManagementResponse
 ```
+
+Filler words mode constants are `FillerWordsContentModeStatic` and
+`FillerWordsContentModeGenerated`. The fixed-time trigger constant is
+`FillerWordsTriggerModeFixedTime`; the generated fallback constant is
+`FillerWordsFallbackStrategyStatic`.
 
 Additional SOS/EOS turn detection aliases: `TurnDetectionNestedConfig`, `StartOfSpeechConfig`, `EndOfSpeechConfig`, and related sub-types. Session/conversation aliases: `SessionListResponse`, `ConversationHistory`, `ConversationTurns`, etc. Think type aliases: `ThinkOnListeningAction`, `ThinkOnThinkingAction`, `ThinkOnSpeakingAction`.
 
