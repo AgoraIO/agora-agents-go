@@ -605,6 +605,31 @@ Named fields are written after `AdditionalParams`, so `APIKey`, `VoiceID`, and `
 | `AdditionalParams` | `map[string]interface{}` | No | Additional provider parameters forwarded under `tts.params` |
 | `SkipPatterns` | `[]int` | No | Patterns to skip |
 
+### NewSmallestAITTS
+
+```go
+func NewSmallestAITTS(opts SmallestAITTSOptions) *SmallestAITTS
+```
+
+Panics if `APIKey` is empty. Emits `tts.vendor = "smallestai"`.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `APIKey` | `string` | Yes | Smallest AI API key |
+| `URL` | `string` | No | Streaming TTS endpoint |
+| `Model` | `string` | No | Model identifier |
+| `VoiceID` | `string` | No | Voice identifier |
+| `SampleRate` | `*int` | No | Output sample rate in Hz |
+| `Speed` | `*float64` | No | Speech-rate multiplier |
+| `Language` | `string` | No | Synthesis language |
+| `NumberPronunciationLanguage` | `string` | No | Language used to pronounce numbers |
+| `MathNotation` | `*bool` | No | Whether to verbalize mathematical notation |
+| `PronunciationDicts` | `[]string` | No | Pronunciation dictionaries |
+| `SessionID` | `string` | No | Client session identifier |
+| `RequestID` | `string` | No | Client request identifier |
+| `SkipPatterns` | `[]int` | No | Bracket patterns skipped during synthesis |
+| `AdditionalParams` | `map[string]interface{}` | No | Additional values under `tts.params`; typed fields take precedence |
+
 ---
 
 ## STT Vendors
@@ -827,6 +852,39 @@ Panics if `APIKey` is empty.
 | `SampleRate` | `*SampleRate` | No | Audio sample rate |
 | `AdditionalParams` | `map[string]interface{}` | No | Additional vendor params |
 
+### NewSmallestAISTT
+
+```go
+func NewSmallestAISTT(opts SmallestAISTTOptions) *SmallestAISTT
+```
+
+Panics if `APIKey` is empty. Emits `asr.vendor = "smallestai"`. Boolean options use Go `bool` values; `ToConfig` converts them to the `"true"` and `"false"` strings required by the wire schema.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `APIKey` | `string` | Yes | Smallest AI API key |
+| `URL` | `string` | No | Streaming ASR WebSocket endpoint |
+| `Language` | `string` | No | Emitted at `asr.language` and `asr.params.language` |
+| `SampleRate` | `*int` | No | Input sample rate in Hz |
+| `Encoding` | `string` | No | Input audio encoding, such as `linear16` |
+| `WordTimestamps` | `bool` | No | Include word timestamps |
+| `SentenceTimestamps` | `bool` | No | Include sentence timestamps |
+| `Diarize` | `bool` | No | Enable speaker diarization |
+| `VADEvents` | `bool` | No | Return VAD events |
+| `Endpointing` | `bool` | No | Enable endpoint detection |
+| `EOUTimeoutMs` | `*int` | No | End-of-utterance timeout in milliseconds |
+| `Format` | `bool` | No | Format transcript output |
+| `FinalizeOnWords` | `bool` | No | Finalize based on recognized words |
+| `MaxWords` | `string` | No | Maximum words per result, using the API wire type |
+| `Punctuate` | `bool` | No | Add punctuation |
+| `Capitalize` | `bool` | No | Capitalize transcript text |
+| `ITNNormalize` | `bool` | No | Enable inverse text normalization |
+| `FullTranscript` | `bool` | No | Return the full transcript |
+| `Keywords` | `string` | No | Weighted keywords, for example `Codex:2,Smallest AI:2` |
+| `RedactPII` | `bool` | No | Redact personally identifiable information |
+| `RedactPCI` | `bool` | No | Redact payment-card information |
+| `AdditionalParams` | `map[string]interface{}` | No | Additional values under `asr.params`; typed fields take precedence |
+
 ---
 
 ## MLLM Vendors
@@ -1048,6 +1106,8 @@ Panics if `APIKey`, `Model`, or `URL` is empty. Qwen Omni is a mainland China ML
 | `OutputModalities` | `[]string` | No | — | Output modalities |
 | `Messages` | `[]map[string]interface{}` | No | — | Conversation messages for short-term memory |
 | `Params` | `map[string]interface{}` | No | — | Additional realtime parameters; explicit entries override typed defaults |
+| `Tools` | `[]*Agora.LlmTool` | No | — | Inline REST tools exposed to Qwen Omni |
+| `McpServers` | `[]*Agora.McpServer` | No | — | Typed MCP servers exposed to Qwen Omni |
 | `TurnDetection` | `*Agora.MllmTurnDetection` | No | — | Optional MLLM turn detection configuration; overrides top-level turn detection |
 
 ### NewFengmingSTT

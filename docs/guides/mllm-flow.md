@@ -117,7 +117,7 @@ agent := agentkit.NewAgent(client).WithMllm(
 
 ## Qwen Omni (Mainland China)
 
-Qwen Omni is exposed only by `agentkit/cn/vendors`. `URL` is required and must be the complete realtime WebSocket endpoint.
+Qwen Omni is exposed only by `agentkit/cn/vendors`. `URL` is required and must be the complete realtime WebSocket endpoint. It supports inline `Tools` and typed `McpServers`.
 
 ```go
 import (

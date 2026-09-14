@@ -84,6 +84,35 @@ func TestDomesticOpenAICompatibleLLMEmitsInlineTools(t *testing.T) {
 	}
 }
 
+func TestDomesticOpenAICompatibleLLMVendorsEmitNewFeatures(t *testing.T) {
+	maxHistory := 8
+	tool := &Agora.LlmTool{Function: &Agora.LlmToolFunction{Name: "lookup"}}
+	server := map[string]interface{}{"url": "https://mcp.example.com"}
+	cases := []struct {
+		name   string
+		config map[string]interface{}
+	}{
+		{"aliyun", NewAliyun(AliyunOptions{APIKey: "key", Model: "qwen-max", BaseURL: "https://example.com", MaxHistory: &maxHistory, Tools: []*Agora.LlmTool{tool}, McpServers: []map[string]interface{}{server}}).ToConfig()},
+		{"bytedance", NewBytedance(BytedanceOptions{APIKey: "key", Model: "doubao", BaseURL: "https://example.com", MaxHistory: &maxHistory, Tools: []*Agora.LlmTool{tool}, McpServers: []map[string]interface{}{server}}).ToConfig()},
+		{"deepseek", NewDeepSeek(DeepSeekOptions{APIKey: "key", Model: "deepseek-chat", BaseURL: "https://example.com", MaxHistory: &maxHistory, Tools: []*Agora.LlmTool{tool}, McpServers: []map[string]interface{}{server}}).ToConfig()},
+		{"tencent", NewTencentLLM(TencentLLMOptions{APIKey: "key", Model: "hunyuan", BaseURL: "https://example.com", MaxHistory: &maxHistory, Tools: []*Agora.LlmTool{tool}, McpServers: []map[string]interface{}{server}}).ToConfig()},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.config["max_history"] != maxHistory {
+				t.Fatalf("max_history = %#v", tc.config["max_history"])
+			}
+			if len(tc.config["tools"].([]*Agora.LlmTool)) != 1 {
+				t.Fatalf("tools = %#v", tc.config["tools"])
+			}
+			mcp := tc.config["mcp_servers"].([]map[string]interface{})
+			if len(mcp) != 1 || mcp[0]["transport"] != "streamable_http" {
+				t.Fatalf("mcp_servers = %#v", mcp)
+			}
+		})
+	}
+}
+
 func TestCNMicrosoftSTTParams(t *testing.T) {
 	config := NewMicrosoftSTT(MicrosoftSTTOptions{
 		Key:        "ms-key",

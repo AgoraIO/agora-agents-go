@@ -806,6 +806,18 @@ func TestTypecastTTSValidation(t *testing.T) {
 	}
 }
 
+func TestSmallestAITTSConfig(t *testing.T) {
+	rate := 24000
+	config := NewSmallestAITTS(SmallestAITTSOptions{APIKey: "key", Model: "lightning", VoiceID: "voice", SampleRate: &rate, SkipPatterns: []int{1, 2}}).ToConfig()
+	if config["vendor"] != "smallestai" {
+		t.Fatalf("vendor = %#v", config["vendor"])
+	}
+	params := config["params"].(map[string]interface{})
+	if params["api_key"] != "key" || params["model"] != "lightning" || params["voice_id"] != "voice" || params["sample_rate"] != rate {
+		t.Fatalf("unexpected params: %#v", params)
+	}
+}
+
 func ptrInt(v int) *int {
 	return &v
 }
