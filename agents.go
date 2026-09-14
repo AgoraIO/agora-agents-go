@@ -1451,6 +1451,9 @@ type AsrVisitor interface {
 	VisitXfyun(*XfyunAsr) error
 	VisitXfyunBigmodel(*XfyunBigmodelAsr) error
 	VisitXfyunDialect(*XfyunDialectAsr) error
+}
+
+type SmallestAiAsrVisitor interface {
 	VisitSmallestai(*SmallestAiAsr) error
 }
 
@@ -1504,7 +1507,11 @@ func (a *Asr) Accept(visitor AsrVisitor) error {
 		return visitor.VisitXfyunDialect(a.XfyunDialect)
 	}
 	if a.Smallestai != nil {
-		return visitor.VisitSmallestai(a.Smallestai)
+		smallestaiVisitor, ok := visitor.(SmallestAiAsrVisitor)
+		if !ok {
+			return fmt.Errorf("visitor %T does not support smallestai ASR", visitor)
+		}
+		return smallestaiVisitor.VisitSmallestai(a.Smallestai)
 	}
 	return fmt.Errorf("type %T does not define a non-empty union type", a)
 }
@@ -14726,6 +14733,9 @@ type TtsVisitor interface {
 	VisitGradium(*GradiumTts) error
 	VisitMistral(*MistralTts) error
 	VisitTypecast(*TypecastTts) error
+}
+
+type SmallestAiTtsVisitor interface {
 	VisitSmallestai(*SmallestAiTts) error
 }
 
@@ -14800,7 +14810,11 @@ func (t *Tts) Accept(visitor TtsVisitor) error {
 		return visitor.VisitTypecast(t.Typecast)
 	}
 	if t.Smallestai != nil {
-		return visitor.VisitSmallestai(t.Smallestai)
+		smallestaiVisitor, ok := visitor.(SmallestAiTtsVisitor)
+		if !ok {
+			return fmt.Errorf("visitor %T does not support smallestai TTS", visitor)
+		}
+		return smallestaiVisitor.VisitSmallestai(t.Smallestai)
 	}
 	return fmt.Errorf("type %T does not define a non-empty union type", t)
 }
@@ -19732,7 +19746,7 @@ type StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig struct {
 	// System prompt used to generate a short filler phrase based on recent conversation context. The generated text should be conversational and must not answer the user's question.
 	Prompt *string `json:"prompt,omitempty" url:"prompt,omitempty"`
 	// Fallback strategy when generated filler text is not ready, fails, or returns empty text. Phase 1 only supports `static`.
-	FallbackStrategy *string `json:"fallback_strategy,omitempty" url:"fallback_strategy,omitempty"`
+	FallbackStrategy *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy `json:"fallback_strategy,omitempty" url:"fallback_strategy,omitempty"`
 	// Maximum number of recent conversation messages used to generate a filler word.
 	ContextMessageLimit *int `json:"context_message_limit,omitempty" url:"context_message_limit,omitempty"`
 	// Maximum number of characters from conversation history used to generate a filler word.
@@ -19817,6 +19831,17 @@ func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetConte
 func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetHistoryCharacterLimit(historyCharacterLimit *int) {
 	s.HistoryCharacterLimit = historyCharacterLimit
 	s.require(startAgentsRequestPropertiesFillerWordsContentGeneratedConfigFieldHistoryCharacterLimit)
+}
+
+// StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy controls fallback behavior for generated filler words.
+type StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy string
+
+const (
+	StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategyStatic StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy = "static"
+)
+
+func (s StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy) Ptr() *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy {
+	return &s
 }
 
 func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) UnmarshalJSON(data []byte) error {
