@@ -1451,6 +1451,9 @@ type AsrVisitor interface {
 	VisitXfyun(*XfyunAsr) error
 	VisitXfyunBigmodel(*XfyunBigmodelAsr) error
 	VisitXfyunDialect(*XfyunDialectAsr) error
+}
+
+type SmallestAiAsrVisitor interface {
 	VisitSmallestai(*SmallestAiAsr) error
 }
 
@@ -1504,7 +1507,11 @@ func (a *Asr) Accept(visitor AsrVisitor) error {
 		return visitor.VisitXfyunDialect(a.XfyunDialect)
 	}
 	if a.Smallestai != nil {
-		return visitor.VisitSmallestai(a.Smallestai)
+		smallestaiVisitor, ok := visitor.(SmallestAiAsrVisitor)
+		if !ok {
+			return fmt.Errorf("visitor %T does not support smallestai ASR", visitor)
+		}
+		return smallestaiVisitor.VisitSmallestai(a.Smallestai)
 	}
 	return fmt.Errorf("type %T does not define a non-empty union type", a)
 }
@@ -14726,6 +14733,9 @@ type TtsVisitor interface {
 	VisitGradium(*GradiumTts) error
 	VisitMistral(*MistralTts) error
 	VisitTypecast(*TypecastTts) error
+}
+
+type SmallestAiTtsVisitor interface {
 	VisitSmallestai(*SmallestAiTts) error
 }
 
@@ -14800,7 +14810,11 @@ func (t *Tts) Accept(visitor TtsVisitor) error {
 		return visitor.VisitTypecast(t.Typecast)
 	}
 	if t.Smallestai != nil {
-		return visitor.VisitSmallestai(t.Smallestai)
+		smallestaiVisitor, ok := visitor.(SmallestAiTtsVisitor)
+		if !ok {
+			return fmt.Errorf("visitor %T does not support smallestai TTS", visitor)
+		}
+		return smallestaiVisitor.VisitSmallestai(t.Smallestai)
 	}
 	return fmt.Errorf("type %T does not define a non-empty union type", t)
 }
