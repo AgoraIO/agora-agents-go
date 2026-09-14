@@ -12498,7 +12498,7 @@ type SmallestAiAsrParams struct {
 	// Whether to enable endpoint detection.
 	Endpointing *string `json:"endpointing,omitempty" url:"endpointing,omitempty"`
 	// End-of-utterance timeout in milliseconds.
-	EouTimeoutMs *string `json:"eou_timeout_ms,omitempty" url:"eou_timeout_ms,omitempty"`
+	EouTimeoutMs *int `json:"eou_timeout_ms,omitempty" url:"eou_timeout_ms,omitempty"`
 	// Whether to format the transcript.
 	Format *string `json:"format,omitempty" url:"format,omitempty"`
 	// Whether to finalize results based on recognized words.
@@ -12598,7 +12598,7 @@ func (s *SmallestAiAsrParams) GetEndpointing() *string {
 	return s.Endpointing
 }
 
-func (s *SmallestAiAsrParams) GetEouTimeoutMs() *string {
+func (s *SmallestAiAsrParams) GetEouTimeoutMs() *int {
 	if s == nil {
 		return nil
 	}
@@ -12758,7 +12758,7 @@ func (s *SmallestAiAsrParams) SetEndpointing(endpointing *string) {
 
 // SetEouTimeoutMs sets the EouTimeoutMs field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (s *SmallestAiAsrParams) SetEouTimeoutMs(eouTimeoutMs *string) {
+func (s *SmallestAiAsrParams) SetEouTimeoutMs(eouTimeoutMs *int) {
 	s.EouTimeoutMs = eouTimeoutMs
 	s.require(smallestAiAsrParamsFieldEouTimeoutMs)
 }
