@@ -9,7 +9,7 @@ func TestGPTLiveV3Options(t *testing.T) {
 	zero, inputIdle, rate, negative, disabled := 0, 1500, 24000, -1, false
 	original := map[string]interface{}{"model": "other", "prompt": "other", "output_idle_end_ms": 900}
 	config := NewOpenAIGPTLive(OpenAIGPTLiveOptions{
-		APIKey: "test", Model: "gpt-live-1-diamond-alpha", Voice: "cedar",
+		APIKey: "test", Model: "caller-supplied-model", Voice: "cedar",
 		Instructions: "alias", Prompt: "Be brief", OutputIdleEndMs: &zero,
 		InputIdleEndMs: &inputIdle, OutputSilencePeak: &zero, OutputSampleRate: &rate,
 		OutputBufferMs: &negative, InputBatchMs: &zero, ToolEnabled: &disabled,
@@ -19,7 +19,7 @@ func TestGPTLiveV3Options(t *testing.T) {
 		SessionParams: map[string]interface{}{"context_management": map[string]interface{}{"type": "compaction"}}, Params: original,
 	}).ToConfig()
 	want := map[string]interface{}{
-		"model": "gpt-live-1-diamond-alpha", "voice": "cedar", "prompt": "Be brief",
+		"model": "caller-supplied-model", "voice": "cedar", "prompt": "Be brief",
 		"alpha_selector": "custom=v4", "output_idle_end_ms": 0,
 		"input_idle_end_ms": 1500, "output_silence_peak": 0, "output_sample_rate": 24000,
 		"output_buffer_ms": -1, "input_batch_ms": 0, "tool_enabled": false,

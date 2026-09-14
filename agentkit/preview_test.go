@@ -443,5 +443,5 @@ func TestGPTLiveV3RoutesSessionLifecycle(t *testing.T) {
 	if mllm["enable"] != true || mllm["url"] != "wss://api.openai.com/v1/live/sessions" {
 		t.Fatalf("mllm = %#v", mllm)
 	}
-	assertJSONEqual(t, mllm["params"], `{"model":"gpt-live-1-diamond-alpha","alpha_selector":"quicksilver=v3","prompt":"Be brief","output_idle_end_ms":0}`)
+	assertJSONEqual(t, mllm["params"], `{"model":"gpt-live-1","prompt":"Be brief","output_idle_end_ms":0}`)
 }

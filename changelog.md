@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [v2.8.1] — 2026-09-11
+
+### Changed
+
+- **OpenAI GPT Live defaults** — `NewOpenAIGPTLive` now defaults to the shortened `gpt-live-1` model name and omits the alpha selector. Explicit `Model` and `AlphaSelector` options remain available for future preview contracts.
+
 ## [v2.8.0] — 2026-09-10
 
 ### Added
