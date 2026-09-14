@@ -33,7 +33,7 @@ Source: [github.com/AgoraIO/agora-agents-go](https://github.com/AgoraIO/agora-ag
 ## Installation
 
 ```sh
-go get github.com/AgoraIO/agora-agents-go/v2@v2.0.0
+go get github.com/AgoraIO/agora-agents-go/v2@latest
 ```
 
 Requires Go 1.21 or later.
@@ -59,7 +59,7 @@ Requires Go 1.21 or later.
 | [Pagination](./guides/pagination.md) | Iterate over paginated list endpoints |
 | [Advanced](./guides/advanced.md) | Headers, retries, timeouts, raw response, custom HTTP client |
 | [Low-Level API](./guides/low-level-api.md) | Generated REST APIs |
-| [Preview Endpoint](./guides/preview-endpoint.md) | Automatic session-scoped preview routing and the `agora-feature` gate header |
+| [Preview Endpoint](./guides/preview-endpoint.md) | Session-scoped preview routing for providers under development |
 | [Client Reference](./reference/client.md) | Constructor options, public methods |
 | [Agent Reference](./reference/agent.md) | Full builder API |
 | [Session Reference](./reference/session.md) | All methods and payload types |

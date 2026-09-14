@@ -53,6 +53,7 @@ type (
 	LlmToolFunction                     = agentcore.LlmToolFunction
 	LlmToolFunctionParameters           = agentcore.LlmToolFunctionParameters
 	LlmToolExecution                    = agentcore.LlmToolExecution
+	LlmToolExecutionMode                = agentcore.LlmToolExecutionMode
 	LlmToolServer                       = agentcore.LlmToolServer
 	LlmToolServerMethod                 = agentcore.LlmToolServerMethod
 	LlmGreetingConfigs                  = agentcore.LlmGreetingConfigs

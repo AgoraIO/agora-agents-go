@@ -77,6 +77,15 @@ func TestFengmingSTTAllowsAdditionalParams(t *testing.T) {
 	}
 }
 
+func TestFengmingSTTRejectsKeywordsInAdditionalParams(t *testing.T) {
+	defer func() {
+		if recovered := recover(); recovered == nil {
+			t.Fatal("expected NewFengmingSTT to reject keywords in AdditionalParams")
+		}
+	}()
+	NewFengmingSTT(FengmingSTTOptions{AdditionalParams: map[string]interface{}{"keywords": []string{"Agora"}}})
+}
+
 func TestFengmingSTTRejectsMultipleOptions(t *testing.T) {
 	defer func() {
 		if got := recover(); got != "NewFengmingSTT accepts at most one options value" {

@@ -86,6 +86,7 @@ type LlmTool = agentcore.LlmTool
 type LlmToolFunction = agentcore.LlmToolFunction
 type LlmToolFunctionParameters = agentcore.LlmToolFunctionParameters
 type LlmToolExecution = agentcore.LlmToolExecution
+type LlmToolExecutionMode = agentcore.LlmToolExecutionMode
 type LlmToolServer = agentcore.LlmToolServer
 type LlmToolServerMethod = agentcore.LlmToolServerMethod
 

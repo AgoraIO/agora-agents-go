@@ -36,11 +36,17 @@ func NewOpenAIRealtime(opts OpenAIRealtimeOptions) *OpenAIRealtime {
 }
 
 func (o *OpenAIRealtime) ToConfig() map[string]interface{} {
-	// Match TS: `model` is the base; explicit Params entries override it.
+	// Match TS: build params when any nested field is set; explicit Params entries override.
 	var params map[string]interface{}
-	if o.options.Model != "" || o.options.Params != nil {
+	if o.options.Model != "" ||
+		o.options.Params != nil ||
+		o.options.Voice != "" ||
+		o.options.Instructions != "" ||
+		o.options.InputAudioTranscription != nil {
 		params = map[string]interface{}{}
-		params["model"] = o.options.Model
+		if o.options.Model != "" {
+			params["model"] = o.options.Model
+		}
 		for k, v := range o.options.Params {
 			params[k] = v
 		}

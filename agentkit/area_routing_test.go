@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/AgoraIO/agora-agents-go/v2/agentkit/vendors"
 	"github.com/AgoraIO/agora-agents-go/v2/client"
 	"github.com/AgoraIO/agora-agents-go/v2/option"
 	"github.com/stretchr/testify/assert"
@@ -111,4 +112,37 @@ func TestSessionStartAutoGeneratesRESTAuthTokenWhenSessionTokenMissing(t *testin
 	assert.Equal(t, "/api/conversational-ai-agent/v2/projects/0123456789abcdef0123456789abcdef/join", httpClient.lastRequest.URL.Path)
 	assert.Contains(t, httpClient.lastRequest.Header.Get("Authorization"), "agora token=")
 	assert.NotEqual(t, "agora token=", httpClient.lastRequest.Header.Get("Authorization"))
+}
+
+func TestGeminiASRUsesProductionRouting(t *testing.T) {
+	httpClient := &captureStartHTTPClient{}
+	agoraClient := NewAgoraClient(AgoraClientOptions{
+		Area:           option.AreaUS,
+		AppID:          "81190c52971d4004b7244bdcd93e2f34",
+		AppCertificate: "0123456789abcdef0123456789abcdef",
+		HTTPClient:     httpClient,
+	})
+	agent := NewAgent(agoraClient).
+		WithStt(vendors.NewGeminiSTT(vendors.GeminiSTTOptions{APIKey: "google-key"})).
+		WithLlm(vendors.NewGemini(vendors.GeminiOptions{
+			APIKey: "google-key",
+			Model:  "gemini-2.0-flash",
+		})).
+		WithTts(vendors.NewGoogleTTS(vendors.GoogleTTSOptions{
+			Key:          "google-key",
+			VoiceName:    "en-US-Chirp3-HD-Charon",
+			LanguageCode: "en-US",
+		}))
+	session := agent.CreateSession(CreateSessionOptions{
+		Channel:    "routing-test",
+		AgentUID:   "1",
+		RemoteUIDs: []string{"100"},
+	})
+
+	_, err := session.Start(context.Background())
+
+	require.NoError(t, err)
+	require.NotNil(t, httpClient.lastRequest)
+	assert.False(t, strings.HasPrefix(httpClient.lastRequest.URL.String(), PreviewAPIBaseURL))
+	assert.Empty(t, httpClient.lastRequest.Header.Get(PreviewFeatureHeader))
 }

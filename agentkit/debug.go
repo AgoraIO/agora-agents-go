@@ -1,8 +1,15 @@
 package agentkit
 
 import (
+	"encoding/json"
+	"errors"
+	"io"
+	"log"
+	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/AgoraIO/agora-agents-go/v2/core"
 )
 
 // Redaction for debug session logging.
@@ -40,6 +47,11 @@ var sensitiveBodyKeys = map[string]struct{}{
 	"agora_token":     {},
 	"agoratoken":      {},
 	"authorization":   {},
+	"headers":         {},
+	"x-api-key":       {},
+	"x_api_key":       {},
+	"cookie":          {},
+	"set-cookie":      {},
 	"appid":           {},
 	"app_id":          {},
 	"agora_appid":     {},
@@ -64,7 +76,7 @@ func redactQueryKeys(value string) string {
 	query := parsed.Query()
 	changed := false
 	for k, vals := range query {
-		if !strings.EqualFold(k, "key") {
+		if !isSensitiveKey(k) {
 			continue
 		}
 		for i, v := range vals {
@@ -79,6 +91,126 @@ func redactQueryKeys(value string) string {
 	}
 	parsed.RawQuery = query.Encode()
 	return parsed.String()
+}
+
+// redactURL removes credentials in query parameters and project IDs in API paths.
+func redactURL(value string) string {
+	value = redactQueryKeys(value)
+	parsed, err := url.Parse(value)
+	if err != nil {
+		return value
+	}
+	segments := strings.Split(parsed.Path, "/")
+	for i, segment := range segments {
+		if segment != "projects" {
+			continue
+		}
+		projectIndex := i + 1
+		if projectIndex < len(segments) && segments[projectIndex] == "apps" {
+			projectIndex++
+		}
+		if projectIndex < len(segments) && segments[projectIndex] != "" {
+			segments[projectIndex] = Redacted
+		}
+		break
+	}
+	parsed.Path = strings.Join(segments, "/")
+	return parsed.String()
+}
+
+// debugHTTPClient logs the final HTTP request just before it leaves the SDK.
+// It sits below request options and preview routing so the trace includes the
+// resolved URL and all SDK-added headers.
+type debugHTTPClient struct {
+	inner core.HTTPClient
+}
+
+func (c *debugHTTPClient) Do(req *http.Request) (*http.Response, error) {
+	logDebugHTTPRequest(req)
+	return c.inner.Do(req)
+}
+
+func logDebugHTTPRequest(req *http.Request) {
+	body, readErr := readRequestBody(req)
+	payload := map[string]interface{}{
+		"method":         req.Method,
+		"url":            redactURL(req.URL.Redacted()),
+		"headers":        redactHTTPHeaders(req.Header),
+		"content_length": req.ContentLength,
+	}
+	if readErr != nil {
+		payload["body"] = "[unavailable: failed to read request body]"
+	} else {
+		payload["body"] = redactHTTPBody(body)
+	}
+
+	if encoded, err := json.Marshal(payload); err == nil {
+		log.Printf("[Agora Debug] REST request: %s", encoded)
+	} else {
+		log.Printf("[Agora Debug] REST request logging failed: %v", err)
+	}
+}
+
+func readRequestBody(req *http.Request) ([]byte, error) {
+	if req.Body == nil {
+		return nil, nil
+	}
+	// Reading the live body can consume streaming requests or swallow read errors.
+	// Use the replay copy when available; otherwise leave the stream untouched.
+	if req.GetBody == nil {
+		return nil, errors.New("request body is not replayable")
+	}
+	copy, err := req.GetBody()
+	if err != nil {
+		return nil, err
+	}
+	defer copy.Close()
+	return io.ReadAll(copy)
+}
+
+func redactHTTPHeaders(headers http.Header) map[string][]string {
+	redacted := make(map[string][]string, len(headers))
+	for key, values := range headers {
+		copied := append([]string(nil), values...)
+		if isSensitiveHeaderKey(key) {
+			for i, value := range copied {
+				if value != "" {
+					copied[i] = Redacted
+				}
+			}
+		}
+		// HTTP field names are case-insensitive (and HTTP/2 serializes them in
+		// lowercase). Normalize the display too, so a trace reflects the wire
+		// convention instead of Go's canonical map-key spelling.
+		key = strings.ToLower(key)
+		redacted[key] = append(redacted[key], copied...)
+	}
+	return redacted
+}
+
+func isSensitiveHeaderKey(key string) bool {
+	key = strings.ToLower(key)
+	if isSensitiveKey(key) {
+		return true
+	}
+	return strings.Contains(key, "authorization") ||
+		strings.Contains(key, "api-key") ||
+		strings.Contains(key, "api_key") ||
+		strings.Contains(key, "token") ||
+		strings.Contains(key, "secret") ||
+		strings.Contains(key, "credential") ||
+		strings.Contains(key, "cookie")
+}
+
+func redactHTTPBody(body []byte) interface{} {
+	if len(body) == 0 {
+		return nil
+	}
+	var decoded interface{}
+	if err := json.Unmarshal(body, &decoded); err != nil {
+		return "[unavailable: non-JSON request body]"
+	}
+	return RedactSecrets(decoded)
 }
 
 // RedactSecrets deep-copies value, replacing credential fields with Redacted.
