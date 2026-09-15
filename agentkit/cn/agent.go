@@ -56,6 +56,7 @@ type (
 	LlmToolExecutionMode                = agentcore.LlmToolExecutionMode
 	LlmToolServer                       = agentcore.LlmToolServer
 	LlmToolServerMethod                 = agentcore.LlmToolServerMethod
+	McpServer                           = agentcore.McpServer
 	LlmGreetingConfigs                  = agentcore.LlmGreetingConfigs
 	LlmGreetingConfigsMode              = agentcore.LlmGreetingConfigsMode
 	McpServersItem                      = agentcore.McpServersItem

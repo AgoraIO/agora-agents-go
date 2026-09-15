@@ -89,6 +89,7 @@ type LlmToolExecution = agentcore.LlmToolExecution
 type LlmToolExecutionMode = agentcore.LlmToolExecutionMode
 type LlmToolServer = agentcore.LlmToolServer
 type LlmToolServerMethod = agentcore.LlmToolServerMethod
+type McpServer = agentcore.McpServer
 
 const (
 	ParametersAudioScenarioDefault  ParametersAudioScenario = agentcore.ParametersAudioScenarioDefault

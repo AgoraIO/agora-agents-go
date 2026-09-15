@@ -322,6 +322,16 @@ func TestRequiredPreviewFeaturesLeavesAGAPipelineAlone(t *testing.T) {
 	}
 }
 
+func TestRequiredPreviewFeaturesLeavesGPTLiveOnGA(t *testing.T) {
+	properties := map[string]interface{}{
+		"mllm": map[string]interface{}{"vendor": "openai_gpt_live"},
+	}
+
+	if got := RequiredPreviewFeatures(properties); len(got) != 0 {
+		t.Errorf("RequiredPreviewFeatures(openai_gpt_live) = %v, want none", got)
+	}
+}
+
 func TestDebugHTTPClientLogsFinalRedactedRequest(t *testing.T) {
 	// The debug client must be below the preview gate: users need to see the
 	// actual endpoint and feature header, not the partial request assembled by
@@ -405,12 +415,34 @@ func TestDebugLoggerLeavesNonReplayableBodyUntouched(t *testing.T) {
 	}
 }
 
-func TestGPTLiveV3RoutesSessionLifecycle(t *testing.T) {
+func TestGPTLiveV3SessionLifecycleUsesProductionRouting(t *testing.T) {
 	rec := &recordingClient{}
 	zero := 0
-	session := NewAgent(newTestPreviewClient(rec)).WithMllm(vendors.NewOpenAIGPTLive(vendors.OpenAIGPTLiveOptions{
-		APIKey: "test", Prompt: "Be brief", OutputIdleEndMs: &zero,
-	})).CreateSession(CreateSessionOptions{Channel: "preview", AgentUID: "1", RemoteUIDs: []string{"100"}})
+	tool := &Agora.LlmTool{
+		Function: &Agora.LlmToolFunction{Name: "lookup"},
+		Server: &Agora.LlmToolServer{
+			Method: Agora.LlmToolServerMethodPost,
+			URL:    "https://tools.example.com/lookup",
+		},
+	}
+	mcpServer := &Agora.McpServer{
+		Name:     "catalog",
+		Endpoint: "https://mcp.example.com",
+	}
+	session := NewAgent(
+		newTestPreviewClient(rec),
+		WithTools(true),
+	).WithMllm(vendors.NewOpenAIGPTLive(vendors.OpenAIGPTLiveOptions{
+		APIKey:           "test",
+		Prompt:           "Be brief",
+		OutputIdleEndMs:  &zero,
+		Tools:            []*Agora.LlmTool{tool},
+		McpServerConfigs: []*Agora.McpServer{mcpServer},
+	})).CreateSession(CreateSessionOptions{
+		Channel:    "production",
+		AgentUID:   "1",
+		RemoteUIDs: []string{"100"},
+	})
 	ctx := context.Background()
 	if _, err := session.Start(ctx); err != nil {
 		t.Fatal(err)
@@ -430,9 +462,12 @@ func TestGPTLiveV3RoutesSessionLifecycle(t *testing.T) {
 	if len(rec.requests) != 5 {
 		t.Fatalf("got %d requests", len(rec.requests))
 	}
-	for _, req := range rec.requests {
-		if req.Header.Get(PreviewFeatureHeader) != PreviewFeatureLiveModels || !strings.HasPrefix(req.URL.String(), PreviewAPIBaseURL) {
-			t.Fatal("lost preview route")
+	for i, req := range rec.requests {
+		if got := req.Header.Get(PreviewFeatureHeader); got != "" {
+			t.Errorf("request %d: %s = %q, want no preview gate", i, PreviewFeatureHeader, got)
+		}
+		if strings.HasPrefix(req.URL.String(), PreviewAPIBaseURL) {
+			t.Errorf("request %d unexpectedly used preview host: %s", i, req.URL)
 		}
 	}
 	var body map[string]interface{}
@@ -440,8 +475,18 @@ func TestGPTLiveV3RoutesSessionLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	mllm := body["properties"].(map[string]interface{})["mllm"].(map[string]interface{})
+	advancedFeatures := body["properties"].(map[string]interface{})["advanced_features"].(map[string]interface{})
 	if mllm["enable"] != true || mllm["url"] != "wss://api.openai.com/v1/live/sessions" {
 		t.Fatalf("mllm = %#v", mllm)
 	}
+	if advancedFeatures["enable_tools"] != true {
+		t.Fatalf("advanced_features.enable_tools = %#v, want true", advancedFeatures["enable_tools"])
+	}
 	assertJSONEqual(t, mllm["params"], `{"model":"gpt-live-1","prompt":"Be brief","output_idle_end_ms":0}`)
+	assertJSONEqual(
+		t,
+		mllm["tools"],
+		`[{"type":"function","function":{"name":"lookup","parameters":null},"server":{"method":"POST","url":"https://tools.example.com/lookup"}}]`,
+	)
+	assertJSONEqual(t, mllm["mcp_servers"], `[{"name":"catalog","endpoint":"https://mcp.example.com"}]`)
 }

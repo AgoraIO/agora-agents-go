@@ -1049,6 +1049,84 @@ type TypecastTTS struct {
 	options TypecastTTSOptions
 }
 
+// SmallestAITTSOptions configures the Smallest AI streaming text-to-speech provider.
+type SmallestAITTSOptions struct {
+	APIKey                      string
+	URL                         string
+	Model                       string
+	VoiceID                     string
+	SampleRate                  *int
+	Speed                       *float64
+	Language                    string
+	NumberPronunciationLanguage string
+	MathNotation                *bool
+	PronunciationDicts          []string
+	SessionID                   string
+	RequestID                   string
+	SkipPatterns                []int
+	AdditionalParams            map[string]interface{}
+}
+
+// SmallestAITTS is a Smallest AI streaming text-to-speech provider.
+type SmallestAITTS struct{ options SmallestAITTSOptions }
+
+// NewSmallestAITTS creates a Smallest AI text-to-speech configuration.
+func NewSmallestAITTS(opts SmallestAITTSOptions) *SmallestAITTS {
+	if opts.APIKey == "" {
+		panic("SmallestAITTS requires APIKey")
+	}
+	return &SmallestAITTS{options: opts}
+}
+
+// GetSampleRate returns the configured output sample rate.
+func (s *SmallestAITTS) GetSampleRate() *SampleRate {
+	if s == nil || s.options.SampleRate == nil {
+		return nil
+	}
+	rate := SampleRate(*s.options.SampleRate)
+	return &rate
+}
+
+// ToConfig returns the Smallest AI TTS configuration expected by the API.
+func (s *SmallestAITTS) ToConfig() map[string]interface{} {
+	params := map[string]interface{}{}
+	for key, value := range s.options.AdditionalParams {
+		params[key] = value
+	}
+	params["api_key"] = s.options.APIKey
+	put := func(key, value string) {
+		if value != "" {
+			params[key] = value
+		}
+	}
+	if s.options.URL != "" {
+		params["url"] = s.options.URL
+	}
+	put("model", s.options.Model)
+	put("voice_id", s.options.VoiceID)
+	if s.options.SampleRate != nil {
+		params["sample_rate"] = *s.options.SampleRate
+	}
+	if s.options.Speed != nil {
+		params["speed"] = *s.options.Speed
+	}
+	put("language", s.options.Language)
+	put("number_pronunciation_language", s.options.NumberPronunciationLanguage)
+	if s.options.MathNotation != nil {
+		params["math_notation"] = *s.options.MathNotation
+	}
+	if s.options.PronunciationDicts != nil {
+		params["pronunciation_dicts"] = append([]string(nil), s.options.PronunciationDicts...)
+	}
+	put("session_id", s.options.SessionID)
+	put("request_id", s.options.RequestID)
+	config := map[string]interface{}{"vendor": "smallestai", "params": params}
+	if s.options.SkipPatterns != nil {
+		config["skip_patterns"] = append([]int(nil), s.options.SkipPatterns...)
+	}
+	return config
+}
+
 // NewTypecastTTS creates a Typecast text-to-speech provider configuration.
 func NewTypecastTTS(opts TypecastTTSOptions) *TypecastTTS {
 	if opts.APIKey == "" {

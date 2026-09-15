@@ -115,3 +115,15 @@ func TestQwenOmniTurnDetectionIsOptional(t *testing.T) {
 		t.Fatal("turn_detection should be omitted when not configured")
 	}
 }
+
+func TestQwenOmniSupportsToolsAndMCP(t *testing.T) {
+	tool := &Agora.LlmTool{Function: &Agora.LlmToolFunction{Name: "lookup"}}
+	server := &Agora.McpServer{Name: "catalog", Endpoint: "https://mcp.example.com"}
+	config := NewQwenOmni(QwenOmniOptions{
+		APIKey: "key", Model: "qwen3-omni-flash-realtime", URL: "wss://qwen.example.com",
+		Tools: []*Agora.LlmTool{tool}, McpServers: []*Agora.McpServer{server},
+	}).ToConfig()
+	if len(config["tools"].([]*Agora.LlmTool)) != 1 || len(config["mcp_servers"].([]*Agora.McpServer)) != 1 {
+		t.Fatalf("tools/mcp_servers were not emitted: %#v", config)
+	}
+}

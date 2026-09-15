@@ -12,24 +12,7 @@ Everything in this guide is temporary by design. When a preview provider goes GA
 
 ## Using a preview provider
 
-OpenAI GPT Live is registered for preview routing with the `live-models` feature. Gemini ASR uses the production
-endpoint.
-
-```go
-agent := agentkit.NewAgent(client).WithMllm(
-    vendors.NewOpenAIGPTLive(vendors.OpenAIGPTLiveOptions{
-        APIKey: os.Getenv("OPENAI_API_KEY"),
-        Prompt: "Be concise",
-    }),
-)
-session := agent.CreateSession(agentkit.CreateSessionOptions{
-    Channel: "demo", AgentUID: "1", RemoteUIDs: []string{"100"},
-})
-agentID, err := session.Start(ctx)
-```
-
-This session uses the preview base URL and sends `agora-feature: live-models`. Gemini ASR sessions use the normal
-GA regional endpoint without that header.
+OpenAI GPT Live and Gemini ASR now use the production endpoint. No currently documented provider is registered for automatic preview routing. The routing infrastructure remains available for future preview providers.
 
 There is no separate preview client. On `Start`, the SDK calls `RequiredPreviewFeatures` on the resolved body. Preview sessions bind the preview base URL and gate transport for their full lifecycle; GA sessions keep production regional routing.
 
@@ -101,15 +84,13 @@ The SDK cannot control the intake node, and this does not affect SDK users becau
 
 ## Session-scoped detection
 
-`RequiredPreviewFeatures` reads the resolved request body rather than the vendor types, so hand-written configs and preset-enriched bodies are covered too. GPT Live is detected from `mllm.vendor = "openai_gpt_live"`; future ASR preview vendors can be registered in `previewASRVendors`.
+`RequiredPreviewFeatures` reads the resolved request body rather than the vendor types, so hand-written configs and preset-enriched bodies are covered too. Future ASR preview vendors can be registered in `previewASRVendors`.
 
 Routing state is stored on the `AgentSession`, not `AgoraClient`. One client can therefore start GA and preview sessions without leaking the preview host or gate header between them.
 
 ## Preview vendors
 
-| Type               | Wire vendor                     | Default model                      |
-| ------------------ | ------------------------------- | ---------------------------------- |
-| `NewOpenAIGPTLive` | `mllm.vendor = "openai_gpt_live"` | `gpt-live-1`         |
+There are no currently documented preview-only vendors. `PreviewFeatureGeminiLive` and `PreviewFeatureLiveModels` remain exported as deprecated compatibility constants.
 
 ## The vendor type is not the whole wire shape
 
