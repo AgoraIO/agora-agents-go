@@ -12,7 +12,7 @@ import (
 	"github.com/AgoraIO/agora-agents-go/v2/option"
 )
 
-func ExampleGeminiMLLM() {
+func ExampleGeminiLive() {
 	client := agentkit.NewAgoraClient(agentkit.AgoraClientOptions{
 		Area:           option.AreaUS,
 		AppID:          os.Getenv("AGORA_APP_ID"),
@@ -20,9 +20,9 @@ func ExampleGeminiMLLM() {
 	})
 
 	agent := agentkit.NewAgent(client).
-		WithMllm(vendors.NewGeminiMLLM(vendors.GeminiMLLMOptions{
+		WithMllm(vendors.NewGeminiLive(vendors.GeminiLiveOptions{
 			APIKey:        os.Getenv("GOOGLE_API_KEY"),
-			Model:         vendors.GeminiMLLMModel38LiveExtendedThinking,
+			Model:         vendors.GeminiLiveModel38LiveExtendedThinking,
 			ThinkingLevel: vendors.GeminiThinkingLevelMedium,
 		}))
 

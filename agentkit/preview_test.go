@@ -21,29 +21,29 @@ import (
 
 const previewAPIKey = "test-google-api-key"
 
-func TestUnifiedGeminiMLLMModelNames(t *testing.T) {
+func TestUnifiedGeminiLiveModelNames(t *testing.T) {
 	t.Run("rejects blank API key", func(t *testing.T) {
 		defer func() {
 			if recover() == nil {
 				t.Fatal("expected blank API key to panic")
 			}
 		}()
-		vendors.NewGeminiMLLM(vendors.GeminiMLLMOptions{APIKey: "  "})
+		vendors.NewGeminiLive(vendors.GeminiLiveOptions{APIKey: "  "})
 	})
-	defaultConfig := vendors.NewGeminiMLLM(vendors.GeminiMLLMOptions{APIKey: previewAPIKey, Model: "  "}).ToConfig()
-	if got := defaultConfig["params"].(map[string]interface{})["model"]; got != vendors.GeminiMLLMDefaultModel {
-		t.Fatalf("blank model = %v, want default %q", got, vendors.GeminiMLLMDefaultModel)
+	defaultConfig := vendors.NewGeminiLive(vendors.GeminiLiveOptions{APIKey: previewAPIKey, Model: "  "}).ToConfig()
+	if got := defaultConfig["params"].(map[string]interface{})["model"]; got != vendors.GeminiLiveDefaultModel {
+		t.Fatalf("blank model = %v, want default %q", got, vendors.GeminiLiveDefaultModel)
 	}
 	tests := []struct {
 		model    string
 		thinking string
 	}{
-		{vendors.GeminiMLLMModel38Live, vendors.GeminiThinkingLevelMedium},
-		{vendors.GeminiMLLMModel38LiveExtendedThinking, vendors.GeminiThinkingLevelMedium},
+		{vendors.GeminiLiveModel38Live, vendors.GeminiThinkingLevelMedium},
+		{vendors.GeminiLiveModel38LiveExtendedThinking, vendors.GeminiThinkingLevelMedium},
 	}
 	for _, tt := range tests {
 		t.Run(tt.model, func(t *testing.T) {
-			config := vendors.NewGeminiMLLM(vendors.GeminiMLLMOptions{
+			config := vendors.NewGeminiLive(vendors.GeminiLiveOptions{
 				APIKey: previewAPIKey, Model: tt.model,
 				ThinkingLevel:    tt.thinking,
 				AdditionalParams: map[string]interface{}{"thinking_level": vendors.GeminiThinkingLevelHigh, "api_key": "ignored-key"},
@@ -58,7 +58,7 @@ func TestUnifiedGeminiMLLMModelNames(t *testing.T) {
 			if params["model"] != tt.model {
 				t.Fatalf("model = %v, want %q", params["model"], tt.model)
 			}
-			reasoning := tt.model == vendors.GeminiMLLMModel38LiveExtendedThinking
+			reasoning := tt.model == vendors.GeminiLiveModel38LiveExtendedThinking
 			if reasoning && params["thinking_level"] != tt.thinking {
 				t.Fatalf("thinking_level = %v, want %q", params["thinking_level"], tt.thinking)
 			}
@@ -83,7 +83,9 @@ func TestUnifiedGeminiMLLMModelNames(t *testing.T) {
 }
 
 func TestGeminiUnknownModelKeepsPreviewGreetingWithoutNestedAPIKey(t *testing.T) {
-	config := vendors.NewGeminiMLLM(vendors.GeminiMLLMOptions{APIKey: previewAPIKey, Model: "future-live-model"}).ToConfig()
+	config := vendors.NewGeminiLive(vendors.GeminiLiveOptions{
+		APIKey: previewAPIKey, Model: "future-live-model", URL: vendors.GeminiLivePreviewURL,
+	}).ToConfig()
 	config["greeting_message"] = "Hello"
 	properties := map[string]interface{}{"mllm": config}
 	ApplyPreviewShape(properties)
@@ -520,10 +522,10 @@ func TestGPTLiveV3RoutesSessionLifecycle(t *testing.T) {
 	assertJSONEqual(t, mllm["params"], `{"model":"gpt-live-1","prompt":"Be brief","output_idle_end_ms":0}`)
 }
 
-func TestGeminiMLLMStartRequestSendsAPIKeyAtTopLevel(t *testing.T) {
+func TestGeminiLiveStartRequestSendsAPIKeyAtTopLevel(t *testing.T) {
 	rec := &recordingClient{}
-	session := NewAgent(newTestPreviewClient(rec)).WithMllm(vendors.NewGeminiMLLM(vendors.GeminiMLLMOptions{
-		APIKey: previewAPIKey, Model: vendors.GeminiMLLMModel38LiveExtendedThinking,
+	session := NewAgent(newTestPreviewClient(rec)).WithMllm(vendors.NewGeminiLive(vendors.GeminiLiveOptions{
+		APIKey: previewAPIKey, Model: vendors.GeminiLiveModel38LiveExtendedThinking,
 		AdditionalParams: map[string]interface{}{"api_key": "ignored-key"},
 	})).CreateSession(CreateSessionOptions{Channel: "preview", AgentUID: "1", RemoteUIDs: []string{"100"}})
 	if _, err := session.Start(context.Background()); err != nil {

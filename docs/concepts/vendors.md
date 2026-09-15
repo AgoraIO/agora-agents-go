@@ -149,7 +149,7 @@ stt := vendors.NewDeepgramSTT(vendors.DeepgramSTTOptions{
 agent = agent.WithStt(stt)
 ```
 
-> **Preview providers** — `NewGeminiMLLM` (MLLM) uses the preview gateway through `NewAgoraClient`. See [Preview Endpoint](../guides/preview-endpoint.md).
+> **Preview providers** — `NewGeminiLive` (MLLM) uses the preview gateway through `NewAgoraClient`. See [Preview Endpoint](../guides/preview-endpoint.md).
 
 ## MLLM Vendors
 

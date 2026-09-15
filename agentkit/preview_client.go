@@ -82,7 +82,7 @@ var previewGeminiModels = map[string]bool{
 	"models/gemini-3.8-live-extended-thinking": true,
 }
 
-func previewGeminiMLLM(properties map[string]interface{}) (map[string]interface{}, bool) {
+func previewGeminiLive(properties map[string]interface{}) (map[string]interface{}, bool) {
 	mllm, ok := properties["mllm"].(map[string]interface{})
 	if !ok || mllm["vendor"] != "gemini" {
 		return nil, false
@@ -101,7 +101,7 @@ func previewGeminiMLLM(properties map[string]interface{}) (map[string]interface{
 
 // ApplyPreviewShape translates the builder's production greeting field for Gemini preview.
 func ApplyPreviewShape(properties map[string]interface{}) {
-	mllm, ok := previewGeminiMLLM(properties)
+	mllm, ok := previewGeminiLive(properties)
 	if !ok {
 		return
 	}
@@ -142,7 +142,7 @@ func requiredPreviewFeatures(properties map[string]interface{}, previewVendors m
 	if isPreviewOpenAIModel(properties) {
 		add(PreviewFeatureLiveModels)
 	}
-	if _, ok := previewGeminiMLLM(properties); ok {
+	if _, ok := previewGeminiLive(properties); ok {
 		add(PreviewFeatureGeminiLive)
 	}
 

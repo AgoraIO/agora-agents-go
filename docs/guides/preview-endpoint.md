@@ -47,10 +47,10 @@ agora-feature: <feature-name>
 | `PreviewFeatureLiveModels` | `live-models`   |
 | `PreviewFeatureGeminiLive` | `gemini-live`  |
 
-Use `vendors.NewGeminiMLLM` with a Google API key. Select
+Use `vendors.NewGeminiLive` with a Google API key. Select
 `models/gemini-3.8-live` or `models/gemini-3.8-live-extended-thinking`
-through `GeminiMLLMOptions.Model`. The low-latency ID is the default. Set
-`ThinkingLevel` for extended thinking; `GeminiMLLM` sends it only for that ID.
+through `GeminiLiveOptions.Model`. The low-latency ID is the default. Set
+`ThinkingLevel` for extended thinking; `GeminiLive` sends it only for that ID.
 The Google credential is sent once as `mllm.api_key`; `mllm.params` contains
 model options and never contains `api_key`.
 All Gemini preview sessions use `agora-feature: gemini-live`;
@@ -120,7 +120,7 @@ Routing state is stored on the `AgentSession`, not `AgoraClient`. One client can
 | Type               | Wire vendor                     | Default model                      |
 | ------------------ | ------------------------------- | ---------------------------------- |
 | `NewOpenAIGPTLive` | `mllm.vendor = "openai_gpt_live"` | `gpt-live-1`         |
-| `NewGeminiMLLM` | `mllm.vendor = "gemini"` | `models/gemini-3.8-live` |
+| `NewGeminiLive` | `mllm.vendor = "gemini"` | `models/gemini-3.8-live` |
 
 ## The vendor type is not the whole wire shape
 

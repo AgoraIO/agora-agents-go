@@ -1,10 +1,6 @@
 package vendors
 
-import (
-	"strings"
-
-	Agora "github.com/AgoraIO/agora-agents-go/v2"
-)
+import "strings"
 
 // Preview-only vendor types.
 //
@@ -16,12 +12,12 @@ import (
 //
 // The models/ prefix is part of the requested model ID.
 const (
-	GeminiMLLMModel38Live                 = "models/gemini-3.8-live"
-	GeminiMLLMModel38LiveExtendedThinking = "models/gemini-3.8-live-extended-thinking"
+	GeminiLiveModel38Live                 = "models/gemini-3.8-live"
+	GeminiLiveModel38LiveExtendedThinking = "models/gemini-3.8-live-extended-thinking"
 )
 
 // The low-latency Gemini voice model is the default.
-const GeminiMLLMDefaultModel = GeminiMLLMModel38Live
+const GeminiLiveDefaultModel = GeminiLiveModel38Live
 
 // Gemini extended-thinking reasoning budgets.
 const (
@@ -30,48 +26,14 @@ const (
 	GeminiThinkingLevelHigh   = "high"
 )
 
-// GeminiMLLMURL is the Gemini Developer API host the MLLM uses.
-const GeminiMLLMURL = "https://generativelanguage.googleapis.com"
+// GeminiLivePreviewURL is the Gemini Developer API host for the 3.8 models.
+const GeminiLivePreviewURL = "https://generativelanguage.googleapis.com"
 
-// GeminiMLLMOptions configures either Gemini voice model.
-//
-// The API key is sent as mllm.api_key. The preview URL defaults to the
-// Gemini Developer API host rather than a WebSocket endpoint.
-type GeminiMLLMOptions struct {
-	APIKey string
-	// Model defaults to models/gemini-3.8-live.
-	Model string
-	// ThinkingLevel is sent only for the extended-thinking model.
-	ThinkingLevel string
-	// Voice defaults to "Puck".
-	Voice string
-	// LanguageCodes are the languages the model should work in, sent as
-	// params.language_codes. The preview MLLMs take the plural array, not the
-	// singular "language" (which belongs to xAI Grok). Omitted when nil.
-	LanguageCodes   []string
-	URL             string
-	Instructions    string
-	TranscribeAgent *bool
-	TranscribeUser  *bool
-	AffectiveDialog *bool
-	ProactiveAudio  *bool
-	HttpOptions     map[string]interface{}
-	// Greeting is serialized to "greeting". The preview Gemini models read this
-	// spelling, not the "greeting_message" the production providers use.
-	Greeting         string
-	FailureMessage   string
-	InputModalities  []string
-	OutputModalities []string
-	Messages         []map[string]interface{}
-	AdditionalParams map[string]interface{}
-	TurnDetection    *Agora.MllmTurnDetection
-}
-
-// buildGeminiMLLMConfig assembles the Gemini preview envelope.
-func buildGeminiMLLMConfig(o GeminiMLLMOptions) map[string]interface{} {
+// buildGeminiPreviewConfig assembles the 3.8 wire envelope from GeminiLive.
+func buildGeminiPreviewConfig(o GeminiLiveOptions) map[string]interface{} {
 	model := strings.TrimSpace(o.Model)
 	if model == "" {
-		model = GeminiMLLMDefaultModel
+		model = GeminiLiveDefaultModel
 	}
 	voice := o.Voice
 	if voice == "" {
@@ -79,7 +41,7 @@ func buildGeminiMLLMConfig(o GeminiMLLMOptions) map[string]interface{} {
 	}
 	url := o.URL
 	if url == "" {
-		url = GeminiMLLMURL
+		url = GeminiLivePreviewURL
 	}
 
 	params := map[string]interface{}{}
@@ -89,7 +51,7 @@ func buildGeminiMLLMConfig(o GeminiMLLMOptions) map[string]interface{} {
 	delete(params, "api_key")
 	params["model"] = model
 	params["voice"] = voice
-	if model == GeminiMLLMModel38LiveExtendedThinking {
+	if model == GeminiLiveModel38LiveExtendedThinking {
 		if o.ThinkingLevel != "" {
 			params["thinking_level"] = o.ThinkingLevel
 		}
@@ -133,8 +95,8 @@ func buildGeminiMLLMConfig(o GeminiMLLMOptions) map[string]interface{} {
 	}
 	// "greeting", not "greeting_message": the preview Gemini models read this
 	// spelling. See the preview-endpoint guide.
-	if o.Greeting != "" {
-		config["greeting"] = o.Greeting
+	if o.GreetingMessage != "" {
+		config["greeting"] = o.GreetingMessage
 	}
 	if o.FailureMessage != "" {
 		config["failure_message"] = o.FailureMessage
@@ -150,28 +112,4 @@ func buildGeminiMLLMConfig(o GeminiMLLMOptions) map[string]interface{} {
 	}
 
 	return config
-}
-
-// GeminiMLLM configures both Gemini preview voice models in one type.
-type GeminiMLLM struct {
-	options GeminiMLLMOptions
-}
-
-// NewGeminiMLLM creates a Gemini preview MLLM with an optional model ID.
-func NewGeminiMLLM(opts GeminiMLLMOptions) *GeminiMLLM {
-	opts.APIKey = strings.TrimSpace(opts.APIKey)
-	if opts.APIKey == "" {
-		panic("GeminiMLLM requires APIKey")
-	}
-	switch opts.ThinkingLevel {
-	case "", GeminiThinkingLevelLow, GeminiThinkingLevelMedium, GeminiThinkingLevelHigh:
-	default:
-		panic("GeminiMLLM ThinkingLevel must be low, medium, or high")
-	}
-	return &GeminiMLLM{options: opts}
-}
-
-// ToConfig serializes to the mllm field of the start request.
-func (g *GeminiMLLM) ToConfig() map[string]interface{} {
-	return buildGeminiMLLMConfig(g.options)
 }

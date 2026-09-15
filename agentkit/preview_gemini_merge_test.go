@@ -9,7 +9,7 @@ import (
 )
 
 func TestPreviewGeminiAndGPTLiveGates(t *testing.T) {
-	gemini := vendors.NewGeminiMLLM(vendors.GeminiMLLMOptions{APIKey: "test-key"})
+	gemini := vendors.NewGeminiLive(vendors.GeminiLiveOptions{APIKey: "test-key"})
 	config := gemini.ToConfig()
 	geminiProperties := map[string]interface{}{"mllm": config}
 	if got := agentkit.RequiredPreviewFeatures(geminiProperties); !reflect.DeepEqual(got, []string{agentkit.PreviewFeatureGeminiLive}) {

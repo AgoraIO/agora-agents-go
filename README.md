@@ -234,14 +234,14 @@ agent := agentkit.NewAgent(client).WithMllm(vendors.NewOpenAIRealtime(vendors.Op
 }))
 ```
 
-For Gemini 3.8 Live Extended Thinking, use the same single `GeminiMLLM` class as the regular Live model:
+For Gemini 3.8 Live Extended Thinking, use the same single `GeminiLive` class as the regular Live model:
 
 ```go
-geminiAgent := agentkit.NewAgent(client).WithMllm(vendors.NewGeminiMLLM(vendors.GeminiMLLMOptions{
+geminiAgent := agentkit.NewAgent(client).WithMllm(vendors.NewGeminiLive(vendors.GeminiLiveOptions{
     APIKey:        os.Getenv("GOOGLE_API_KEY"),
     Model:         "models/gemini-3.8-live-extended-thinking",
     ThinkingLevel: "medium",
-    Greeting:      "Hello! Ready to chat.",
+    GreetingMessage: "Hello! Ready to chat.",
 }))
 ```
 

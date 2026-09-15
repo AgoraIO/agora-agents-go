@@ -925,35 +925,25 @@ Panics if `APIKey` or `URL` is empty, or if `TurnDetection` is nil. Azure OpenAI
 | `Messages` | `[]map[string]interface{}` | No | — | Conversation messages for short-term memory |
 | `TurnDetection` | `*Agora.MllmTurnDetection` | Yes | — | Required MLLM turn detection configuration; overrides top-level turn detection |
 
-### NewGeminiMLLM (preview)
-
-`vendors.NewGeminiMLLM(vendors.GeminiMLLMOptions{...})` configures either public Gemini 3.8 voice model. A session using this provider routes to the preview gateway with `agora-feature: gemini-live`. See [Preview Endpoint](../guides/preview-endpoint.md).
-
-| Option | Default / wire behavior |
-|---|---|
-| `APIKey` | Required; sent once as `mllm.api_key`. |
-| `Model` | Defaults to `models/gemini-3.8-live`; also accepts `models/gemini-3.8-live-extended-thinking`. |
-| `ThinkingLevel` | `low`, `medium`, or `high`; sent as `mllm.params.thinking_level` only for Extended Thinking. |
-| `Voice` | Defaults to `Puck`. |
-| `Instructions` | System prompt in `mllm.params.instructions`. |
-| `Greeting` | Initial utterance in `mllm.greeting`. |
-| `LanguageCodes` | Optional language array in `mllm.params.language_codes`. |
-
 ### NewGeminiLive
+
+`NewGeminiLive` supports existing Gemini Live models and both public Gemini 3.8 voice models. The 3.8 IDs select the preview gateway with `agora-feature: gemini-live`; older model IDs keep the production route. See [Preview Endpoint](../guides/preview-endpoint.md).
 
 <!-- snippet: fragment -->
 ```go
 func NewGeminiLive(opts GeminiLiveOptions) *GeminiLive
 ```
 
-Panics if `APIKey` or `Model` is empty.
+Panics if `APIKey` is empty. An empty `Model` defaults to `models/gemini-3.8-live`.
 
 #### GeminiLiveOptions
 
 | Field              | Type                       | Required | Default | Description |
 | ------------------ | -------------------------- | -------- | ------- | ----------- |
 | `APIKey`           | `string`                   | Yes      | —       | Google AI API key |
-| `Model`            | `string`                   | Yes      | —       | Gemini Live model identifier |
+| `Model`            | `string`                   | No       | `models/gemini-3.8-live` | Gemini Live model identifier |
+| `ThinkingLevel`    | `string`                   | No       | —       | `low`, `medium`, or `high`; sent only for the 3.8 Extended Thinking ID |
+| `LanguageCodes`    | `[]string`                 | No       | —       | 3.8 language codes in `mllm.params.language_codes` |
 | `URL`              | `string`                   | No       | —       | Custom realtime WebSocket URL |
 | `Instructions`     | `string`                   | No       | —       | System instruction |
 | `Voice`            | `string`                   | No       | —       | Voice name |
