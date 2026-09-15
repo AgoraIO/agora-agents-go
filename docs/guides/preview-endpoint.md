@@ -53,6 +53,8 @@ Use `vendors.NewGeminiMLLM` with a Google API key. Select either current codenam
 through `GeminiMLLMOptions.Model`. The walkie codename remains the default
 until the launch IDs are available. Set `ThinkingLevel` for extended thinking;
 `GeminiMLLM` sends it only for `clever-chatter` or the extended-thinking ID.
+The Google credential is sent once as `mllm.api_key`; `mllm.params` contains
+model options and never contains `api_key`.
 All Gemini preview sessions use `agora-feature: gemini-live`;
 GPT Live retains its separate `live-models` gate.
 

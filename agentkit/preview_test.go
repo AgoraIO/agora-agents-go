@@ -48,9 +48,15 @@ func TestUnifiedGeminiMLLMModelNames(t *testing.T) {
 			config := vendors.NewGeminiMLLM(vendors.GeminiMLLMOptions{
 				APIKey: previewAPIKey, Model: tt.model,
 				ThinkingLevel:    tt.thinking,
-				AdditionalParams: map[string]interface{}{"thinking_level": vendors.GeminiThinkingLevelHigh},
+				AdditionalParams: map[string]interface{}{"thinking_level": vendors.GeminiThinkingLevelHigh, "api_key": "ignored-key"},
 			}).ToConfig()
 			params := config["params"].(map[string]interface{})
+			if config["api_key"] != previewAPIKey {
+				t.Fatalf("mllm.api_key = %v, want %q", config["api_key"], previewAPIKey)
+			}
+			if _, exists := params["api_key"]; exists {
+				t.Fatal("Gemini MLLM must not send params.api_key")
+			}
 			if params["model"] != tt.model {
 				t.Fatalf("model = %v, want %q", params["model"], tt.model)
 			}
@@ -75,6 +81,19 @@ func TestUnifiedGeminiMLLMModelNames(t *testing.T) {
 				t.Fatalf("manual features = %v, want gemini-live", features)
 			}
 		})
+	}
+}
+
+func TestGeminiUnknownModelKeepsPreviewGreetingWithoutNestedAPIKey(t *testing.T) {
+	config := vendors.NewGeminiMLLM(vendors.GeminiMLLMOptions{APIKey: previewAPIKey, Model: "future-live-model"}).ToConfig()
+	config["greeting_message"] = "Hello"
+	properties := map[string]interface{}{"mllm": config}
+	ApplyPreviewShape(properties)
+	if config["greeting"] != "Hello" {
+		t.Fatalf("unknown preview model greeting = %v", config["greeting"])
+	}
+	if _, exists := config["greeting_message"]; exists {
+		t.Fatal("production greeting field leaked into preview request")
 	}
 }
 
@@ -501,4 +520,29 @@ func TestGPTLiveV3RoutesSessionLifecycle(t *testing.T) {
 		t.Fatalf("mllm = %#v", mllm)
 	}
 	assertJSONEqual(t, mllm["params"], `{"model":"gpt-live-1","prompt":"Be brief","output_idle_end_ms":0}`)
+}
+
+func TestGeminiMLLMStartRequestSendsAPIKeyAtTopLevel(t *testing.T) {
+	rec := &recordingClient{}
+	session := NewAgent(newTestPreviewClient(rec)).WithMllm(vendors.NewGeminiMLLM(vendors.GeminiMLLMOptions{
+		APIKey: previewAPIKey, Model: "clever-chatter",
+		AdditionalParams: map[string]interface{}{"api_key": "ignored-key"},
+	})).CreateSession(CreateSessionOptions{Channel: "preview", AgentUID: "1", RemoteUIDs: []string{"100"}})
+	if _, err := session.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(rec.requests) != 1 || rec.requests[0].Header.Get(PreviewFeatureHeader) != PreviewFeatureGeminiLive {
+		t.Fatal("Gemini start request lost its preview feature")
+	}
+	var body map[string]interface{}
+	if err := json.Unmarshal(rec.bodies[0], &body); err != nil {
+		t.Fatal(err)
+	}
+	mllm := body["properties"].(map[string]interface{})["mllm"].(map[string]interface{})
+	if mllm["api_key"] != previewAPIKey {
+		t.Fatalf("top-level mllm.api_key = %v", mllm["api_key"])
+	}
+	if _, exists := mllm["params"].(map[string]interface{})["api_key"]; exists {
+		t.Fatal("Gemini start request contains params.api_key")
+	}
 }

@@ -97,7 +97,7 @@ func previewGeminiMLLM(properties map[string]interface{}) (map[string]interface{
 		return mllm, true
 	}
 	url, _ := mllm["url"].(string)
-	_, hasKey := params["api_key"].(string)
+	_, hasKey := mllm["api_key"].(string)
 	return mllm, hasKey && strings.HasPrefix(url, "https://generativelanguage.googleapis.com")
 }
 

@@ -41,8 +41,7 @@ const GeminiMLLMURL = "https://generativelanguage.googleapis.com"
 
 // GeminiMLLMOptions configures either Gemini voice model.
 //
-// Differs from the production GeminiLive in two ways the preview gateway
-// requires: params.api_key is repeated inside params, and URL defaults to the
+// The API key is sent as mllm.api_key. The preview URL defaults to the
 // Gemini Developer API host rather than a WebSocket endpoint.
 type GeminiMLLMOptions struct {
 	APIKey string
@@ -93,7 +92,7 @@ func buildGeminiMLLMConfig(o GeminiMLLMOptions) map[string]interface{} {
 	for k, v := range o.AdditionalParams {
 		params[k] = v
 	}
-	params["api_key"] = o.APIKey
+	delete(params, "api_key")
 	params["model"] = model
 	params["voice"] = voice
 	if model == GeminiMLLMModelCleverChatter || model == GeminiMLLMModel38LiveExtendedThinking {
