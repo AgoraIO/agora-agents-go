@@ -47,9 +47,14 @@ agora-feature: <feature-name>
 | `PreviewFeatureLiveModels` | `live-models`   |
 | `PreviewFeatureGeminiLive` | `gemini-live`  |
 
-Use `vendors.NewGeminiWalkieTalkie` or `vendors.NewGeminiCleverChatter` with a Google API key. Their sessions route
-to the same preview host with `agora-feature: gemini-live`. An agent-level greeting is translated to the Gemini
-preview wire field `greeting`; GPT Live retains `greeting_message`.
+Use `vendors.NewGeminiMLLM` with a Google API key. Select either current codename
+(`walkie-talkie`, `clever-chatter`) or the launch IDs
+`models/gemini-3.8-live` and `models/gemini-3.8-live-extended-thinking`
+through `GeminiMLLMOptions.Model`. The walkie codename remains the default
+until the launch IDs are available. Set `ThinkingLevel` for extended thinking;
+`GeminiMLLM` sends it only for `clever-chatter` or the extended-thinking ID.
+All Gemini preview sessions use `agora-feature: gemini-live`;
+GPT Live retains its separate `live-models` gate.
 
 The SDK derives the feature list from the resolved session body; callers do not select it manually.
 
@@ -115,6 +120,7 @@ Routing state is stored on the `AgentSession`, not `AgoraClient`. One client can
 | Type               | Wire vendor                     | Default model                      |
 | ------------------ | ------------------------------- | ---------------------------------- |
 | `NewOpenAIGPTLive` | `mllm.vendor = "openai_gpt_live"` | `gpt-live-1`         |
+| `NewGeminiMLLM` | `mllm.vendor = "gemini"` | `walkie-talkie` |
 
 ## The vendor type is not the whole wire shape
 

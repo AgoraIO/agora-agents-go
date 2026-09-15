@@ -149,7 +149,7 @@ stt := vendors.NewDeepgramSTT(vendors.DeepgramSTTOptions{
 agent = agent.WithStt(stt)
 ```
 
-> **Preview providers** — `NewGeminiWalkieTalkie` and `NewGeminiCleverChatter` (MLLM) are served only by the preview gateway and require `NewAgoraPreviewClient`. See [Preview Endpoint](../guides/preview-endpoint.md).
+> **Preview providers** — `NewGeminiMLLM` (MLLM) uses the preview gateway through `NewAgoraClient`. See [Preview Endpoint](../guides/preview-endpoint.md).
 
 ## MLLM Vendors
 

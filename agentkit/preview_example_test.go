@@ -12,7 +12,7 @@ import (
 	"github.com/AgoraIO/agora-agents-go/v2/option"
 )
 
-func ExampleGeminiCleverChatter() {
+func ExampleGeminiMLLM() {
 	client := agentkit.NewAgoraClient(agentkit.AgoraClientOptions{
 		Area:           option.AreaUS,
 		AppID:          os.Getenv("AGORA_APP_ID"),
@@ -20,10 +20,9 @@ func ExampleGeminiCleverChatter() {
 	})
 
 	agent := agentkit.NewAgent(client).
-		WithMllm(vendors.NewGeminiCleverChatter(vendors.GeminiCleverChatterOptions{
-			GeminiPreviewMLLMOptions: vendors.GeminiPreviewMLLMOptions{
-				APIKey: os.Getenv("GOOGLE_API_KEY"),
-			},
+		WithMllm(vendors.NewGeminiMLLM(vendors.GeminiMLLMOptions{
+			APIKey:        os.Getenv("GOOGLE_API_KEY"),
+			Model:         vendors.GeminiMLLMModelCleverChatter,
 			ThinkingLevel: vendors.GeminiThinkingLevelMedium,
 		}))
 

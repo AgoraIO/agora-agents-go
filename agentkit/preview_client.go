@@ -78,10 +78,10 @@ func isPreviewOpenAIModel(properties map[string]interface{}) bool {
 }
 
 var previewGeminiModels = map[string]bool{
-	"walkie-talkie":            true,
-	"clever-chatter":           true,
-	"gemini-3.5-live":          true,
-	"gemini-3.5-live-thinking": true,
+	"walkie-talkie":                            true,
+	"clever-chatter":                           true,
+	"models/gemini-3.8-live":                   true,
+	"models/gemini-3.8-live-extended-thinking": true,
 }
 
 func previewGeminiMLLM(properties map[string]interface{}) (map[string]interface{}, bool) {

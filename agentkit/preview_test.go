@@ -21,6 +21,63 @@ import (
 
 const previewAPIKey = "test-google-api-key"
 
+func TestUnifiedGeminiMLLMModelNames(t *testing.T) {
+	t.Run("rejects blank API key", func(t *testing.T) {
+		defer func() {
+			if recover() == nil {
+				t.Fatal("expected blank API key to panic")
+			}
+		}()
+		vendors.NewGeminiMLLM(vendors.GeminiMLLMOptions{APIKey: "  "})
+	})
+	defaultConfig := vendors.NewGeminiMLLM(vendors.GeminiMLLMOptions{APIKey: previewAPIKey, Model: "  "}).ToConfig()
+	if got := defaultConfig["params"].(map[string]interface{})["model"]; got != vendors.GeminiMLLMDefaultModel {
+		t.Fatalf("blank model = %v, want default %q", got, vendors.GeminiMLLMDefaultModel)
+	}
+	tests := []struct {
+		model    string
+		thinking string
+	}{
+		{vendors.GeminiMLLMModelWalkieTalkie, vendors.GeminiThinkingLevelMedium},
+		{vendors.GeminiMLLMModelCleverChatter, vendors.GeminiThinkingLevelMedium},
+		{vendors.GeminiMLLMModel38Live, vendors.GeminiThinkingLevelMedium},
+		{vendors.GeminiMLLMModel38LiveExtendedThinking, vendors.GeminiThinkingLevelMedium},
+	}
+	for _, tt := range tests {
+		t.Run(tt.model, func(t *testing.T) {
+			config := vendors.NewGeminiMLLM(vendors.GeminiMLLMOptions{
+				APIKey: previewAPIKey, Model: tt.model,
+				ThinkingLevel:    tt.thinking,
+				AdditionalParams: map[string]interface{}{"thinking_level": vendors.GeminiThinkingLevelHigh},
+			}).ToConfig()
+			params := config["params"].(map[string]interface{})
+			if params["model"] != tt.model {
+				t.Fatalf("model = %v, want %q", params["model"], tt.model)
+			}
+			reasoning := tt.model == vendors.GeminiMLLMModelCleverChatter || tt.model == vendors.GeminiMLLMModel38LiveExtendedThinking
+			if reasoning && params["thinking_level"] != tt.thinking {
+				t.Fatalf("thinking_level = %v, want %q", params["thinking_level"], tt.thinking)
+			}
+			if !reasoning {
+				if _, exists := params["thinking_level"]; exists {
+					t.Fatal("non-thinking Gemini model must omit thinking_level")
+				}
+			}
+			features := requiredPreviewFeatures(map[string]interface{}{"mllm": config}, nil)
+			if len(features) != 1 || features[0] != PreviewFeatureGeminiLive {
+				t.Fatalf("features = %v, want gemini-live", features)
+			}
+			manual := map[string]interface{}{"mllm": map[string]interface{}{
+				"vendor": "gemini", "params": map[string]interface{}{"model": tt.model},
+			}}
+			features = requiredPreviewFeatures(manual, nil)
+			if len(features) != 1 || features[0] != PreviewFeatureGeminiLive {
+				t.Fatalf("manual features = %v, want gemini-live", features)
+			}
+		})
+	}
+}
+
 // recordingClient captures every outgoing request and answers with a generic
 // success body.
 type recordingClient struct {

@@ -1,6 +1,8 @@
 package vendors
 
 import (
+	"strings"
+
 	Agora "github.com/AgoraIO/agora-agents-go/v2"
 )
 
@@ -12,29 +14,20 @@ import (
 
 // Preview MLLM model names.
 //
-// Google is renaming these from codenames to conventional model IDs
-// (walkie-talkie -> gemini-3.5-live, clever-chatter -> gemini-3.5-live-thinking).
-// Both spellings are listed because both are accepted during the rollout; see
-// the GeminiPreviewDefaultModel* constants for which one the vendor types send.
+// Keep the working codenames as defaults until the new Google IDs launch.
+// The models/ prefix on the 3.8 names is part of the requested model ID.
 const (
-	GeminiPreviewModelWalkieTalkie   = "walkie-talkie"
-	GeminiPreviewModelCleverChatter  = "clever-chatter"
-	GeminiPreviewModel35Live         = "gemini-3.5-live"
-	GeminiPreviewModel35LiveThinking = "gemini-3.5-live-thinking"
+	GeminiMLLMModelWalkieTalkie           = "walkie-talkie"
+	GeminiMLLMModelCleverChatter          = "clever-chatter"
+	GeminiMLLMModel38Live                 = "models/gemini-3.8-live"
+	GeminiMLLMModel38LiveExtendedThinking = "models/gemini-3.8-live-extended-thinking"
 )
 
-// The model name each preview MLLM type sends by default.
+// The working codename the MLLM sends by default.
 //
-// Still the codenames: as of 2026-08-19 the renamed IDs are propagating through
-// Google's fleet and are not live everywhere, while the codenames work. When
-// Google confirms the rename has landed, point these two at
-// GeminiPreviewModel35Live / GeminiPreviewModel35LiveThinking — that is the
-// whole cutover. Callers who need the new names sooner can set Model per
-// instance.
-const (
-	GeminiPreviewDefaultModelWalkieTalkie  = GeminiPreviewModelWalkieTalkie
-	GeminiPreviewDefaultModelCleverChatter = GeminiPreviewModelCleverChatter
-)
+// Keep the codenames while they work. Set Model to one of the 3.8 IDs when
+// Google activates it; no SDK release or change to the preview gate is needed.
+const GeminiMLLMDefaultModel = GeminiMLLMModelWalkieTalkie
 
 // Gemini clever-chatter reasoning budgets.
 const (
@@ -43,19 +36,20 @@ const (
 	GeminiThinkingLevelHigh   = "high"
 )
 
-// GeminiPreviewMLLMURL is the Gemini Developer API host the preview MLLMs use.
-const GeminiPreviewMLLMURL = "https://generativelanguage.googleapis.com"
+// GeminiMLLMURL is the Gemini Developer API host the MLLM uses.
+const GeminiMLLMURL = "https://generativelanguage.googleapis.com"
 
-// GeminiPreviewMLLMOptions is the shared option set for the preview Gemini MLLMs.
+// GeminiMLLMOptions configures either Gemini voice model.
 //
 // Differs from the production GeminiLive in two ways the preview gateway
 // requires: params.api_key is repeated inside params, and URL defaults to the
 // Gemini Developer API host rather than a WebSocket endpoint.
-type GeminiPreviewMLLMOptions struct {
+type GeminiMLLMOptions struct {
 	APIKey string
-	// Model overrides the per-type default, so a preview rename does not
-	// require an SDK release.
+	// Model defaults to walkie-talkie until the 3.8 IDs launch.
 	Model string
+	// ThinkingLevel is sent only for clever-chatter and the extended-thinking model.
+	ThinkingLevel string
 	// Voice defaults to "Puck".
 	Voice string
 	// LanguageCodes are the languages the model should work in, sent as
@@ -80,16 +74,11 @@ type GeminiPreviewMLLMOptions struct {
 	TurnDetection    *Agora.MllmTurnDetection
 }
 
-// buildGeminiPreviewMLLMConfig assembles the shared envelope. modelParams is
-// merged after voice so key order matches the other SDKs.
-func buildGeminiPreviewMLLMConfig(
-	defaultModel string,
-	o GeminiPreviewMLLMOptions,
-	modelParams map[string]interface{},
-) map[string]interface{} {
-	model := o.Model
+// buildGeminiMLLMConfig assembles the Gemini preview envelope.
+func buildGeminiMLLMConfig(o GeminiMLLMOptions) map[string]interface{} {
+	model := strings.TrimSpace(o.Model)
 	if model == "" {
-		model = defaultModel
+		model = GeminiMLLMDefaultModel
 	}
 	voice := o.Voice
 	if voice == "" {
@@ -97,7 +86,7 @@ func buildGeminiPreviewMLLMConfig(
 	}
 	url := o.URL
 	if url == "" {
-		url = GeminiPreviewMLLMURL
+		url = GeminiMLLMURL
 	}
 
 	params := map[string]interface{}{}
@@ -107,8 +96,12 @@ func buildGeminiPreviewMLLMConfig(
 	params["api_key"] = o.APIKey
 	params["model"] = model
 	params["voice"] = voice
-	for k, v := range modelParams {
-		params[k] = v
+	if model == GeminiMLLMModelCleverChatter || model == GeminiMLLMModel38LiveExtendedThinking {
+		if o.ThinkingLevel != "" {
+			params["thinking_level"] = o.ThinkingLevel
+		}
+	} else {
+		delete(params, "thinking_level")
 	}
 	// Plural array, and omitted when nil. The singular params.language belongs
 	// to xAI Grok in the Agora schema, and the production Gemini Live provider
@@ -166,62 +159,26 @@ func buildGeminiPreviewMLLMConfig(
 	return config
 }
 
-// GeminiWalkieTalkie is the Gemini walkie-talkie MLLM (preview).
-type GeminiWalkieTalkie struct {
-	options GeminiPreviewMLLMOptions
+// GeminiMLLM configures both Gemini preview voice models in one type.
+type GeminiMLLM struct {
+	options GeminiMLLMOptions
 }
 
-// NewGeminiWalkieTalkie creates a walkie-talkie MLLM config.
-func NewGeminiWalkieTalkie(opts GeminiPreviewMLLMOptions) *GeminiWalkieTalkie {
+// NewGeminiMLLM creates a Gemini preview MLLM with an optional model ID.
+func NewGeminiMLLM(opts GeminiMLLMOptions) *GeminiMLLM {
+	opts.APIKey = strings.TrimSpace(opts.APIKey)
 	if opts.APIKey == "" {
-		panic("GeminiWalkieTalkie requires APIKey")
-	}
-	return &GeminiWalkieTalkie{options: opts}
-}
-
-// ToConfig serializes to the mllm field of the start request.
-func (g *GeminiWalkieTalkie) ToConfig() map[string]interface{} {
-	return buildGeminiPreviewMLLMConfig(GeminiPreviewDefaultModelWalkieTalkie, g.options, nil)
-}
-
-// GeminiCleverChatterOptions is GeminiPreviewMLLMOptions plus ThinkingLevel.
-//
-// ThinkingLevel is exclusive to clever-chatter — it is a separate type rather
-// than a field on the shared options so the distinction is structural.
-type GeminiCleverChatterOptions struct {
-	GeminiPreviewMLLMOptions
-
-	// ThinkingLevel is one of GeminiThinkingLevelLow, Medium, or High.
-	ThinkingLevel string
-}
-
-// GeminiCleverChatter is the Gemini clever-chatter MLLM (preview).
-type GeminiCleverChatter struct {
-	options GeminiCleverChatterOptions
-}
-
-// NewGeminiCleverChatter creates a clever-chatter MLLM config.
-func NewGeminiCleverChatter(opts GeminiCleverChatterOptions) *GeminiCleverChatter {
-	if opts.APIKey == "" {
-		panic("GeminiCleverChatter requires APIKey")
+		panic("GeminiMLLM requires APIKey")
 	}
 	switch opts.ThinkingLevel {
 	case "", GeminiThinkingLevelLow, GeminiThinkingLevelMedium, GeminiThinkingLevelHigh:
 	default:
-		panic("GeminiCleverChatter ThinkingLevel must be low, medium, or high")
+		panic("GeminiMLLM ThinkingLevel must be low, medium, or high")
 	}
-	return &GeminiCleverChatter{options: opts}
+	return &GeminiMLLM{options: opts}
 }
 
 // ToConfig serializes to the mllm field of the start request.
-func (g *GeminiCleverChatter) ToConfig() map[string]interface{} {
-	var modelParams map[string]interface{}
-	if g.options.ThinkingLevel != "" {
-		modelParams = map[string]interface{}{"thinking_level": g.options.ThinkingLevel}
-	}
-	return buildGeminiPreviewMLLMConfig(
-		GeminiPreviewDefaultModelCleverChatter,
-		g.options.GeminiPreviewMLLMOptions,
-		modelParams,
-	)
+func (g *GeminiMLLM) ToConfig() map[string]interface{} {
+	return buildGeminiMLLMConfig(g.options)
 }
