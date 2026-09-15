@@ -27,10 +27,9 @@ const PreviewAPIBaseURL = "https://partner.ai.agora.io/preview/api/conversationa
 // environment, where the preview providers do not exist.
 const PreviewFeatureHeader = "agora-feature"
 
-// PreviewFeatureGeminiLive gates the Gemini 3.5 Transcribe ASR provider.
+// PreviewFeatureGeminiLive gates the Gemini preview MLLM providers.
 //
-// Deprecated: Gemini ASR is available through the production endpoint. This
-// value remains for source compatibility with the former preview API.
+// Gemini ASR is available through the production endpoint; the MLLMs remain preview-only.
 const PreviewFeatureGeminiLive = "gemini-live"
 
 // PreviewFeatureLiveModels gates the OpenAI GPT Live MLLM provider.
@@ -78,6 +77,42 @@ func isPreviewOpenAIModel(properties map[string]interface{}) bool {
 	return ok && mllm["vendor"] == "openai_gpt_live"
 }
 
+var previewGeminiModels = map[string]bool{
+	"models/gemini-3.8-live":                   true,
+	"models/gemini-3.8-live-extended-thinking": true,
+}
+
+func previewGeminiLive(properties map[string]interface{}) (map[string]interface{}, bool) {
+	mllm, ok := properties["mllm"].(map[string]interface{})
+	if !ok || mllm["vendor"] != "gemini" {
+		return nil, false
+	}
+	params, ok := mllm["params"].(map[string]interface{})
+	if !ok {
+		return nil, false
+	}
+	if model, ok := params["model"].(string); ok && previewGeminiModels[model] {
+		return mllm, true
+	}
+	url, _ := mllm["url"].(string)
+	_, hasKey := mllm["api_key"].(string)
+	return mllm, hasKey && strings.HasPrefix(url, "https://generativelanguage.googleapis.com")
+}
+
+// ApplyPreviewShape translates the builder's production greeting field for Gemini preview.
+func ApplyPreviewShape(properties map[string]interface{}) {
+	mllm, ok := previewGeminiLive(properties)
+	if !ok {
+		return
+	}
+	if greeting, exists := mllm["greeting_message"]; exists {
+		if _, set := mllm["greeting"]; !set {
+			mllm["greeting"] = greeting
+		}
+		delete(mllm, "greeting_message")
+	}
+}
+
 // RequiredPreviewFeatures returns the preview features a start request needs.
 //
 // Derived from the request body rather than from the vendor types, so
@@ -106,6 +141,9 @@ func requiredPreviewFeatures(properties map[string]interface{}, previewVendors m
 	}
 	if isPreviewOpenAIModel(properties) {
 		add(PreviewFeatureLiveModels)
+	}
+	if _, ok := previewGeminiLive(properties); ok {
+		add(PreviewFeatureGeminiLive)
 	}
 
 	return features
