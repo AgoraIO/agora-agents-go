@@ -156,7 +156,7 @@ agent = agent.WithStt(stt)
 | Constructor | Options Struct | Required Fields | Default Model |
 |---|---|---|---|
 | `NewOpenAIRealtime` | `OpenAIRealtimeOptions` | `APIKey` | `gpt-4o-realtime-preview` |
-| `NewOpenAIGPTLive` (preview) | `OpenAIGPTLiveOptions` | `APIKey` | — |
+| `NewOpenAIGPTLive` | `OpenAIGPTLiveOptions` | `APIKey` | `gpt-live-1` |
 | `NewAzureOpenAIRealtime` (global) | `AzureOpenAIRealtimeOptions` | `APIKey`, `URL`, `TurnDetection` | — |
 | `NewXaiGrok` | `XaiGrokOptions` | `APIKey`, `Model` | — |
 | `NewGeminiLive` | `GeminiLiveOptions` | `APIKey`, `Model` | — |

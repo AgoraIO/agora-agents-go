@@ -33,7 +33,10 @@ const PreviewFeatureHeader = "agora-feature"
 // value remains for source compatibility with the former preview API.
 const PreviewFeatureGeminiLive = "gemini-live"
 
-// PreviewFeatureLiveModels gates the OpenAI GPT Live MLLM provider.
+// PreviewFeatureLiveModels gated the OpenAI GPT Live MLLM provider.
+//
+// Deprecated: OpenAI GPT Live is available through the production endpoint.
+// This value remains for source compatibility with the former preview API.
 const PreviewFeatureLiveModels = "live-models"
 
 // previewGateClient pins the gate header onto every request.
@@ -73,11 +76,6 @@ func previewRequestOptions(features []string, inner core.HTTPClient, debug bool)
 // previewASRVendors are served only by the preview endpoint.
 var previewASRVendors = map[string]string{}
 
-func isPreviewOpenAIModel(properties map[string]interface{}) bool {
-	mllm, ok := properties["mllm"].(map[string]interface{})
-	return ok && mllm["vendor"] == "openai_gpt_live"
-}
-
 // RequiredPreviewFeatures returns the preview features a start request needs.
 //
 // Derived from the request body rather than from the vendor types, so
@@ -104,9 +102,5 @@ func requiredPreviewFeatures(properties map[string]interface{}, previewVendors m
 			}
 		}
 	}
-	if isPreviewOpenAIModel(properties) {
-		add(PreviewFeatureLiveModels)
-	}
-
 	return features
 }

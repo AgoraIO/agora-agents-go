@@ -65,6 +65,35 @@ func TestOpenAIGPTLiveWireShape(t *testing.T) {
 	}
 }
 
+func TestOpenAIGPTLiveSupportsToolsAndTypedMCP(t *testing.T) {
+	tool := &Agora.LlmTool{
+		Function: &Agora.LlmToolFunction{Name: "lookup"},
+		Server: &Agora.LlmToolServer{
+			Method: Agora.LlmToolServerMethodPost,
+			URL:    "https://tools.example.com/lookup",
+		},
+	}
+	server := &Agora.McpServer{
+		Name:     "catalog",
+		Endpoint: "https://mcp.example.com",
+	}
+	config := NewOpenAIGPTLive(OpenAIGPTLiveOptions{
+		APIKey:           "openai-key",
+		Tools:            []*Agora.LlmTool{tool},
+		McpServers:       []map[string]interface{}{{"name": "legacy"}},
+		McpServerConfigs: []*Agora.McpServer{server},
+	}).ToConfig()
+
+	tools, ok := config["tools"].([]*Agora.LlmTool)
+	if !ok || len(tools) != 1 || tools[0] != tool {
+		t.Fatalf("tools = %#v, want typed REST tool", config["tools"])
+	}
+	servers, ok := config["mcp_servers"].([]*Agora.McpServer)
+	if !ok || len(servers) != 1 || servers[0] != server {
+		t.Fatalf("mcp_servers = %#v, want typed MCP server", config["mcp_servers"])
+	}
+}
+
 func TestAzureOpenAIRealtimeMatchesGeneratedMLLM(t *testing.T) {
 	maxHistory := 20
 	turnDetection := &Agora.MllmTurnDetection{

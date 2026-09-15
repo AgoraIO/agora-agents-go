@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## Unreleased
+
+### Changed
+
+- **OpenAI GPT Live production routing and tools** — Existing `NewOpenAIGPTLive` integrations now use the production regional gateway automatically and no longer send the preview `agora-feature: live-models` gate. GPT Live also accepts typed inline REST tools and MCP server configurations while retaining the existing map-based `McpServers` option and public preview constants for source compatibility.
+
 ## [v2.8.1] — 2026-09-11
 
 ### Changed

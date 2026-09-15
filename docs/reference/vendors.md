@@ -913,9 +913,9 @@ Panics if `APIKey` is empty.
 | `Params`          | `map[string]interface{}`   | No       | —                           | Additional realtime params such as `voice`         |
 | `TurnDetection`   | `*Agora.MllmTurnDetection` | No | — | MLLM turn detection configuration; overrides top-level turn detection |
 
-### NewOpenAIGPTLive (preview)
+### NewOpenAIGPTLive
 
-GPT Live v3 uses `mllm.vendor: "openai_gpt_live"`, model `gpt-live-1`, and `wss://api.openai.com/v1/live/sessions`. Sessions route through the preview gateway automatically. This alpha must not carry production traffic.
+GPT Live v3 uses `mllm.vendor: "openai_gpt_live"`, model `gpt-live-1`, and `wss://api.openai.com/v1/live/sessions`. Sessions use the production regional gateway and do not require a preview feature header.
 
 The SDK omits `params.alpha_selector` by default. Set `AlphaSelector` only when a future preview contract requires an `OpenAI-Alpha` selector. Other tuning defaults remain owned by the provider. Explicit options override entries in `Params`. Zero and false values are preserved.
 
@@ -944,7 +944,9 @@ The SDK omits `params.alpha_selector` by default. Set `AlphaSelector` only when 
 | `Instructions` | string | Compatibility alias for `prompt`; explicit prompt wins. |
 | `GreetingMessage` | string | `mllm.greeting_message`; v3 may reword this request. |
 | `Messages` | list | `mllm.messages`; prior conversation seeded by Agora. |
-| `McpServers` | list | `mllm.mcp_servers`; MCP servers exposed to GPT Live. Requires `WithTools(true)`. |
+| `Tools` | `[]*Agora.LlmTool` | `mllm.tools`; inline REST tools exposed to GPT Live. Requires `WithTools(true)`. |
+| `McpServerConfigs` | `[]*Agora.McpServer` | `mllm.mcp_servers`; typed MCP servers exposed to GPT Live. Takes precedence over `McpServers`. |
+| `McpServers` | `[]map[string]interface{}` | Deprecated compatibility representation for `mllm.mcp_servers`; use `McpServerConfigs`. Missing transport defaults to `streamable_http`. |
 | `FailureMessage` | string | `mllm.failure_message` |
 | `InputModalities / OutputModalities` | string lists | Agora outer `mllm.input_modalities` / `mllm.output_modalities` |
 | `Params` | object | Additional snake_case provider parameters. |
