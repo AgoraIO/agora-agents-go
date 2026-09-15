@@ -149,7 +149,7 @@ stt := vendors.NewDeepgramSTT(vendors.DeepgramSTTOptions{
 agent = agent.WithStt(stt)
 ```
 
-> **Preview providers** — `NewGeminiLive` (MLLM) uses the preview gateway through `NewAgoraClient`. See [Preview Endpoint](../guides/preview-endpoint.md).
+> **Gemini 3.8 preview models** — `NewGeminiLive` uses the preview gateway only for the two 3.8 model IDs. Other Gemini Live model IDs keep the production route. See [Preview Endpoint](../guides/preview-endpoint.md).
 
 ## MLLM Vendors
 
@@ -159,7 +159,7 @@ agent = agent.WithStt(stt)
 | `NewOpenAIGPTLive` (preview) | `OpenAIGPTLiveOptions` | `APIKey` | — |
 | `NewAzureOpenAIRealtime` (global) | `AzureOpenAIRealtimeOptions` | `APIKey`, `URL`, `TurnDetection` | — |
 | `NewXaiGrok` | `XaiGrokOptions` | `APIKey`, `Model` | — |
-| `NewGeminiLive` | `GeminiLiveOptions` | `APIKey`, `Model` | — |
+| `NewGeminiLive` | `GeminiLiveOptions` | `APIKey` | `models/gemini-3.8-live` |
 | `NewVertexAI` | `VertexAIOptions` | `ProjectID` | `gemini-2.0-flash-exp` |
 
 <!-- snippet: fragment -->

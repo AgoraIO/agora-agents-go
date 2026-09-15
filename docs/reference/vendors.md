@@ -944,7 +944,7 @@ Panics if `APIKey` is empty. An empty `Model` defaults to `models/gemini-3.8-liv
 | `Model`            | `string`                   | No       | `models/gemini-3.8-live` | Gemini Live model identifier |
 | `ThinkingLevel`    | `string`                   | No       | —       | `low`, `medium`, or `high`; sent only for the 3.8 Extended Thinking ID |
 | `LanguageCodes`    | `[]string`                 | No       | —       | 3.8 language codes in `mllm.params.language_codes` |
-| `URL`              | `string`                   | No       | —       | Custom realtime WebSocket URL |
+| `URL`              | `string`                   | No       | Model-specific endpoint | Custom endpoint; 3.8 defaults to the Gemini Developer API host |
 | `Instructions`     | `string`                   | No       | —       | System instruction |
 | `Voice`            | `string`                   | No       | —       | Voice name |
 | `GreetingMessage`  | `string`                   | No       | —       | Initial greeting |
