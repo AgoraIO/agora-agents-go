@@ -14,22 +14,16 @@ import (
 
 // Preview MLLM model names.
 //
-// Keep the working codenames as defaults until the new Google IDs launch.
-// The models/ prefix on the 3.8 names is part of the requested model ID.
+// The models/ prefix is part of the requested model ID.
 const (
-	GeminiMLLMModelWalkieTalkie           = "walkie-talkie"
-	GeminiMLLMModelCleverChatter          = "clever-chatter"
 	GeminiMLLMModel38Live                 = "models/gemini-3.8-live"
 	GeminiMLLMModel38LiveExtendedThinking = "models/gemini-3.8-live-extended-thinking"
 )
 
-// The working codename the MLLM sends by default.
-//
-// Keep the codenames while they work. Set Model to one of the 3.8 IDs when
-// Google activates it; no SDK release or change to the preview gate is needed.
-const GeminiMLLMDefaultModel = GeminiMLLMModelWalkieTalkie
+// The low-latency Gemini voice model is the default.
+const GeminiMLLMDefaultModel = GeminiMLLMModel38Live
 
-// Gemini clever-chatter reasoning budgets.
+// Gemini extended-thinking reasoning budgets.
 const (
 	GeminiThinkingLevelLow    = "low"
 	GeminiThinkingLevelMedium = "medium"
@@ -45,9 +39,9 @@ const GeminiMLLMURL = "https://generativelanguage.googleapis.com"
 // Gemini Developer API host rather than a WebSocket endpoint.
 type GeminiMLLMOptions struct {
 	APIKey string
-	// Model defaults to walkie-talkie until the 3.8 IDs launch.
+	// Model defaults to models/gemini-3.8-live.
 	Model string
-	// ThinkingLevel is sent only for clever-chatter and the extended-thinking model.
+	// ThinkingLevel is sent only for the extended-thinking model.
 	ThinkingLevel string
 	// Voice defaults to "Puck".
 	Voice string
@@ -95,7 +89,7 @@ func buildGeminiMLLMConfig(o GeminiMLLMOptions) map[string]interface{} {
 	delete(params, "api_key")
 	params["model"] = model
 	params["voice"] = voice
-	if model == GeminiMLLMModelCleverChatter || model == GeminiMLLMModel38LiveExtendedThinking {
+	if model == GeminiMLLMModel38LiveExtendedThinking {
 		if o.ThinkingLevel != "" {
 			params["thinking_level"] = o.ThinkingLevel
 		}

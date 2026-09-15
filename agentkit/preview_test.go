@@ -38,8 +38,6 @@ func TestUnifiedGeminiMLLMModelNames(t *testing.T) {
 		model    string
 		thinking string
 	}{
-		{vendors.GeminiMLLMModelWalkieTalkie, vendors.GeminiThinkingLevelMedium},
-		{vendors.GeminiMLLMModelCleverChatter, vendors.GeminiThinkingLevelMedium},
 		{vendors.GeminiMLLMModel38Live, vendors.GeminiThinkingLevelMedium},
 		{vendors.GeminiMLLMModel38LiveExtendedThinking, vendors.GeminiThinkingLevelMedium},
 	}
@@ -60,7 +58,7 @@ func TestUnifiedGeminiMLLMModelNames(t *testing.T) {
 			if params["model"] != tt.model {
 				t.Fatalf("model = %v, want %q", params["model"], tt.model)
 			}
-			reasoning := tt.model == vendors.GeminiMLLMModelCleverChatter || tt.model == vendors.GeminiMLLMModel38LiveExtendedThinking
+			reasoning := tt.model == vendors.GeminiMLLMModel38LiveExtendedThinking
 			if reasoning && params["thinking_level"] != tt.thinking {
 				t.Fatalf("thinking_level = %v, want %q", params["thinking_level"], tt.thinking)
 			}
@@ -525,7 +523,7 @@ func TestGPTLiveV3RoutesSessionLifecycle(t *testing.T) {
 func TestGeminiMLLMStartRequestSendsAPIKeyAtTopLevel(t *testing.T) {
 	rec := &recordingClient{}
 	session := NewAgent(newTestPreviewClient(rec)).WithMllm(vendors.NewGeminiMLLM(vendors.GeminiMLLMOptions{
-		APIKey: previewAPIKey, Model: "clever-chatter",
+		APIKey: previewAPIKey, Model: vendors.GeminiMLLMModel38LiveExtendedThinking,
 		AdditionalParams: map[string]interface{}{"api_key": "ignored-key"},
 	})).CreateSession(CreateSessionOptions{Channel: "preview", AgentUID: "1", RemoteUIDs: []string{"100"}})
 	if _, err := session.Start(context.Background()); err != nil {

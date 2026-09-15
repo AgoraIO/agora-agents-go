@@ -22,7 +22,7 @@ func ExampleGeminiMLLM() {
 	agent := agentkit.NewAgent(client).
 		WithMllm(vendors.NewGeminiMLLM(vendors.GeminiMLLMOptions{
 			APIKey:        os.Getenv("GOOGLE_API_KEY"),
-			Model:         vendors.GeminiMLLMModelCleverChatter,
+			Model:         vendors.GeminiMLLMModel38LiveExtendedThinking,
 			ThinkingLevel: vendors.GeminiThinkingLevelMedium,
 		}))
 

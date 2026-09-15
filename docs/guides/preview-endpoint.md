@@ -12,7 +12,7 @@ Everything in this guide is temporary by design. When a preview provider goes GA
 
 ## Using a preview provider
 
-OpenAI GPT Live uses the `live-models` feature. Gemini walkie-talkie and clever-chatter MLLMs use `gemini-live`.
+OpenAI GPT Live uses the `live-models` feature. Gemini 3.8 MLLMs use `gemini-live`.
 Gemini ASR uses the production endpoint.
 
 ```go
@@ -47,12 +47,10 @@ agora-feature: <feature-name>
 | `PreviewFeatureLiveModels` | `live-models`   |
 | `PreviewFeatureGeminiLive` | `gemini-live`  |
 
-Use `vendors.NewGeminiMLLM` with a Google API key. Select either current codename
-(`walkie-talkie`, `clever-chatter`) or the launch IDs
-`models/gemini-3.8-live` and `models/gemini-3.8-live-extended-thinking`
-through `GeminiMLLMOptions.Model`. The walkie codename remains the default
-until the launch IDs are available. Set `ThinkingLevel` for extended thinking;
-`GeminiMLLM` sends it only for `clever-chatter` or the extended-thinking ID.
+Use `vendors.NewGeminiMLLM` with a Google API key. Select
+`models/gemini-3.8-live` or `models/gemini-3.8-live-extended-thinking`
+through `GeminiMLLMOptions.Model`. The low-latency ID is the default. Set
+`ThinkingLevel` for extended thinking; `GeminiMLLM` sends it only for that ID.
 The Google credential is sent once as `mllm.api_key`; `mllm.params` contains
 model options and never contains `api_key`.
 All Gemini preview sessions use `agora-feature: gemini-live`;
@@ -122,7 +120,7 @@ Routing state is stored on the `AgentSession`, not `AgoraClient`. One client can
 | Type               | Wire vendor                     | Default model                      |
 | ------------------ | ------------------------------- | ---------------------------------- |
 | `NewOpenAIGPTLive` | `mllm.vendor = "openai_gpt_live"` | `gpt-live-1`         |
-| `NewGeminiMLLM` | `mllm.vendor = "gemini"` | `walkie-talkie` |
+| `NewGeminiMLLM` | `mllm.vendor = "gemini"` | `models/gemini-3.8-live` |
 
 ## The vendor type is not the whole wire shape
 
