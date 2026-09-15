@@ -234,19 +234,6 @@ agent := agentkit.NewAgent(client).WithMllm(vendors.NewOpenAIRealtime(vendors.Op
 }))
 ```
 
-For Gemini 3.8 Live Extended Thinking, use the same single `GeminiLive` class as the regular Live model:
-
-```go
-geminiAgent := agentkit.NewAgent(client).WithMllm(vendors.NewGeminiLive(vendors.GeminiLiveOptions{
-    APIKey:        os.Getenv("GOOGLE_API_KEY"),
-    Model:         "models/gemini-3.8-live-extended-thinking",
-    ThinkingLevel: "medium",
-    GreetingMessage: "Hello! Ready to chat.",
-}))
-```
-
-Use `models/gemini-3.8-live` without `ThinkingLevel` for the lower-latency model. Gemini sessions use the preview gateway and `agora-feature: gemini-live`; the Google key is sent as `mllm.api_key`. See the [Preview Endpoint guide](./docs/guides/preview-endpoint.md).
-
 See the [MLLM Flow guide](./docs/guides/mllm-flow.md) for full examples with Gemini Live, Vertex AI, and xAI Grok.
 
 > Avatars are not supported with MLLM. The avatar publisher requires the cascading ASR + LLM + TTS pipeline; combining `WithMllm()` with `WithAvatar()` returns an error from `Agent.ToProperties()` and `AgentSession.Start()`.
