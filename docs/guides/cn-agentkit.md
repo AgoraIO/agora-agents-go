@@ -111,4 +111,4 @@ For CN TTS vendors, `AdditionalParams map[string]interface{}` and `SkipPatterns 
 | Avatar vendors | LiveAvatar, Generic, Anam, Akool, HeyGen | SenseTime only |
 | Turn detection | `WithTurnDetectionConfig` or `WithTurnDetection` | `WithTurnDetectionConfig` on `NewAgent` only |
 
-See [Vendors](./concepts/vendors.md#cn-vendors-agentkitcnvendors) for the CN constructor catalog.
+See [Vendors](../concepts/vendors.md#cn-vendors-agentkitcnvendors) for the CN constructor catalog.

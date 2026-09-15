@@ -925,6 +925,20 @@ Panics if `APIKey` or `URL` is empty, or if `TurnDetection` is nil. Azure OpenAI
 | `Messages` | `[]map[string]interface{}` | No | — | Conversation messages for short-term memory |
 | `TurnDetection` | `*Agora.MllmTurnDetection` | Yes | — | Required MLLM turn detection configuration; overrides top-level turn detection |
 
+### NewGeminiMLLM (preview)
+
+`vendors.NewGeminiMLLM(vendors.GeminiMLLMOptions{...})` configures either public Gemini 3.8 voice model. A session using this provider routes to the preview gateway with `agora-feature: gemini-live`. See [Preview Endpoint](../guides/preview-endpoint.md).
+
+| Option | Default / wire behavior |
+|---|---|
+| `APIKey` | Required; sent once as `mllm.api_key`. |
+| `Model` | Defaults to `models/gemini-3.8-live`; also accepts `models/gemini-3.8-live-extended-thinking`. |
+| `ThinkingLevel` | `low`, `medium`, or `high`; sent as `mllm.params.thinking_level` only for Extended Thinking. |
+| `Voice` | Defaults to `Puck`. |
+| `Instructions` | System prompt in `mllm.params.instructions`. |
+| `Greeting` | Initial utterance in `mllm.greeting`. |
+| `LanguageCodes` | Optional language array in `mllm.params.language_codes`. |
+
 ### NewGeminiLive
 
 <!-- snippet: fragment -->
