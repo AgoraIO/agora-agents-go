@@ -27,9 +27,8 @@ const PreviewAPIBaseURL = "https://partner.ai.agora.io/preview/api/conversationa
 // environment, where the preview providers do not exist.
 const PreviewFeatureHeader = "agora-feature"
 
-// PreviewFeatureGeminiLive gates the Gemini preview MLLM providers.
-//
-// Gemini ASR is available through the production endpoint; the MLLMs remain preview-only.
+// PreviewFeatureGeminiLive gates legacy Gemini preview MLLM providers.
+// Gemini 3.8 MLLMs and Gemini ASR use the production endpoint.
 const PreviewFeatureGeminiLive = "gemini-live"
 
 // PreviewFeatureLiveModels gates the OpenAI GPT Live MLLM provider.
@@ -72,11 +71,6 @@ func previewRequestOptions(features []string, inner core.HTTPClient, debug bool)
 // previewASRVendors are served only by the preview endpoint.
 var previewASRVendors = map[string]string{}
 
-var previewGeminiModels = map[string]bool{
-	"models/gemini-3.8-live":                   true,
-	"models/gemini-3.8-live-extended-thinking": true,
-}
-
 func previewGeminiLive(properties map[string]interface{}) (map[string]interface{}, bool) {
 	mllm, ok := properties["mllm"].(map[string]interface{})
 	if !ok || mllm["vendor"] != "gemini" {
@@ -86,8 +80,10 @@ func previewGeminiLive(properties map[string]interface{}) (map[string]interface{
 	if !ok {
 		return nil, false
 	}
-	if model, ok := params["model"].(string); ok && previewGeminiModels[model] {
-		return mllm, true
+	model, _ := params["model"].(string)
+	// These IDs use production even when their provider URL is the Gemini API host.
+	if model == "models/gemini-3.8-live" || model == "models/gemini-3.8-live-extended-thinking" {
+		return nil, false
 	}
 	url, _ := mllm["url"].(string)
 	_, hasKey := mllm["api_key"].(string)

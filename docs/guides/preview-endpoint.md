@@ -12,8 +12,7 @@ Everything in this guide is temporary by design. When a preview provider goes GA
 
 ## Using a preview provider
 
-OpenAI GPT Live and Gemini ASR use the production endpoint. Gemini 3.8 MLLMs use `gemini-live`.
-Gemini ASR uses the production endpoint.
+OpenAI GPT Live, Gemini ASR, and Gemini 3.8 MLLMs use the production endpoint. Legacy Gemini MLLM configurations with another model ID and a Gemini Developer API URL still use the `gemini-live` preview feature.
 
 ```go
 agent := agentkit.NewAgent(client).WithMllm(
@@ -28,7 +27,7 @@ session := agent.CreateSession(agentkit.CreateSessionOptions{
 agentID, err := session.Start(ctx)
 ```
 
-This session uses the production endpoint. Gemini 3.8 sessions use the preview base URL and `agora-feature: gemini-live`.
+This session uses the production endpoint. Gemini 3.8 sessions do too.
 
 There is no separate preview client. On `Start`, the SDK calls `RequiredPreviewFeatures` on the resolved body. Preview sessions bind the preview base URL and gate transport for their full lifecycle; GA sessions keep production regional routing.
 
@@ -46,14 +45,12 @@ agora-feature: <feature-name>
 | `PreviewFeatureLiveModels` | `live-models`   |
 | `PreviewFeatureGeminiLive` | `gemini-live`  |
 
-Use `vendors.NewGeminiLive` with a Google API key. Select
-`models/gemini-3.8-live` or `models/gemini-3.8-live-extended-thinking`
-through `GeminiLiveOptions.Model`. The low-latency ID is the default. Set
-`ThinkingLevel` for extended thinking; `GeminiLive` sends it only for that ID.
-The Google credential is sent once as `mllm.api_key`; `mllm.params` contains
-model options and never contains `api_key`.
-All Gemini preview sessions use `agora-feature: gemini-live`;
-GPT Live retains its separate `live-models` gate.
+`PreviewFeatureGeminiLive` remains available for legacy preview Gemini model IDs
+using the Gemini Developer API URL. These sessions retain the preview host,
+`agora-feature: gemini-live`, and the preview `greeting` field. The two Gemini
+3.8 IDs use the production host and `greeting_message`, without a gate header.
+`PreviewFeatureLiveModels` remains exported for compatibility; GPT Live uses
+production routing.
 
 The SDK derives the feature list from the resolved session body; callers do not select it manually.
 
@@ -118,8 +115,7 @@ Routing state is stored on the `AgentSession`, not `AgoraClient`. One client can
 
 | Type               | Wire vendor                     | Default model                      |
 | ------------------ | ------------------------------- | ---------------------------------- |
-| `NewGeminiLive` | `mllm.vendor = "gemini"` | `models/gemini-3.8-live` |
-`PreviewFeatureLiveModels` remains exported as a deprecated compatibility constant; GPT Live is production-routed.
+| `NewGeminiLive` with a legacy model ID and Gemini Developer API URL | `mllm.vendor = "gemini"` | Explicit model required |
 
 ## The vendor type is not the whole wire shape
 

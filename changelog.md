@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [v2.10.0] — 2026-09-16
+
+### Changed
+
+- **Gemini 3.8 Live production routing** — Both Gemini 3.8 MLLM models now use the regional production gateway without a preview feature header. They send `greeting_message` in the production wire shape while keeping the existing model IDs, options, and top-level `mllm.api_key`.
+- **Legacy Gemini preview compatibility** — Other Gemini Live model IDs using the Gemini Developer API URL retain preview routing, the `gemini-live` feature header, and the preview `greeting` field. The exported `GeminiLivePreviewURL` constant remains available.
+- **OpenAI GPT Live production routing and tools** — Existing `NewOpenAIGPTLive` integrations now use the production regional gateway automatically and no longer send the preview `agora-feature: live-models` gate. GPT Live also accepts typed inline REST tools and MCP server configurations while retaining the existing map-based `McpServers` option and public preview constants for source compatibility.
+
 ## [v2.9.0] — 2026-09-15
 
 ### Added
@@ -14,12 +22,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 - **Gemini Live routing and credentials** — Gemini 3.8 sessions use the preview gateway with `agora-feature: gemini-live`, send the Google credential as top-level `mllm.api_key`, and keep older Gemini Live model IDs on the production route.
 - **Gemini Live documentation** — The vendor reference and MLLM guide document the existing `GeminiLive` API for both 3.8 models and the Extended Thinking level.
-
-## Unreleased
-
-### Changed
-
-- **OpenAI GPT Live production routing and tools** — Existing `NewOpenAIGPTLive` integrations now use the production regional gateway automatically and no longer send the preview `agora-feature: live-models` gate. GPT Live also accepts typed inline REST tools and MCP server configurations while retaining the existing map-based `McpServers` option and public preview constants for source compatibility.
 
 ## [v2.8.1] — 2026-09-11
 

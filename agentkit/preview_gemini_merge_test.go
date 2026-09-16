@@ -12,13 +12,25 @@ func TestPreviewGeminiAndGPTLiveGates(t *testing.T) {
 	gemini := vendors.NewGeminiLive(vendors.GeminiLiveOptions{APIKey: "test-key"})
 	config := gemini.ToConfig()
 	geminiProperties := map[string]interface{}{"mllm": config}
-	if got := agentkit.RequiredPreviewFeatures(geminiProperties); !reflect.DeepEqual(got, []string{agentkit.PreviewFeatureGeminiLive}) {
-		t.Fatalf("Gemini gate = %v", got)
+	if got := agentkit.RequiredPreviewFeatures(geminiProperties); len(got) != 0 {
+		t.Fatalf("Gemini 3.8 production gate = %v", got)
 	}
 	config["greeting_message"] = "Hello"
 	agentkit.ApplyPreviewShape(geminiProperties)
-	if config["greeting"] != "Hello" || config["greeting_message"] != nil {
-		t.Fatalf("Gemini greeting shape = %v", config)
+	if config["greeting_message"] != "Hello" || config["greeting"] != nil {
+		t.Fatalf("Gemini production greeting shape = %v", config)
+	}
+	legacy := vendors.NewGeminiLive(vendors.GeminiLiveOptions{
+		APIKey: "test-key", Model: "future-live-model", URL: vendors.GeminiLivePreviewURL,
+	}).ToConfig()
+	legacyProperties := map[string]interface{}{"mllm": legacy}
+	if got := agentkit.RequiredPreviewFeatures(legacyProperties); !reflect.DeepEqual(got, []string{agentkit.PreviewFeatureGeminiLive}) {
+		t.Fatalf("legacy Gemini preview gate = %v", got)
+	}
+	legacy["greeting_message"] = "Hello"
+	agentkit.ApplyPreviewShape(legacyProperties)
+	if legacy["greeting"] != "Hello" || legacy["greeting_message"] != nil {
+		t.Fatalf("legacy Gemini preview greeting = %v", legacy)
 	}
 
 	gpt := vendors.NewOpenAIGPTLive(vendors.OpenAIGPTLiveOptions{APIKey: "test-key"})

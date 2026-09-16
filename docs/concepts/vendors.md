@@ -151,7 +151,7 @@ stt := vendors.NewDeepgramSTT(vendors.DeepgramSTTOptions{
 agent = agent.WithStt(stt)
 ```
 
-> **Gemini 3.8 preview models** — `NewGeminiLive` uses the preview gateway only for the two 3.8 model IDs. Other Gemini Live model IDs keep the production route. See [Preview Endpoint](../guides/preview-endpoint.md).
+> **Gemini Live routing** — Both Gemini 3.8 models use the production gateway. Legacy Gemini preview configurations with another model ID and a Gemini Developer API URL retain preview routing. See [Preview Endpoint](../guides/preview-endpoint.md).
 
 ## MLLM Vendors
 

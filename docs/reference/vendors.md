@@ -987,7 +987,7 @@ Panics if `APIKey` or `URL` is empty, or if `TurnDetection` is nil. Azure OpenAI
 
 ### NewGeminiLive
 
-`NewGeminiLive` supports existing Gemini Live models and both public Gemini 3.8 voice models. The 3.8 IDs select the preview gateway with `agora-feature: gemini-live`; older model IDs keep the production route. See [Preview Endpoint](../guides/preview-endpoint.md).
+`NewGeminiLive` supports existing Gemini Live models and both public Gemini 3.8 voice models. The 3.8 IDs use production routing and `greeting_message`. Legacy configurations with another model ID and a Gemini Developer API URL retain preview routing. See [Preview Endpoint](../guides/preview-endpoint.md).
 
 <!-- snippet: fragment -->
 ```go
@@ -1004,7 +1004,7 @@ Panics if `APIKey` is empty. An empty `Model` defaults to `models/gemini-3.8-liv
 | `Model`            | `string`                   | No       | `models/gemini-3.8-live` | Gemini Live model identifier |
 | `ThinkingLevel`    | `string`                   | No       | —       | `low`, `medium`, or `high`; sent only for the 3.8 Extended Thinking ID |
 | `LanguageCodes`    | `[]string`                 | No       | —       | 3.8 language codes in `mllm.params.language_codes` |
-| `URL`              | `string`                   | No       | Model-specific endpoint | Custom endpoint; 3.8 defaults to the Gemini Developer API host |
+| `URL`              | `string`                   | No       | Model-specific endpoint | Custom endpoint; 3.8 defaults to the Gemini Developer API host without preview gateway routing |
 | `Instructions`     | `string`                   | No       | —       | System instruction |
 | `Voice`            | `string`                   | No       | —       | Voice name |
 | `GreetingMessage`  | `string`                   | No       | —       | Initial greeting |

@@ -68,15 +68,16 @@ func TestUnifiedGeminiLiveModelNames(t *testing.T) {
 				}
 			}
 			features := requiredPreviewFeatures(map[string]interface{}{"mllm": config}, nil)
-			if len(features) != 1 || features[0] != PreviewFeatureGeminiLive {
-				t.Fatalf("features = %v, want gemini-live", features)
+			if len(features) != 0 {
+				t.Fatalf("features = %v, want production routing", features)
 			}
 			manual := map[string]interface{}{"mllm": map[string]interface{}{
-				"vendor": "gemini", "params": map[string]interface{}{"model": tt.model},
+				"vendor": "gemini", "api_key": previewAPIKey, "url": vendors.GeminiLivePreviewURL,
+				"params": map[string]interface{}{"model": tt.model},
 			}}
 			features = requiredPreviewFeatures(manual, nil)
-			if len(features) != 1 || features[0] != PreviewFeatureGeminiLive {
-				t.Fatalf("manual features = %v, want gemini-live", features)
+			if len(features) != 0 {
+				t.Fatalf("manual features = %v, want production routing", features)
 			}
 		})
 	}
@@ -89,6 +90,9 @@ func TestGeminiUnknownModelKeepsPreviewGreetingWithoutNestedAPIKey(t *testing.T)
 	config["greeting_message"] = "Hello"
 	properties := map[string]interface{}{"mllm": config}
 	ApplyPreviewShape(properties)
+	if got := RequiredPreviewFeatures(properties); len(got) != 1 || got[0] != PreviewFeatureGeminiLive {
+		t.Fatalf("legacy preview features = %v", got)
+	}
 	if config["greeting"] != "Hello" {
 		t.Fatalf("unknown preview model greeting = %v", config["greeting"])
 	}
@@ -567,17 +571,24 @@ func TestGPTLiveV3SessionLifecycleUsesProductionRouting(t *testing.T) {
 	assertJSONEqual(t, mllm["mcp_servers"], `[{"name":"catalog","endpoint":"https://mcp.example.com"}]`)
 }
 
-func TestGeminiLiveStartRequestSendsAPIKeyAtTopLevel(t *testing.T) {
+func TestGeminiLiveStartRequestUsesProduction(t *testing.T) {
 	rec := &recordingClient{}
 	session := NewAgent(newTestPreviewClient(rec)).WithMllm(vendors.NewGeminiLive(vendors.GeminiLiveOptions{
 		APIKey: previewAPIKey, Model: vendors.GeminiLiveModel38LiveExtendedThinking,
+		GreetingMessage:  "Hello",
 		AdditionalParams: map[string]interface{}{"api_key": "ignored-key"},
 	})).CreateSession(CreateSessionOptions{Channel: "preview", AgentUID: "1", RemoteUIDs: []string{"100"}})
 	if _, err := session.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if len(rec.requests) != 1 || rec.requests[0].Header.Get(PreviewFeatureHeader) != PreviewFeatureGeminiLive {
-		t.Fatal("Gemini start request lost its preview feature")
+	if len(rec.requests) != 1 {
+		t.Fatalf("requests = %d, want one", len(rec.requests))
+	}
+	if got := rec.requests[0].Header.Get(PreviewFeatureHeader); got != "" {
+		t.Fatalf("Gemini 3.8 preview feature = %q", got)
+	}
+	if strings.HasPrefix(rec.requests[0].URL.String(), PreviewAPIBaseURL) {
+		t.Fatalf("Gemini 3.8 used preview host: %s", rec.requests[0].URL)
 	}
 	var body map[string]interface{}
 	if err := json.Unmarshal(rec.bodies[0], &body); err != nil {
@@ -589,5 +600,36 @@ func TestGeminiLiveStartRequestSendsAPIKeyAtTopLevel(t *testing.T) {
 	}
 	if _, exists := mllm["params"].(map[string]interface{})["api_key"]; exists {
 		t.Fatal("Gemini start request contains params.api_key")
+	}
+	if mllm["greeting_message"] != "Hello" || mllm["greeting"] != nil {
+		t.Fatalf("Gemini production greeting = %v", mllm)
+	}
+}
+
+func TestLegacyGeminiPreviewSessionKeepsRoutingAndGreeting(t *testing.T) {
+	rec := &recordingClient{}
+	session := NewAgent(newTestPreviewClient(rec)).WithMllm(vendors.NewGeminiLive(vendors.GeminiLiveOptions{
+		APIKey: previewAPIKey, Model: "future-live-model", URL: vendors.GeminiLivePreviewURL,
+		GreetingMessage: "Hello",
+	})).CreateSession(CreateSessionOptions{Channel: "preview", AgentUID: "1", RemoteUIDs: []string{"100"}})
+	if _, err := session.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(rec.requests) != 1 {
+		t.Fatalf("requests = %d, want one", len(rec.requests))
+	}
+	if got := rec.requests[0].Header.Get(PreviewFeatureHeader); got != PreviewFeatureGeminiLive {
+		t.Fatalf("legacy Gemini preview feature = %q", got)
+	}
+	if !strings.HasPrefix(rec.requests[0].URL.String(), PreviewAPIBaseURL) {
+		t.Fatalf("legacy Gemini preview host = %s", rec.requests[0].URL)
+	}
+	var body map[string]interface{}
+	if err := json.Unmarshal(rec.bodies[0], &body); err != nil {
+		t.Fatal(err)
+	}
+	mllm := body["properties"].(map[string]interface{})["mllm"].(map[string]interface{})
+	if mllm["greeting"] != "Hello" || mllm["greeting_message"] != nil {
+		t.Fatalf("legacy Gemini preview greeting = %v", mllm)
 	}
 }

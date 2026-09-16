@@ -526,7 +526,7 @@ func NewGeminiLive(opts GeminiLiveOptions) *GeminiLive {
 
 func (g *GeminiLive) ToConfig() map[string]interface{} {
 	if g.options.Model == GeminiLiveModel38Live || g.options.Model == GeminiLiveModel38LiveExtendedThinking {
-		return buildGeminiPreviewConfig(g.options)
+		return buildGemini38Config(g.options)
 	}
 	params := map[string]interface{}{}
 	for k, v := range g.options.AdditionalParams {
