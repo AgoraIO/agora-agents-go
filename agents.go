@@ -1451,6 +1451,9 @@ type AsrVisitor interface {
 	VisitXfyun(*XfyunAsr) error
 	VisitXfyunBigmodel(*XfyunBigmodelAsr) error
 	VisitXfyunDialect(*XfyunDialectAsr) error
+}
+
+type SmallestAiAsrVisitor interface {
 	VisitSmallestai(*SmallestAiAsr) error
 }
 
@@ -1504,7 +1507,11 @@ func (a *Asr) Accept(visitor AsrVisitor) error {
 		return visitor.VisitXfyunDialect(a.XfyunDialect)
 	}
 	if a.Smallestai != nil {
-		return visitor.VisitSmallestai(a.Smallestai)
+		smallestaiVisitor, ok := visitor.(SmallestAiAsrVisitor)
+		if !ok {
+			return fmt.Errorf("visitor %T does not support smallestai ASR", visitor)
+		}
+		return smallestaiVisitor.VisitSmallestai(a.Smallestai)
 	}
 	return fmt.Errorf("type %T does not define a non-empty union type", a)
 }
@@ -14726,6 +14733,9 @@ type TtsVisitor interface {
 	VisitGradium(*GradiumTts) error
 	VisitMistral(*MistralTts) error
 	VisitTypecast(*TypecastTts) error
+}
+
+type SmallestAiTtsVisitor interface {
 	VisitSmallestai(*SmallestAiTts) error
 }
 
@@ -14800,7 +14810,11 @@ func (t *Tts) Accept(visitor TtsVisitor) error {
 		return visitor.VisitTypecast(t.Typecast)
 	}
 	if t.Smallestai != nil {
-		return visitor.VisitSmallestai(t.Smallestai)
+		smallestaiVisitor, ok := visitor.(SmallestAiTtsVisitor)
+		if !ok {
+			return fmt.Errorf("visitor %T does not support smallestai TTS", visitor)
+		}
+		return smallestaiVisitor.VisitSmallestai(t.Smallestai)
 	}
 	return fmt.Errorf("type %T does not define a non-empty union type", t)
 }
@@ -19200,7 +19214,7 @@ type StartAgentsRequestPropertiesAdvancedFeatures struct {
 	EnableRtm *bool `json:"enable_rtm,omitempty" url:"enable_rtm,omitempty"`
 	// Enable Selective Attention Locking (SAL). When enabled, configure the `sal` field to set up speaker recognition or locking modes.
 	EnableSal *bool `json:"enable_sal,omitempty" url:"enable_sal,omitempty"`
-	// Enable invocation for MCP servers and inline REST tools.
+	// Enable tool invocation. When enabled, the agent can invoke tools provided by the MCP server to implement advanced functionality.
 	EnableTools *bool `json:"enable_tools,omitempty" url:"enable_tools,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
@@ -19806,6 +19820,17 @@ func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetFallb
 	s.require(startAgentsRequestPropertiesFillerWordsContentGeneratedConfigFieldFallbackStrategy)
 }
 
+// StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy controls fallback behavior for generated filler words.
+type StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy string
+
+const (
+	StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategyStatic StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy = "static"
+)
+
+func (s StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy) Ptr() *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy {
+	return &s
+}
+
 // SetContextMessageLimit sets the ContextMessageLimit field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
 func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetContextMessageLimit(contextMessageLimit *int) {
@@ -19818,17 +19843,6 @@ func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetConte
 func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetHistoryCharacterLimit(historyCharacterLimit *int) {
 	s.HistoryCharacterLimit = historyCharacterLimit
 	s.require(startAgentsRequestPropertiesFillerWordsContentGeneratedConfigFieldHistoryCharacterLimit)
-}
-
-// StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy controls fallback behavior for generated filler words.
-type StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy string
-
-const (
-	StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategyStatic StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy = "static"
-)
-
-func (s StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy) Ptr() *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy {
-	return &s
 }
 
 func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) UnmarshalJSON(data []byte) error {
