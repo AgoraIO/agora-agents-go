@@ -20,6 +20,9 @@ func NewFengmingSTT(options ...FengmingSTTOptions) *FengmingSTT {
 	if len(options) == 0 {
 		return &FengmingSTT{}
 	}
+	if _, exists := options[0].AdditionalParams["keywords"]; exists {
+		panic("NewFengmingSTT AdditionalParams must not contain keywords; use the Keywords field")
+	}
 	return &FengmingSTT{options: &options[0]}
 }
 

@@ -313,10 +313,11 @@ func (s *AgentSession) Start(ctx context.Context) (string, error) {
 		s.emit("error", err)
 		return "", err
 	}
+	ApplyPreviewShape(resolvedProperties)
 
 	previewFeatures := RequiredPreviewFeatures(resolvedProperties)
 	s.mu.Lock()
-	s.routingOpts = previewRequestOptions(previewFeatures, s.httpClient)
+	s.routingOpts = previewRequestOptions(previewFeatures, s.httpClient, s.debug)
 	s.mu.Unlock()
 
 	if s.debug {

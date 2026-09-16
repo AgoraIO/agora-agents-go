@@ -1,103 +1,115 @@
 package vendors
 
-// Preview provider vendor types.
+import "strings"
+
+// Preview-only vendor types.
 //
-// These follow the same shape as the GA vendor types in this package — options
-// struct in, snake_case wire config out — so they drop into agent.WithStt()
-// unchanged. AgentSession detects them and routes to the preview endpoint.
+// Wire shapes here match the preview gateway contract exactly and are not
+// served by the production environment. See agentkit/preview_client.go for the
+// routing and the agora-feature gate.
 
-// GeminiSTTModel35Live is the default Gemini preview transcription model.
-const GeminiSTTModel35Live = "gemini-3.5-transcribe-live"
-
-// GeminiSTTOptions configures [GeminiSTT].
-type GeminiSTTOptions struct {
-	// APIKey is the Google API key.
-	APIKey string
-	// Model name. Defaults to gemini-3.5-transcribe-live.
-	Model string
-	// LanguageCodes are the languages the model should transcribe, sent as
-	// params.language_codes.
-	//
-	// Omitted from the request when nil, which is how the provider spells
-	// auto-detect — the SDK does not pin a language the caller never asked for.
-	// Pass one code to commit to a language, several to let the model choose
-	// between them, or an empty non-nil slice to request auto-detect outright.
-	//
-	// This is the only language setting on this vendor. The top-level
-	// asr.language is supplied by Agent from turn detection, as it is for every
-	// STT vendor.
-	LanguageCodes []string
-	// CustomVocabulary biases recognition toward these words and phrases —
-	// product names, jargon, proper nouns the model would otherwise mis-hear.
-	CustomVocabulary []string
-	// SampleRate is the audio sample rate in Hz. Defaults to 16000.
-	SampleRate int
-	// WordTimestamp emits per-word timestamps in transcription results.
-	// It is omitted unless explicitly set and cannot be true when
-	// CustomVocabulary is set.
-	WordTimestamp *bool
-	// AdditionalParams are additional vendor-specific parameters.
-	AdditionalParams map[string]interface{}
-}
-
-// GeminiSTT is the Gemini 3.5 Transcribe ASR vendor (preview).
+// Preview MLLM model names.
 //
-// Example:
-//
-//	agent.WithStt(vendors.NewGeminiSTT(vendors.GeminiSTTOptions{
-//		APIKey:        apiKey,
-//		LanguageCodes: []string{"en-US"},
-//	}))
-type GeminiSTT struct {
-	options GeminiSTTOptions
-}
+// The models/ prefix is part of the requested model ID.
+const (
+	GeminiLiveModel38Live                 = "models/gemini-3.8-live"
+	GeminiLiveModel38LiveExtendedThinking = "models/gemini-3.8-live-extended-thinking"
+)
 
-// NewGeminiSTT creates a Gemini 3.5 Transcribe ASR vendor (preview).
-func NewGeminiSTT(opts GeminiSTTOptions) *GeminiSTT {
-	if opts.APIKey == "" {
-		panic("GeminiSTT requires APIKey")
-	}
-	return &GeminiSTT{options: opts}
-}
+// The low-latency Gemini voice model is the default.
+const GeminiLiveDefaultModel = GeminiLiveModel38Live
 
-// ToConfig serializes to the asr field of the start request.
-func (g *GeminiSTT) ToConfig() map[string]interface{} {
-	model := g.options.Model
+// Gemini extended-thinking reasoning budgets.
+const (
+	GeminiThinkingLevelLow    = "low"
+	GeminiThinkingLevelMedium = "medium"
+	GeminiThinkingLevelHigh   = "high"
+)
+
+// GeminiLivePreviewURL is the Gemini Developer API host for the 3.8 models.
+const GeminiLivePreviewURL = "https://generativelanguage.googleapis.com"
+
+// buildGeminiPreviewConfig assembles the 3.8 wire envelope from GeminiLive.
+func buildGeminiPreviewConfig(o GeminiLiveOptions) map[string]interface{} {
+	model := strings.TrimSpace(o.Model)
 	if model == "" {
-		model = GeminiSTTModel35Live
+		model = GeminiLiveDefaultModel
 	}
-	sampleRate := g.options.SampleRate
-	if sampleRate == 0 {
-		sampleRate = 16000
+	voice := o.Voice
+	if voice == "" {
+		voice = "Puck"
 	}
-	// AdditionalParams first so that explicit fields always win.
+	url := o.URL
+	if url == "" {
+		url = GeminiLivePreviewURL
+	}
+
 	params := map[string]interface{}{}
-	for k, v := range g.options.AdditionalParams {
+	for k, v := range o.AdditionalParams {
 		params[k] = v
 	}
-	params["api_key"] = g.options.APIKey
+	delete(params, "api_key")
 	params["model"] = model
-	params["sample_rate"] = sampleRate
-	// Omitted unless the caller asked for it: no language_codes is how the
-	// provider spells auto-detect. Nil versus empty matters — an empty non-nil
-	// slice is an explicit auto-detect and still goes on the wire as [].
-	if g.options.LanguageCodes != nil {
-		params["language_codes"] = g.options.LanguageCodes
+	params["voice"] = voice
+	if model == GeminiLiveModel38LiveExtendedThinking {
+		if o.ThinkingLevel != "" {
+			params["thinking_level"] = o.ThinkingLevel
+		}
+	} else {
+		delete(params, "thinking_level")
 	}
-	if g.options.CustomVocabulary != nil {
-		params["custom_vocabulary"] = g.options.CustomVocabulary
-	}
-	if g.options.WordTimestamp != nil {
-		params["word_timestamp"] = *g.options.WordTimestamp
-	}
-	if _, hasCustomVocabulary := params["custom_vocabulary"]; hasCustomVocabulary && params["word_timestamp"] == true {
-		panic("CustomVocabulary cannot be used with WordTimestamp=true")
+	// Plural array, and omitted when nil. The singular params.language belongs
+	// to xAI Grok in the Agora schema, and the production Gemini Live provider
+	// sends no language field at all.
+	if o.LanguageCodes != nil {
+		params["language_codes"] = o.LanguageCodes
 	}
 
-	// No top-level "language": Agent sets it from turn detection,
-	// the same as every other STT vendor.
-	return map[string]interface{}{
-		"vendor": "gemini",
-		"params": params,
+	if o.Instructions != "" {
+		params["instructions"] = o.Instructions
 	}
+	if o.TranscribeAgent != nil {
+		params["transcribe_agent"] = *o.TranscribeAgent
+	}
+	if o.TranscribeUser != nil {
+		params["transcribe_user"] = *o.TranscribeUser
+	}
+	if o.AffectiveDialog != nil {
+		params["affective_dialog"] = *o.AffectiveDialog
+	}
+	if o.ProactiveAudio != nil {
+		params["proactive_audio"] = *o.ProactiveAudio
+	}
+	if o.HttpOptions != nil {
+		params["http_options"] = o.HttpOptions
+	}
+
+	config := map[string]interface{}{
+		"vendor":  "gemini",
+		"api_key": o.APIKey,
+		"url":     url,
+		"params":  params,
+	}
+	if o.Messages != nil {
+		config["messages"] = o.Messages
+	}
+	// "greeting", not "greeting_message": the preview Gemini models read this
+	// spelling. See the preview-endpoint guide.
+	if o.GreetingMessage != "" {
+		config["greeting"] = o.GreetingMessage
+	}
+	if o.FailureMessage != "" {
+		config["failure_message"] = o.FailureMessage
+	}
+	if o.InputModalities != nil {
+		config["input_modalities"] = o.InputModalities
+	}
+	if o.OutputModalities != nil {
+		config["output_modalities"] = o.OutputModalities
+	}
+	if o.TurnDetection != nil {
+		config["turn_detection"] = o.TurnDetection
+	}
+
+	return config
 }

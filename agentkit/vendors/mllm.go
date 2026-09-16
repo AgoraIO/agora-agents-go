@@ -1,6 +1,10 @@
 package vendors
 
-import Agora "github.com/AgoraIO/agora-agents-go/v2"
+import (
+	"strings"
+
+	Agora "github.com/AgoraIO/agora-agents-go/v2"
+)
 
 type OpenAIRealtimeOptions struct {
 	APIKey                  string
@@ -36,11 +40,17 @@ func NewOpenAIRealtime(opts OpenAIRealtimeOptions) *OpenAIRealtime {
 }
 
 func (o *OpenAIRealtime) ToConfig() map[string]interface{} {
-	// Match TS: `model` is the base; explicit Params entries override it.
+	// Match TS: build params when any nested field is set; explicit Params entries override.
 	var params map[string]interface{}
-	if o.options.Model != "" || o.options.Params != nil {
+	if o.options.Model != "" ||
+		o.options.Params != nil ||
+		o.options.Voice != "" ||
+		o.options.Instructions != "" ||
+		o.options.InputAudioTranscription != nil {
 		params = map[string]interface{}{}
-		params["model"] = o.options.Model
+		if o.options.Model != "" {
+			params["model"] = o.options.Model
+		}
 		for k, v := range o.options.Params {
 			params[k] = v
 		}
@@ -252,8 +262,12 @@ func (x *XaiGrok) ToConfig() map[string]interface{} {
 }
 
 type GeminiLiveOptions struct {
-	APIKey           string
-	Model            string
+	APIKey string
+	Model  string
+	// ThinkingLevel is sent only for the 3.8 extended-thinking model.
+	ThinkingLevel string
+	// LanguageCodes is sent as params.language_codes for Gemini 3.8.
+	LanguageCodes    []string
 	URL              string
 	Instructions     string
 	Voice            string
@@ -276,16 +290,26 @@ type GeminiLive struct {
 }
 
 func NewGeminiLive(opts GeminiLiveOptions) *GeminiLive {
+	opts.APIKey = strings.TrimSpace(opts.APIKey)
 	if opts.APIKey == "" {
 		panic("GeminiLive requires APIKey")
 	}
+	opts.Model = strings.TrimSpace(opts.Model)
 	if opts.Model == "" {
-		panic("GeminiLive requires Model")
+		opts.Model = GeminiLiveDefaultModel
+	}
+	switch opts.ThinkingLevel {
+	case "", GeminiThinkingLevelLow, GeminiThinkingLevelMedium, GeminiThinkingLevelHigh:
+	default:
+		panic("GeminiLive ThinkingLevel must be low, medium, or high")
 	}
 	return &GeminiLive{options: opts}
 }
 
 func (g *GeminiLive) ToConfig() map[string]interface{} {
+	if g.options.Model == GeminiLiveModel38Live || g.options.Model == GeminiLiveModel38LiveExtendedThinking {
+		return buildGeminiPreviewConfig(g.options)
+	}
 	params := map[string]interface{}{}
 	for k, v := range g.options.AdditionalParams {
 		params[k] = v

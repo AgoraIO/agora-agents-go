@@ -12,7 +12,7 @@ import (
 	"github.com/AgoraIO/agora-agents-go/v2/option"
 )
 
-func ExampleNewAgoraClient_previewRouting() {
+func ExampleGeminiLive() {
 	client := agentkit.NewAgoraClient(agentkit.AgoraClientOptions{
 		Area:           option.AreaUS,
 		AppID:          os.Getenv("AGORA_APP_ID"),
@@ -20,18 +20,10 @@ func ExampleNewAgoraClient_previewRouting() {
 	})
 
 	agent := agentkit.NewAgent(client).
-		WithStt(vendors.NewGeminiSTT(vendors.GeminiSTTOptions{
+		WithMllm(vendors.NewGeminiLive(vendors.GeminiLiveOptions{
 			APIKey:        os.Getenv("GOOGLE_API_KEY"),
-			LanguageCodes: []string{"en-US"},
-		})).
-		WithLlm(vendors.NewGemini(vendors.GeminiOptions{
-			APIKey: os.Getenv("GOOGLE_API_KEY"),
-			Model:  "gemini-2.0-flash",
-		})).
-		WithTts(vendors.NewGoogleTTS(vendors.GoogleTTSOptions{
-			Key:          os.Getenv("GOOGLE_API_KEY"),
-			VoiceName:    "en-US-Chirp3-HD-Charon",
-			LanguageCode: "en-US",
+			Model:         vendors.GeminiLiveModel38LiveExtendedThinking,
+			ThinkingLevel: vendors.GeminiThinkingLevelMedium,
 		}))
 
 	session := agent.CreateSession(agentkit.CreateSessionOptions{

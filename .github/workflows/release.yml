@@ -24,11 +24,58 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+
+      - name: Validate release tag and metadata
+        run: |
+          TAG="${RELEASE_TAG}"
+          VERSION="${TAG#v}"
+
+          if [[ ! "$TAG" =~ ^v2\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Release tag must be valid v2 semantic versioning; got $TAG."
+            exit 1
+          fi
+
+          git rev-parse "$TAG" >/dev/null
+          grep -Fq "module github.com/AgoraIO/agora-agents-go/v2" go.mod
+          grep -Fq "## [$TAG]" changelog.md
+          grep -Fq "headers.Set(\"X-Fern-SDK-Version\", \"$TAG\")" core/request_option.go
+          grep -Fq "headers.Set(\"User-Agent\", \"github.com/AgoraIO/agora-agents-go/v$VERSION\")" core/request_option.go
+
+      - name: Verify dependencies
+        run: go mod verify
+
+      - name: Build
+        run: go build ./...
+
+      - name: Start WireMock
+        run: docker compose -f wiremock/docker-compose.test.yml up -d
+
+      - name: Wait for WireMock readiness
+        run: |
+          for i in {1..30}; do
+            if curl -fsS http://localhost:8080/__admin/mappings >/dev/null; then
+              echo "WireMock is ready."
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "WireMock did not become ready in time."
+          exit 1
+
+      - name: Test
+        run: go test ./...
+
+      - name: Stop WireMock
+        if: always()
+        run: docker compose -f wiremock/docker-compose.test.yml down
 
       - name: Extract release notes
         run: |
           TAG="${RELEASE_TAG}"
-          git rev-parse "$TAG" >/dev/null
           awk -v tag="$TAG" '
             index($0, "## [" tag "]") == 1 { found = 1; next }
             found && /^## \[/ { exit }
@@ -36,7 +83,8 @@ jobs:
           ' changelog.md > release_notes.md
 
           if [ ! -s release_notes.md ]; then
-            echo "Release $TAG" > release_notes.md
+            echo "No changelog notes found for $TAG."
+            exit 1
           fi
 
       - name: Create or update GitHub release
