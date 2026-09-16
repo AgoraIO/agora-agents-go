@@ -181,6 +181,293 @@ func (a AgentErrorResponseReason) Ptr() *AgentErrorResponseReason {
 	return &a
 }
 
+// Anam Avatar configuration parameters.
+var (
+	anamAvatarParamsFieldAPIKey        = big.NewInt(1 << 0)
+	anamAvatarParamsFieldAvatarID      = big.NewInt(1 << 1)
+	anamAvatarParamsFieldAgoraUID      = big.NewInt(1 << 2)
+	anamAvatarParamsFieldAgoraToken    = big.NewInt(1 << 3)
+	anamAvatarParamsFieldSampleRate    = big.NewInt(1 << 4)
+	anamAvatarParamsFieldQuality       = big.NewInt(1 << 5)
+	anamAvatarParamsFieldVideoEncoding = big.NewInt(1 << 6)
+	anamAvatarParamsFieldAvatarModel   = big.NewInt(1 << 7)
+	anamAvatarParamsFieldVideoWidth    = big.NewInt(1 << 8)
+	anamAvatarParamsFieldVideoHeight   = big.NewInt(1 << 9)
+)
+
+type AnamAvatarParams struct {
+	// Anam API key.
+	APIKey string `json:"api_key" url:"api_key"`
+	// The unique identifier for the Anam avatar you want to use.
+	AvatarID string `json:"avatar_id" url:"avatar_id"`
+	// The unique identifier for the avatar's RTC connection. This must be different from other participants in the channel.
+	AgoraUID string `json:"agora_uid" url:"agora_uid"`
+	// The RTC token that authorizes the avatar to join the video channel.
+	AgoraToken string `json:"agora_token" url:"agora_token"`
+	// The audio sample rate in Hz.
+	SampleRate *int `json:"sample_rate,omitempty" url:"sample_rate,omitempty"`
+	// The video quality level.
+	Quality *AnamAvatarParamsQuality `json:"quality,omitempty" url:"quality,omitempty"`
+	// The video encoding format.
+	VideoEncoding *AnamAvatarParamsVideoEncoding `json:"video_encoding,omitempty" url:"video_encoding,omitempty"`
+	// Anam avatar model, such as `cara_mk4` for Cara 4 portrait mode.
+	AvatarModel *string `json:"avatar_model,omitempty" url:"avatar_model,omitempty"`
+	// Anam output video width in pixels. Set together with `video_height`; omit both to use the model default resolution.
+	VideoWidth *int `json:"video_width,omitempty" url:"video_width,omitempty"`
+	// Anam output video height in pixels. Set together with `video_width`; omit both to use the model default resolution.
+	VideoHeight *int `json:"video_height,omitempty" url:"video_height,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (a *AnamAvatarParams) GetAPIKey() string {
+	if a == nil {
+		return ""
+	}
+	return a.APIKey
+}
+
+func (a *AnamAvatarParams) GetAvatarID() string {
+	if a == nil {
+		return ""
+	}
+	return a.AvatarID
+}
+
+func (a *AnamAvatarParams) GetAgoraUID() string {
+	if a == nil {
+		return ""
+	}
+	return a.AgoraUID
+}
+
+func (a *AnamAvatarParams) GetAgoraToken() string {
+	if a == nil {
+		return ""
+	}
+	return a.AgoraToken
+}
+
+func (a *AnamAvatarParams) GetSampleRate() *int {
+	if a == nil {
+		return nil
+	}
+	return a.SampleRate
+}
+
+func (a *AnamAvatarParams) GetQuality() *AnamAvatarParamsQuality {
+	if a == nil {
+		return nil
+	}
+	return a.Quality
+}
+
+func (a *AnamAvatarParams) GetVideoEncoding() *AnamAvatarParamsVideoEncoding {
+	if a == nil {
+		return nil
+	}
+	return a.VideoEncoding
+}
+
+func (a *AnamAvatarParams) GetAvatarModel() *string {
+	if a == nil {
+		return nil
+	}
+	return a.AvatarModel
+}
+
+func (a *AnamAvatarParams) GetVideoWidth() *int {
+	if a == nil {
+		return nil
+	}
+	return a.VideoWidth
+}
+
+func (a *AnamAvatarParams) GetVideoHeight() *int {
+	if a == nil {
+		return nil
+	}
+	return a.VideoHeight
+}
+
+func (a *AnamAvatarParams) GetExtraProperties() map[string]interface{} {
+	return a.ExtraProperties
+}
+
+func (a *AnamAvatarParams) require(field *big.Int) {
+	if a.explicitFields == nil {
+		a.explicitFields = big.NewInt(0)
+	}
+	a.explicitFields.Or(a.explicitFields, field)
+}
+
+// SetAPIKey sets the APIKey field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (a *AnamAvatarParams) SetAPIKey(apiKey string) {
+	a.APIKey = apiKey
+	a.require(anamAvatarParamsFieldAPIKey)
+}
+
+// SetAvatarID sets the AvatarID field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (a *AnamAvatarParams) SetAvatarID(avatarID string) {
+	a.AvatarID = avatarID
+	a.require(anamAvatarParamsFieldAvatarID)
+}
+
+// SetAgoraUID sets the AgoraUID field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (a *AnamAvatarParams) SetAgoraUID(agoraUID string) {
+	a.AgoraUID = agoraUID
+	a.require(anamAvatarParamsFieldAgoraUID)
+}
+
+// SetAgoraToken sets the AgoraToken field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (a *AnamAvatarParams) SetAgoraToken(agoraToken string) {
+	a.AgoraToken = agoraToken
+	a.require(anamAvatarParamsFieldAgoraToken)
+}
+
+// SetSampleRate sets the SampleRate field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (a *AnamAvatarParams) SetSampleRate(sampleRate *int) {
+	a.SampleRate = sampleRate
+	a.require(anamAvatarParamsFieldSampleRate)
+}
+
+// SetQuality sets the Quality field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (a *AnamAvatarParams) SetQuality(quality *AnamAvatarParamsQuality) {
+	a.Quality = quality
+	a.require(anamAvatarParamsFieldQuality)
+}
+
+// SetVideoEncoding sets the VideoEncoding field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (a *AnamAvatarParams) SetVideoEncoding(videoEncoding *AnamAvatarParamsVideoEncoding) {
+	a.VideoEncoding = videoEncoding
+	a.require(anamAvatarParamsFieldVideoEncoding)
+}
+
+// SetAvatarModel sets the AvatarModel field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (a *AnamAvatarParams) SetAvatarModel(avatarModel *string) {
+	a.AvatarModel = avatarModel
+	a.require(anamAvatarParamsFieldAvatarModel)
+}
+
+// SetVideoWidth sets the VideoWidth field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (a *AnamAvatarParams) SetVideoWidth(videoWidth *int) {
+	a.VideoWidth = videoWidth
+	a.require(anamAvatarParamsFieldVideoWidth)
+}
+
+// SetVideoHeight sets the VideoHeight field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (a *AnamAvatarParams) SetVideoHeight(videoHeight *int) {
+	a.VideoHeight = videoHeight
+	a.require(anamAvatarParamsFieldVideoHeight)
+}
+
+func (a *AnamAvatarParams) UnmarshalJSON(data []byte) error {
+	type embed AnamAvatarParams
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*a),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*a = AnamAvatarParams(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *a)
+	if err != nil {
+		return err
+	}
+	a.ExtraProperties = extraProperties
+	a.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (a *AnamAvatarParams) MarshalJSON() ([]byte, error) {
+	type embed AnamAvatarParams
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*a),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, a.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, a.ExtraProperties)
+}
+
+func (a *AnamAvatarParams) String() string {
+	if len(a.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(a.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(a); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", a)
+}
+
+// The video quality level.
+type AnamAvatarParamsQuality string
+
+const (
+	AnamAvatarParamsQualityHigh   AnamAvatarParamsQuality = "high"
+	AnamAvatarParamsQualityMedium AnamAvatarParamsQuality = "medium"
+	AnamAvatarParamsQualityLow    AnamAvatarParamsQuality = "low"
+)
+
+func NewAnamAvatarParamsQualityFromString(s string) (AnamAvatarParamsQuality, error) {
+	switch s {
+	case "high":
+		return AnamAvatarParamsQualityHigh, nil
+	case "medium":
+		return AnamAvatarParamsQualityMedium, nil
+	case "low":
+		return AnamAvatarParamsQualityLow, nil
+	}
+	var t AnamAvatarParamsQuality
+	return "", fmt.Errorf("%s is not a valid %T", s, t)
+}
+
+func (a AnamAvatarParamsQuality) Ptr() *AnamAvatarParamsQuality {
+	return &a
+}
+
+// The video encoding format.
+type AnamAvatarParamsVideoEncoding string
+
+const (
+	AnamAvatarParamsVideoEncodingH264 AnamAvatarParamsVideoEncoding = "H264"
+	AnamAvatarParamsVideoEncodingAv1  AnamAvatarParamsVideoEncoding = "AV1"
+)
+
+func NewAnamAvatarParamsVideoEncodingFromString(s string) (AnamAvatarParamsVideoEncoding, error) {
+	switch s {
+	case "H264":
+		return AnamAvatarParamsVideoEncodingH264, nil
+	case "AV1":
+		return AnamAvatarParamsVideoEncodingAv1, nil
+	}
+	var t AnamAvatarParamsVideoEncoding
+	return "", fmt.Errorf("%s is not a valid %T", s, t)
+}
+
+func (a AnamAvatarParamsVideoEncoding) Ptr() *AnamAvatarParamsVideoEncoding {
+	return &a
+}
+
 // SenseTime Avatar configuration parameters.
 var (
 	sensetimeAvatarParamsFieldAgoraToken = big.NewInt(1 << 0)

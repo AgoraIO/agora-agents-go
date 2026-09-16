@@ -19463,7 +19463,8 @@ const (
 	StartAgentsRequestPropertiesAvatarVendorAkool StartAgentsRequestPropertiesAvatarVendor = "akool"
 	// LiveAvatar (Beta) — formerly HeyGen
 	StartAgentsRequestPropertiesAvatarVendorLiveavatar StartAgentsRequestPropertiesAvatarVendor = "liveavatar"
-	StartAgentsRequestPropertiesAvatarVendorAnam       StartAgentsRequestPropertiesAvatarVendor = "anam"
+	// Anam Avatar (Beta)
+	StartAgentsRequestPropertiesAvatarVendorAnam StartAgentsRequestPropertiesAvatarVendor = "anam"
 	// Generic avatar (Beta)
 	StartAgentsRequestPropertiesAvatarVendorGeneric StartAgentsRequestPropertiesAvatarVendor = "generic"
 	// SenseTime Avatar
@@ -19819,6 +19820,17 @@ func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetFallb
 	s.require(startAgentsRequestPropertiesFillerWordsContentGeneratedConfigFieldFallbackStrategy)
 }
 
+// StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy controls fallback behavior for generated filler words.
+type StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy string
+
+const (
+	StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategyStatic StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy = "static"
+)
+
+func (s StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy) Ptr() *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy {
+	return &s
+}
+
 // SetContextMessageLimit sets the ContextMessageLimit field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
 func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetContextMessageLimit(contextMessageLimit *int) {
@@ -19831,17 +19843,6 @@ func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetConte
 func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetHistoryCharacterLimit(historyCharacterLimit *int) {
 	s.HistoryCharacterLimit = historyCharacterLimit
 	s.require(startAgentsRequestPropertiesFillerWordsContentGeneratedConfigFieldHistoryCharacterLimit)
-}
-
-// StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy controls fallback behavior for generated filler words.
-type StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy string
-
-const (
-	StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategyStatic StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy = "static"
-)
-
-func (s StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy) Ptr() *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy {
-	return &s
 }
 
 func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) UnmarshalJSON(data []byte) error {
