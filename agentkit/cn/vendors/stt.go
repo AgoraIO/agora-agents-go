@@ -127,7 +127,7 @@ func (m *MicrosoftSTT) ToConfig() map[string]interface{} {
 	params["region"] = m.options.Region
 	params["language"] = m.options.Language
 	if len(m.options.PhraseList) > 0 {
-		params["phrase_list"] = append([]string(nil), m.options.PhraseList...)
+		params["phrase_list"] = m.options.PhraseList
 	}
 
 	return map[string]interface{}{

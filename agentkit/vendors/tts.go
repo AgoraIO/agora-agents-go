@@ -1116,13 +1116,13 @@ func (s *SmallestAITTS) ToConfig() map[string]interface{} {
 		params["math_notation"] = *s.options.MathNotation
 	}
 	if s.options.PronunciationDicts != nil {
-		params["pronunciation_dicts"] = append([]string(nil), s.options.PronunciationDicts...)
+		params["pronunciation_dicts"] = s.options.PronunciationDicts
 	}
 	put("session_id", s.options.SessionID)
 	put("request_id", s.options.RequestID)
 	config := map[string]interface{}{"vendor": "smallestai", "params": params}
 	if s.options.SkipPatterns != nil {
-		config["skip_patterns"] = append([]int(nil), s.options.SkipPatterns...)
+		config["skip_patterns"] = s.options.SkipPatterns
 	}
 	return config
 }

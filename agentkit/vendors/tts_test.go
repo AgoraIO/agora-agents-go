@@ -3,6 +3,7 @@ package vendors
 import (
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 
 	Agora "github.com/AgoraIO/agora-agents-go/v2"
@@ -815,6 +816,27 @@ func TestSmallestAITTSConfig(t *testing.T) {
 	params := config["params"].(map[string]interface{})
 	if params["api_key"] != "key" || params["model"] != "lightning" || params["voice_id"] != "voice" || params["sample_rate"] != rate {
 		t.Fatalf("unexpected params: %#v", params)
+	}
+}
+
+func TestSmallestAITTSKeepsEmptyPronunciationDicts(t *testing.T) {
+	config := NewSmallestAITTS(SmallestAITTSOptions{
+		APIKey:             "key",
+		PronunciationDicts: []string{},
+	}).ToConfig()
+
+	params := config["params"].(map[string]interface{})
+	dicts, ok := params["pronunciation_dicts"].([]string)
+	if !ok || dicts == nil {
+		t.Fatalf("pronunciation_dicts = %#v, want non-nil empty slice", params["pronunciation_dicts"])
+	}
+
+	payload, err := json.Marshal(config)
+	if err != nil {
+		t.Fatalf("marshal config: %v", err)
+	}
+	if !strings.Contains(string(payload), `"pronunciation_dicts":[]`) {
+		t.Fatalf("payload = %s, want pronunciation_dicts as []", payload)
 	}
 }
 
