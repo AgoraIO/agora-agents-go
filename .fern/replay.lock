@@ -60,20 +60,20 @@ generations:
     cli_version: unknown
     generator_versions:
       fernapi/fern-go-sdk: 1.16.5
-  - commit_sha: fe9cb5056c122461597b66094a6efd3009c22923
-    tree_hash: 2855df899957d2fb5f916c67778bcc614cf1b912
-    timestamp: 2026-09-16T08:57:55.195Z
+  - commit_sha: 56ec1cc8fe3cd43c9ce375970fd70c1c2262c499
+    tree_hash: 10cff919bc8e2f83751725bea78337f54dcb6973
+    timestamp: 2026-09-16T11:18:31.145Z
     cli_version: unknown
     generator_versions:
       fernapi/fern-go-sdk: 1.16.5
-current_generation: fe9cb5056c122461597b66094a6efd3009c22923
+current_generation: 56ec1cc8fe3cd43c9ce375970fd70c1c2262c499
 patches:
   - id: patch-69644e80
     content_hash: sha256:47e5dc31d5823a159b4c7abafc86d8b4ade17fd80b73df7b3e4d44bf17204f55
     original_commit: 69644e80506fa1c57bdb6b9a5dc5767a78f333ad
     original_message: "feat(core): add tests for Pool and RequestOptions with fixed base URL handling"
     original_author: seymourtang <tangxianmeng@live.com>
-    base_generation: fe9cb5056c122461597b66094a6efd3009c22923
+    base_generation: 56ec1cc8fe3cd43c9ce375970fd70c1c2262c499
     files:
       - core/request_option_custom_test.go
     patch_content: |
@@ -361,7 +361,7 @@ patches:
     original_commit: eb09f0ee6aec94edb1cf24a833a35d98a9a35580
     original_message: "refactor(core): rename internal API base URL to configured base URL"
     original_author: seymourtang <tangxianmeng@live.com>
-    base_generation: fe9cb5056c122461597b66094a6efd3009c22923
+    base_generation: 56ec1cc8fe3cd43c9ce375970fd70c1c2262c499
     files:
       - core/request_option_custom_test.go
     patch_content: |
@@ -645,16 +645,16 @@ patches:
         }
     user_owned: true
   - id: patch-dda5517e
-    content_hash: sha256:ee27f1798a7672335e969c207648ce4d6672c4c7e803dcc179890866bb6ec364
+    content_hash: sha256:b4639d080ca18ab5d375f93cf5306205a59e9d3831a300ce8a51b038a85d8032
     original_commit: dda5517eb2c926b0de9b1fafac5763798586527d
     original_message: "fix(vendors): send Speechmatics STT key instead of api_key"
     original_author: digitallysavvy <hermes.frangoudis@gmail.com>
-    base_generation: fe9cb5056c122461597b66094a6efd3009c22923
+    base_generation: 56ec1cc8fe3cd43c9ce375970fd70c1c2262c499
     files:
       - agents.go
     patch_content: |
       diff --git a/agents.go b/agents.go
-      index 6a3c778..a145164 100644
+      index 09a4c98..bddbc31 100644
       --- a/agents.go
       +++ b/agents.go
       @@ -7031,7 +7031,7 @@ var (
@@ -803,7 +803,7 @@ patches:
        	EnableTools *bool `json:"enable_tools,omitempty" url:"enable_tools,omitempty"`
        
        	// Private bitmask of fields set to an explicit value and therefore not to be omitted
-      @@ -19753,7 +19800,7 @@ func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetPromp
+      @@ -19754,7 +19801,7 @@ func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetPromp
        
        // SetFallbackStrategy sets the FallbackStrategy field and marks it as non-optional;
        // this prevents an empty or null value for this field from being omitted during serialization.
@@ -20265,7 +20265,8 @@ patches:
         	StartAgentsRequestPropertiesAvatarVendorAkool StartAgentsRequestPropertiesAvatarVendor = "akool"
         	// LiveAvatar (Beta) — formerly HeyGen
         	StartAgentsRequestPropertiesAvatarVendorLiveavatar StartAgentsRequestPropertiesAvatarVendor = "liveavatar"
-        	StartAgentsRequestPropertiesAvatarVendorAnam       StartAgentsRequestPropertiesAvatarVendor = "anam"
+        	// Anam Avatar (Beta)
+        	StartAgentsRequestPropertiesAvatarVendorAnam StartAgentsRequestPropertiesAvatarVendor = "anam"
         	// Generic avatar (Beta)
         	StartAgentsRequestPropertiesAvatarVendorGeneric StartAgentsRequestPropertiesAvatarVendor = "generic"
         	// SenseTime Avatar
@@ -46693,3 +46694,4 @@ patches:
         	u.Properties = properties
         	u.require(updateAgentsRequestFieldProperties)
         }
+    status: unresolved
