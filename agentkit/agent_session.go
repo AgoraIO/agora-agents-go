@@ -313,6 +313,7 @@ func (s *AgentSession) Start(ctx context.Context) (string, error) {
 		s.emit("error", err)
 		return "", err
 	}
+	ApplyPreviewShape(resolvedProperties)
 
 	previewFeatures := RequiredPreviewFeatures(resolvedProperties)
 	s.mu.Lock()
