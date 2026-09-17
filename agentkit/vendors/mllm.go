@@ -22,7 +22,11 @@ type OpenAIRealtimeOptions struct {
 	OutputModalities        []string
 	Messages                []map[string]interface{}
 	Params                  map[string]interface{}
-	TurnDetection           *Agora.MllmTurnDetection
+	// Tools configures inline REST tools exposed to OpenAI Realtime.
+	Tools []*Agora.LlmTool
+	// McpServers configures MCP servers available to OpenAI Realtime.
+	McpServers    []*Agora.McpServer
+	TurnDetection *Agora.MllmTurnDetection
 }
 
 type OpenAIRealtime struct {
@@ -92,6 +96,7 @@ func (o *OpenAIRealtime) ToConfig() map[string]interface{} {
 	if o.options.Messages != nil {
 		config["messages"] = o.options.Messages
 	}
+	addMllmTools(config, o.options.Tools, o.options.McpServers)
 	if o.options.TurnDetection != nil {
 		config["turn_detection"] = o.options.TurnDetection
 	}
@@ -303,12 +308,8 @@ func (o *OpenAIGPTLive) ToConfig() map[string]interface{} {
 	if opts.Messages != nil {
 		config["messages"] = opts.Messages
 	}
-	if opts.Tools != nil {
-		config["tools"] = opts.Tools
-	}
-	if opts.McpServerConfigs != nil {
-		config["mcp_servers"] = opts.McpServerConfigs
-	} else if opts.McpServers != nil {
+	addMllmTools(config, opts.Tools, opts.McpServerConfigs)
+	if opts.McpServerConfigs == nil && opts.McpServers != nil {
 		config["mcp_servers"] = ensureMcpTransport(opts.McpServers)
 	}
 	return config
@@ -325,7 +326,11 @@ type AzureOpenAIRealtimeOptions struct {
 	OutputModalities []string
 	MaxHistory       *int
 	GreetingMessage  string
-	TurnDetection    *Agora.MllmTurnDetection
+	// Tools configures inline REST tools exposed to Azure OpenAI Realtime.
+	Tools []*Agora.LlmTool
+	// McpServers configures MCP servers available to Azure OpenAI Realtime.
+	McpServers    []*Agora.McpServer
+	TurnDetection *Agora.MllmTurnDetection
 }
 
 // AzureOpenAIRealtime is the global Azure OpenAI Realtime MLLM vendor.
@@ -384,6 +389,7 @@ func (a *AzureOpenAIRealtime) ToConfig() map[string]interface{} {
 	if a.options.Messages != nil {
 		config["messages"] = a.options.Messages
 	}
+	addMllmTools(config, a.options.Tools, a.options.McpServers)
 	return config
 }
 
@@ -401,7 +407,11 @@ type XaiGrokOptions struct {
 	OutputModalities []string
 	Messages         []map[string]interface{}
 	Params           map[string]interface{}
-	TurnDetection    *Agora.MllmTurnDetection
+	// Tools configures inline REST tools exposed to xAI Grok.
+	Tools []*Agora.LlmTool
+	// McpServers configures MCP servers available to xAI Grok.
+	McpServers    []*Agora.McpServer
+	TurnDetection *Agora.MllmTurnDetection
 }
 
 // XaiGrok is the xAI Grok MLLM vendor (mllm.vendor "xai").
@@ -473,6 +483,7 @@ func (x *XaiGrok) ToConfig() map[string]interface{} {
 	if x.options.Messages != nil {
 		config["messages"] = x.options.Messages
 	}
+	addMllmTools(config, x.options.Tools, x.options.McpServers)
 	if x.options.TurnDetection != nil {
 		config["turn_detection"] = x.options.TurnDetection
 	}
@@ -500,7 +511,11 @@ type GeminiLiveOptions struct {
 	OutputModalities []string
 	Messages         []map[string]interface{}
 	AdditionalParams map[string]interface{}
-	TurnDetection    *Agora.MllmTurnDetection
+	// Tools configures inline REST tools exposed to Gemini Live.
+	Tools []*Agora.LlmTool
+	// McpServers configures MCP servers available to Gemini Live.
+	McpServers    []*Agora.McpServer
+	TurnDetection *Agora.MllmTurnDetection
 }
 
 type GeminiLive struct {
@@ -576,6 +591,7 @@ func (g *GeminiLive) ToConfig() map[string]interface{} {
 	if g.options.Messages != nil {
 		config["messages"] = g.options.Messages
 	}
+	addMllmTools(config, g.options.Tools, g.options.McpServers)
 	if g.options.TurnDetection != nil {
 		config["turn_detection"] = g.options.TurnDetection
 	}
@@ -601,7 +617,11 @@ type VertexAIOptions struct {
 	FailureMessage      string
 	InputModalities     []string
 	OutputModalities    []string
-	TurnDetection       *Agora.MllmTurnDetection
+	// Tools configures inline REST tools exposed to Vertex AI.
+	Tools []*Agora.LlmTool
+	// McpServers configures MCP servers available to Vertex AI.
+	McpServers    []*Agora.McpServer
+	TurnDetection *Agora.MllmTurnDetection
 }
 
 type VertexAI struct {
@@ -678,9 +698,19 @@ func (v *VertexAI) ToConfig() map[string]interface{} {
 	if v.options.Messages != nil {
 		config["messages"] = v.options.Messages
 	}
+	addMllmTools(config, v.options.Tools, v.options.McpServers)
 	if v.options.TurnDetection != nil {
 		config["turn_detection"] = v.options.TurnDetection
 	}
 
 	return config
+}
+
+func addMllmTools(config map[string]interface{}, tools []*Agora.LlmTool, mcpServers []*Agora.McpServer) {
+	if tools != nil {
+		config["tools"] = tools
+	}
+	if mcpServers != nil {
+		config["mcp_servers"] = mcpServers
+	}
 }

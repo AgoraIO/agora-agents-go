@@ -12,6 +12,9 @@ The MLLM flow uses a single multimodal model to process audio input and generate
 
 Call `WithMllm(vendor)` to enable MLLM mode. The builder sets `mllm.enable = true` automatically. Use `agentkit` plus `agentkit/vendors` for global providers, and `agentkit/cn` plus `agentkit/cn/vendors` for mainland China Qwen Omni.
 
+Every MLLM vendor option accepts typed `Tools` and `McpServers`. They serialize at
+`mllm.tools` and `mllm.mcp_servers`; enable their execution with `WithTools(true)`.
+
 ```go
 agent := agentkit.NewAgent(client).WithMllm(vendor)
 ```

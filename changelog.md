@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - **Gemini 3.8 Live production routing** — Both Gemini 3.8 MLLM models now use the regional production gateway without a preview feature header. They send `greeting_message` in the production wire shape while keeping the existing model IDs, options, and top-level `mllm.api_key`.
 - **Legacy Gemini preview compatibility** — Other Gemini Live model IDs using the Gemini Developer API URL retain preview routing, the `gemini-live` feature header, and the preview `greeting` field. The exported `GeminiLivePreviewURL` constant remains available.
 - **OpenAI GPT Live production routing and tools** — Existing `NewOpenAIGPTLive` integrations now use the production regional gateway automatically and no longer send the preview `agora-feature: live-models` gate. GPT Live also accepts typed inline REST tools and MCP server configurations while retaining the existing map-based `McpServers` option and public preview constants for source compatibility.
+- **MLLM tools** — Every AgentKit MLLM vendor now accepts typed inline REST `Tools` and typed `McpServers`, serialized at the corresponding top-level `mllm` fields.
 
 ## [v2.9.0] — 2026-09-15
 

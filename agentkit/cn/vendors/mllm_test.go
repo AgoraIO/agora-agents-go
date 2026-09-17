@@ -120,10 +120,25 @@ func TestQwenOmniSupportsToolsAndMCP(t *testing.T) {
 	tool := &Agora.LlmTool{Function: &Agora.LlmToolFunction{Name: "lookup"}}
 	server := &Agora.McpServer{Name: "catalog", Endpoint: "https://mcp.example.com"}
 	config := NewQwenOmni(QwenOmniOptions{
-		APIKey: "key", Model: "qwen3-omni-flash-realtime", URL: "wss://qwen.example.com",
-		Tools: []*Agora.LlmTool{tool}, McpServers: []*Agora.McpServer{server},
+		APIKey:     "key",
+		Model:      "qwen3-omni-flash-realtime",
+		URL:        "wss://qwen.example.com",
+		Tools:      []*Agora.LlmTool{tool},
+		McpServers: []*Agora.McpServer{server},
 	}).ToConfig()
 	if len(config["tools"].([]*Agora.LlmTool)) != 1 || len(config["mcp_servers"].([]*Agora.McpServer)) != 1 {
 		t.Fatalf("tools/mcp_servers were not emitted: %#v", config)
+	}
+
+	payload, err := json.Marshal(config)
+	if err != nil {
+		t.Fatalf("marshal Qwen Omni tools config: %v", err)
+	}
+	var generated Agora.Mllm
+	if err := json.Unmarshal(payload, &generated); err != nil {
+		t.Fatalf("unmarshal generated Qwen Omni MLLM: %v", err)
+	}
+	if len(generated.Tools) != 1 || len(generated.McpServers) != 1 {
+		t.Fatalf("generated tools/mcp_servers = %#v/%#v, want one of each", generated.Tools, generated.McpServers)
 	}
 }
