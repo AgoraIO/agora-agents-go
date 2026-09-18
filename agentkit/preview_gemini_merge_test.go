@@ -1,14 +1,13 @@
 package agentkit_test
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/AgoraIO/agora-agents-go/v2/agentkit"
 	"github.com/AgoraIO/agora-agents-go/v2/agentkit/vendors"
 )
 
-func TestPreviewGeminiAndGPTLiveGates(t *testing.T) {
+func TestGeminiAndGPTLiveStayOnProduction(t *testing.T) {
 	gemini := vendors.NewGeminiLive(vendors.GeminiLiveOptions{APIKey: "test-key"})
 	config := gemini.ToConfig()
 	geminiProperties := map[string]interface{}{"mllm": config}
@@ -24,13 +23,13 @@ func TestPreviewGeminiAndGPTLiveGates(t *testing.T) {
 		APIKey: "test-key", Model: "future-live-model", URL: vendors.GeminiLivePreviewURL,
 	}).ToConfig()
 	legacyProperties := map[string]interface{}{"mllm": legacy}
-	if got := agentkit.RequiredPreviewFeatures(legacyProperties); !reflect.DeepEqual(got, []string{agentkit.PreviewFeatureGeminiLive}) {
-		t.Fatalf("legacy Gemini preview gate = %v", got)
+	if got := agentkit.RequiredPreviewFeatures(legacyProperties); len(got) != 0 {
+		t.Fatalf("legacy Gemini production gate = %v", got)
 	}
 	legacy["greeting_message"] = "Hello"
 	agentkit.ApplyPreviewShape(legacyProperties)
-	if legacy["greeting"] != "Hello" || legacy["greeting_message"] != nil {
-		t.Fatalf("legacy Gemini preview greeting = %v", legacy)
+	if legacy["greeting_message"] != "Hello" || legacy["greeting"] != nil {
+		t.Fatalf("legacy Gemini production greeting = %v", legacy)
 	}
 
 	gpt := vendors.NewOpenAIGPTLive(vendors.OpenAIGPTLiveOptions{APIKey: "test-key"})

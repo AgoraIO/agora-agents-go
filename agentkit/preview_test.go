@@ -83,21 +83,21 @@ func TestUnifiedGeminiLiveModelNames(t *testing.T) {
 	}
 }
 
-func TestGeminiUnknownModelKeepsPreviewGreetingWithoutNestedAPIKey(t *testing.T) {
+func TestGeminiUnknownModelUsesProductionRouting(t *testing.T) {
 	config := vendors.NewGeminiLive(vendors.GeminiLiveOptions{
 		APIKey: previewAPIKey, Model: "future-live-model", URL: vendors.GeminiLivePreviewURL,
 	}).ToConfig()
 	config["greeting_message"] = "Hello"
 	properties := map[string]interface{}{"mllm": config}
 	ApplyPreviewShape(properties)
-	if got := RequiredPreviewFeatures(properties); len(got) != 1 || got[0] != PreviewFeatureGeminiLive {
-		t.Fatalf("legacy preview features = %v", got)
+	if got := RequiredPreviewFeatures(properties); len(got) != 0 {
+		t.Fatalf("legacy Gemini production features = %v", got)
 	}
-	if config["greeting"] != "Hello" {
-		t.Fatalf("unknown preview model greeting = %v", config["greeting"])
+	if config["greeting_message"] != "Hello" {
+		t.Fatalf("unknown production model greeting_message = %v", config["greeting_message"])
 	}
-	if _, exists := config["greeting_message"]; exists {
-		t.Fatal("production greeting field leaked into preview request")
+	if _, exists := config["greeting"]; exists {
+		t.Fatal("preview greeting field was added to production request")
 	}
 }
 
@@ -606,7 +606,7 @@ func TestGeminiLiveStartRequestUsesProduction(t *testing.T) {
 	}
 }
 
-func TestLegacyGeminiPreviewSessionKeepsRoutingAndGreeting(t *testing.T) {
+func TestLegacyGeminiModelUsesProductionRouting(t *testing.T) {
 	rec := &recordingClient{}
 	session := NewAgent(newTestPreviewClient(rec)).WithMllm(vendors.NewGeminiLive(vendors.GeminiLiveOptions{
 		APIKey: previewAPIKey, Model: "future-live-model", URL: vendors.GeminiLivePreviewURL,
@@ -618,18 +618,18 @@ func TestLegacyGeminiPreviewSessionKeepsRoutingAndGreeting(t *testing.T) {
 	if len(rec.requests) != 1 {
 		t.Fatalf("requests = %d, want one", len(rec.requests))
 	}
-	if got := rec.requests[0].Header.Get(PreviewFeatureHeader); got != PreviewFeatureGeminiLive {
-		t.Fatalf("legacy Gemini preview feature = %q", got)
+	if got := rec.requests[0].Header.Get(PreviewFeatureHeader); got != "" {
+		t.Fatalf("legacy Gemini production feature = %q", got)
 	}
-	if !strings.HasPrefix(rec.requests[0].URL.String(), PreviewAPIBaseURL) {
-		t.Fatalf("legacy Gemini preview host = %s", rec.requests[0].URL)
+	if strings.HasPrefix(rec.requests[0].URL.String(), PreviewAPIBaseURL) {
+		t.Fatalf("legacy Gemini unexpectedly used preview host: %s", rec.requests[0].URL)
 	}
 	var body map[string]interface{}
 	if err := json.Unmarshal(rec.bodies[0], &body); err != nil {
 		t.Fatal(err)
 	}
 	mllm := body["properties"].(map[string]interface{})["mllm"].(map[string]interface{})
-	if mllm["greeting"] != "Hello" || mllm["greeting_message"] != nil {
-		t.Fatalf("legacy Gemini preview greeting = %v", mllm)
+	if mllm["greeting_message"] != "Hello" || mllm["greeting"] != nil {
+		t.Fatalf("legacy Gemini production greeting = %v", mllm)
 	}
 }

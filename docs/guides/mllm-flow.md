@@ -77,7 +77,7 @@ func main() {
 
 ## Gemini Live Example
 
-Use `NewGeminiLive` for existing Gemini Live models and both Gemini 3.8 models. The 3.8 IDs use production routing; Extended Thinking also accepts `ThinkingLevel`. Legacy Gemini preview configurations remain supported. See the [Preview Endpoint guide](./preview-endpoint.md).
+Use `NewGeminiLive` for existing Gemini Live models and both Gemini 3.8 models. All model IDs use production routing; Extended Thinking also accepts `ThinkingLevel`. The former preview exports remain available for source compatibility only. See the [Preview Endpoint guide](./preview-endpoint.md).
 
 ```go
 agent := agentkit.NewAgent(client).WithMllm(

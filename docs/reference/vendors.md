@@ -991,7 +991,7 @@ Panics if `APIKey` or `URL` is empty, or if `TurnDetection` is nil. Azure OpenAI
 
 ### NewGeminiLive
 
-`NewGeminiLive` supports existing Gemini Live models and both public Gemini 3.8 voice models. The 3.8 IDs use production routing and `greeting_message`. Legacy configurations with another model ID and a Gemini Developer API URL retain preview routing. See [Preview Endpoint](../guides/preview-endpoint.md).
+`NewGeminiLive` supports existing Gemini Live models and both public Gemini 3.8 voice models. Every model ID uses production routing and `greeting_message`. `GeminiLivePreviewURL` remains exported for source compatibility only; it does not enable preview routing. See [Preview Endpoint](../guides/preview-endpoint.md).
 
 <!-- snippet: fragment -->
 ```go
