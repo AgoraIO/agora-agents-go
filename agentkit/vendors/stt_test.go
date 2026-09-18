@@ -487,3 +487,27 @@ func TestAresSTTRejectsMultipleOptions(t *testing.T) {
 	}()
 	NewAresSTT(AresSTTOptions{}, AresSTTOptions{})
 }
+
+func TestSmallestAISTTConfig(t *testing.T) {
+	rate := 16000
+	timeout := 480
+	config := NewSmallestAISTT(SmallestAISTTOptions{APIKey: "key", URL: "wss://smallest.example", Language: "en-US", SampleRate: &rate, EOUTimeoutMs: &timeout, WordTimestamps: true, AdditionalParams: map[string]interface{}{"custom": true}}).ToConfig()
+	if config["vendor"] != "smallestai" || config["language"] != "en-US" {
+		t.Fatalf("unexpected config: %#v", config)
+	}
+	params := config["params"].(map[string]interface{})
+	if params["api_key"] != "key" || params["language"] != "en-US" || params["sample_rate"] != rate || params["eou_timeout_ms"] != timeout || params["word_timestamps"] != "true" || params["custom"] != true {
+		t.Fatalf("unexpected params: %#v", params)
+	}
+	payload, err := json.Marshal(config)
+	if err != nil {
+		t.Fatalf("marshal Smallest AI config: %v", err)
+	}
+	var generated Agora.Asr
+	if err := json.Unmarshal(payload, &generated); err != nil {
+		t.Fatalf("unmarshal Smallest AI config: %v", err)
+	}
+	if generated.Smallestai == nil || generated.Smallestai.Params == nil || generated.Smallestai.Params.GetEouTimeoutMs() == nil || *generated.Smallestai.Params.GetEouTimeoutMs() != timeout {
+		t.Fatalf("generated Smallest AI timeout mismatch: %#v", generated.Smallestai)
+	}
+}

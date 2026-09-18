@@ -65,7 +65,7 @@ func main() {
 
 When `WithStt()` is omitted on `agentkit/cn.Agent`, the request falls back to `asr.vendor = "fengming"` automatically.
 
-Qwen Omni MLLM is available only from the CN vendor package. Its realtime WebSocket `URL` is required, while `TurnDetection` is optional:
+Qwen Omni MLLM is available only from the CN vendor package. Its realtime WebSocket `URL` is required, while `TurnDetection` is optional. `Tools` and typed `McpServers` are supported:
 
 ```go
 agent := agentkit.NewAgent(client).WithMllm(

@@ -2,13 +2,7 @@ package vendors
 
 import "strings"
 
-// Preview-only vendor types.
-//
-// Wire shapes here match the preview gateway contract exactly and are not
-// served by the production environment. See agentkit/preview_client.go for the
-// routing and the agora-feature gate.
-
-// Preview MLLM model names.
+// Gemini 3.8 MLLM model names.
 //
 // The models/ prefix is part of the requested model ID.
 const (
@@ -26,11 +20,14 @@ const (
 	GeminiThinkingLevelHigh   = "high"
 )
 
-// GeminiLivePreviewURL is the Gemini Developer API host for the 3.8 models.
-const GeminiLivePreviewURL = "https://generativelanguage.googleapis.com"
+// GeminiLiveURL is the Gemini Developer API host for Gemini Live models.
+const GeminiLiveURL = "https://generativelanguage.googleapis.com"
 
-// buildGeminiPreviewConfig assembles the 3.8 wire envelope from GeminiLive.
-func buildGeminiPreviewConfig(o GeminiLiveOptions) map[string]interface{} {
+// GeminiLivePreviewURL is retained for source compatibility with preview callers.
+const GeminiLivePreviewURL = GeminiLiveURL
+
+// buildGemini38Config assembles the 3.8 production wire envelope.
+func buildGemini38Config(o GeminiLiveOptions) map[string]interface{} {
 	model := strings.TrimSpace(o.Model)
 	if model == "" {
 		model = GeminiLiveDefaultModel
@@ -41,7 +38,7 @@ func buildGeminiPreviewConfig(o GeminiLiveOptions) map[string]interface{} {
 	}
 	url := o.URL
 	if url == "" {
-		url = GeminiLivePreviewURL
+		url = GeminiLiveURL
 	}
 
 	params := map[string]interface{}{}
@@ -59,8 +56,7 @@ func buildGeminiPreviewConfig(o GeminiLiveOptions) map[string]interface{} {
 		delete(params, "thinking_level")
 	}
 	// Plural array, and omitted when nil. The singular params.language belongs
-	// to xAI Grok in the Agora schema, and the production Gemini Live provider
-	// sends no language field at all.
+	// to xAI Grok.
 	if o.LanguageCodes != nil {
 		params["language_codes"] = o.LanguageCodes
 	}
@@ -93,10 +89,8 @@ func buildGeminiPreviewConfig(o GeminiLiveOptions) map[string]interface{} {
 	if o.Messages != nil {
 		config["messages"] = o.Messages
 	}
-	// "greeting", not "greeting_message": the preview Gemini models read this
-	// spelling. See the preview-endpoint guide.
 	if o.GreetingMessage != "" {
-		config["greeting"] = o.GreetingMessage
+		config["greeting_message"] = o.GreetingMessage
 	}
 	if o.FailureMessage != "" {
 		config["failure_message"] = o.FailureMessage
@@ -107,6 +101,7 @@ func buildGeminiPreviewConfig(o GeminiLiveOptions) map[string]interface{} {
 	if o.OutputModalities != nil {
 		config["output_modalities"] = o.OutputModalities
 	}
+	addMllmTools(config, o.Tools, o.McpServers)
 	if o.TurnDetection != nil {
 		config["turn_detection"] = o.TurnDetection
 	}

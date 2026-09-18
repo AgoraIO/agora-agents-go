@@ -1,6 +1,9 @@
 package vendors
 
 import (
+	"encoding/json"
+	"log"
+	"net/url"
 	"strings"
 
 	Agora "github.com/AgoraIO/agora-agents-go/v2"
@@ -19,7 +22,11 @@ type OpenAIRealtimeOptions struct {
 	OutputModalities        []string
 	Messages                []map[string]interface{}
 	Params                  map[string]interface{}
-	TurnDetection           *Agora.MllmTurnDetection
+	// Tools configures inline REST tools exposed to OpenAI Realtime.
+	Tools []*Agora.LlmTool
+	// McpServers configures MCP servers available to OpenAI Realtime.
+	McpServers    []*Agora.McpServer
+	TurnDetection *Agora.MllmTurnDetection
 }
 
 type OpenAIRealtime struct {
@@ -89,10 +96,222 @@ func (o *OpenAIRealtime) ToConfig() map[string]interface{} {
 	if o.options.Messages != nil {
 		config["messages"] = o.options.Messages
 	}
+	addMllmTools(config, o.options.Tools, o.options.McpServers)
 	if o.options.TurnDetection != nil {
 		config["turn_detection"] = o.options.TurnDetection
 	}
 
+	return config
+}
+
+// OpenAIGPTLiveOptions configures GPT Live v3.
+// Explicit options override Params. Unset tuning options retain provider defaults.
+type OpenAIGPTLiveOptions struct {
+	APIKey string
+	URL    string
+	// Deprecated: Use Prompt. Serialized as prompt; an explicit Prompt wins.
+	Instructions     string
+	GreetingMessage  string
+	FailureMessage   string
+	InputModalities  []string
+	OutputModalities []string
+	Messages         []map[string]interface{}
+	// Tools configures inline REST tools exposed to GPT Live.
+	Tools []*Agora.LlmTool
+	// Deprecated: Use McpServerConfigs.
+	McpServers []map[string]interface{}
+	// McpServerConfigs configures typed MCP servers and takes precedence over McpServers.
+	McpServerConfigs []*Agora.McpServer
+	Params           map[string]interface{}
+	// Deprecated: Unsupported in v3; setting this panics during ToConfig.
+	InputAudioTranscription map[string]interface{}
+	// Deprecated: Ignored with a warning; v3 performs endpointing internally.
+	TurnDetection *Agora.MllmTurnDetection
+	// Defaults to gpt-live-1.
+	Model string
+	// Output voice; provider default marin. Custom voice objects require PR #1522; use params after rollout.
+	Voice string
+	// Session instructions.
+	Prompt string
+	// Host when url is omitted; default wss://api.openai.com.
+	BaseURL string
+	// WebSocket path; default /v1/live/sessions.
+	Path string
+	// Optional OpenAI-Alpha selector for preview contracts. Omitted when empty.
+	AlphaSelector string
+	// Extra provider request headers as a JSON string; protocol headers win.
+	Headers string
+	// Assistant silence boundary in ms; provider default 600. Zero disables inference.
+	OutputIdleEndMs *int
+	// Caller silence boundary in ms; provider default 1500.
+	InputIdleEndMs *int
+	// Speech amplitude threshold on the 16-bit scale; provider default 50.
+	OutputSilencePeak *int
+	// Graph PCM sample rate; provider default 24000.
+	OutputSampleRate *int
+	// Initial audio cushion; provider default 0. Negative disables pacing.
+	OutputBufferMs *int
+	// Mic append batching in ms. Join default 0; extension class default 100.
+	InputBatchMs *int
+	// Advertise graph tools; provider default false. Does not control delegate built-ins.
+	ToolEnabled *bool
+	// Tool delegation mode; provider default responses. Fixed for the session.
+	Delegation string
+	// Tool delegate model; provider default gpt-5.6-sol.
+	ResponsesModel string
+	// Interrupt playback on caller speech; provider default false.
+	InterruptOnUserTurn *bool
+	// Unmodelled v3 session fields. Cannot override model, delegation, audio, instructions or input.
+	SessionParams map[string]interface{}
+}
+
+// OpenAIGPTLive is the GPT Live v3 MLLM vendor.
+type OpenAIGPTLive struct{ options OpenAIGPTLiveOptions }
+
+func NewOpenAIGPTLive(opts OpenAIGPTLiveOptions) *OpenAIGPTLive {
+	if opts.APIKey == "" {
+		panic("OpenAIGPTLive requires APIKey")
+	}
+	return &OpenAIGPTLive{options: opts}
+}
+
+func (o *OpenAIGPTLive) ToConfig() map[string]interface{} {
+	opts := o.options
+	params := map[string]interface{}{
+		"model": "gpt-live-1",
+	}
+	for k, v := range opts.Params {
+		params[k] = v
+	}
+	if opts.Instructions != "" {
+		params["prompt"] = opts.Instructions
+	}
+	if opts.Model != "" {
+		params["model"] = opts.Model
+	}
+	if opts.Voice != "" {
+		params["voice"] = opts.Voice
+	}
+	if opts.Prompt != "" {
+		params["prompt"] = opts.Prompt
+	}
+	if opts.BaseURL != "" {
+		params["base_url"] = opts.BaseURL
+	}
+	if opts.Path != "" {
+		params["path"] = opts.Path
+	}
+	if opts.AlphaSelector != "" {
+		params["alpha_selector"] = opts.AlphaSelector
+	}
+	if opts.Headers != "" {
+		params["headers"] = opts.Headers
+	}
+	if opts.OutputIdleEndMs != nil {
+		params["output_idle_end_ms"] = *opts.OutputIdleEndMs
+	}
+	if opts.InputIdleEndMs != nil {
+		params["input_idle_end_ms"] = *opts.InputIdleEndMs
+	}
+	if opts.OutputSilencePeak != nil {
+		params["output_silence_peak"] = *opts.OutputSilencePeak
+	}
+	if opts.OutputSampleRate != nil {
+		params["output_sample_rate"] = *opts.OutputSampleRate
+	}
+	if opts.OutputBufferMs != nil {
+		params["output_buffer_ms"] = *opts.OutputBufferMs
+	}
+	if opts.InputBatchMs != nil {
+		params["input_batch_ms"] = *opts.InputBatchMs
+	}
+	if opts.ToolEnabled != nil {
+		params["tool_enabled"] = *opts.ToolEnabled
+	}
+	if opts.Delegation != "" {
+		params["delegation"] = opts.Delegation
+	}
+	if opts.ResponsesModel != "" {
+		params["responses_model"] = opts.ResponsesModel
+	}
+	if opts.InterruptOnUserTurn != nil {
+		params["interrupt_on_user_turn"] = *opts.InterruptOnUserTurn
+	}
+	if opts.SessionParams != nil {
+		params["session_params"] = opts.SessionParams
+	}
+	if _, ok := params["input_audio_transcription"]; ok || opts.InputAudioTranscription != nil {
+		panic("GPT Live v3 does not support input_audio_transcription")
+	}
+	if _, ok := params["turn_detection"]; ok || opts.TurnDetection != nil {
+		log.Print("GPT Live v3 ignores turn_detection; endpointing is internal")
+		delete(params, "turn_detection")
+	}
+	if mode, ok := params["delegation"]; ok && mode != "client" && mode != "responses" {
+		panic("GPT Live delegation must be client or responses")
+	}
+	if raw, ok := params["headers"]; ok {
+		value, ok := raw.(string)
+		var headers map[string]interface{}
+		if !ok || json.Unmarshal([]byte(value), &headers) != nil || headers == nil {
+			panic("GPT Live headers must be a JSON object string")
+		}
+	}
+	if raw, exists := params["session_params"]; exists {
+		session, ok := raw.(map[string]interface{})
+		if !ok {
+			panic("GPT Live session_params must be an object")
+		}
+		for _, key := range []string{"model", "delegation", "audio", "instructions", "input"} {
+			if _, ok := session[key]; ok {
+				panic("GPT Live session_params cannot override " + key)
+			}
+		}
+	}
+	endpoint := opts.URL
+	if endpoint == "" {
+		base, path := "wss://api.openai.com", "/v1/live/sessions"
+		if v, ok := params["base_url"].(string); ok {
+			base = v
+		}
+		if v, ok := params["path"].(string); ok {
+			path = v
+		}
+		endpoint = strings.TrimRight(base, "/") + "/" + strings.TrimLeft(path, "/")
+	}
+	parsed, err := url.Parse(endpoint)
+	if err != nil || (parsed.Scheme != "ws" && parsed.Scheme != "wss") || parsed.Hostname() == "" {
+		panic("GPT Live url must be a full ws:// or wss:// endpoint")
+	}
+	if parsed.Hostname() == "api.openai.com" && parsed.Path == "/v1/live" {
+		parsed.Path = "/v1/live/sessions"
+		endpoint = parsed.String()
+	}
+	config := map[string]interface{}{
+		"vendor":  "openai_gpt_live",
+		"api_key": opts.APIKey,
+		"url":     endpoint,
+		"params":  params,
+	}
+	if opts.GreetingMessage != "" {
+		config["greeting_message"] = opts.GreetingMessage
+	}
+	if opts.FailureMessage != "" {
+		config["failure_message"] = opts.FailureMessage
+	}
+	if opts.InputModalities != nil {
+		config["input_modalities"] = opts.InputModalities
+	}
+	if opts.OutputModalities != nil {
+		config["output_modalities"] = opts.OutputModalities
+	}
+	if opts.Messages != nil {
+		config["messages"] = opts.Messages
+	}
+	addMllmTools(config, opts.Tools, opts.McpServerConfigs)
+	if opts.McpServerConfigs == nil && opts.McpServers != nil {
+		config["mcp_servers"] = ensureMcpTransport(opts.McpServers)
+	}
 	return config
 }
 
@@ -107,7 +326,11 @@ type AzureOpenAIRealtimeOptions struct {
 	OutputModalities []string
 	MaxHistory       *int
 	GreetingMessage  string
-	TurnDetection    *Agora.MllmTurnDetection
+	// Tools configures inline REST tools exposed to Azure OpenAI Realtime.
+	Tools []*Agora.LlmTool
+	// McpServers configures MCP servers available to Azure OpenAI Realtime.
+	McpServers    []*Agora.McpServer
+	TurnDetection *Agora.MllmTurnDetection
 }
 
 // AzureOpenAIRealtime is the global Azure OpenAI Realtime MLLM vendor.
@@ -166,6 +389,7 @@ func (a *AzureOpenAIRealtime) ToConfig() map[string]interface{} {
 	if a.options.Messages != nil {
 		config["messages"] = a.options.Messages
 	}
+	addMllmTools(config, a.options.Tools, a.options.McpServers)
 	return config
 }
 
@@ -183,7 +407,11 @@ type XaiGrokOptions struct {
 	OutputModalities []string
 	Messages         []map[string]interface{}
 	Params           map[string]interface{}
-	TurnDetection    *Agora.MllmTurnDetection
+	// Tools configures inline REST tools exposed to xAI Grok.
+	Tools []*Agora.LlmTool
+	// McpServers configures MCP servers available to xAI Grok.
+	McpServers    []*Agora.McpServer
+	TurnDetection *Agora.MllmTurnDetection
 }
 
 // XaiGrok is the xAI Grok MLLM vendor (mllm.vendor "xai").
@@ -255,6 +483,7 @@ func (x *XaiGrok) ToConfig() map[string]interface{} {
 	if x.options.Messages != nil {
 		config["messages"] = x.options.Messages
 	}
+	addMllmTools(config, x.options.Tools, x.options.McpServers)
 	if x.options.TurnDetection != nil {
 		config["turn_detection"] = x.options.TurnDetection
 	}
@@ -282,7 +511,11 @@ type GeminiLiveOptions struct {
 	OutputModalities []string
 	Messages         []map[string]interface{}
 	AdditionalParams map[string]interface{}
-	TurnDetection    *Agora.MllmTurnDetection
+	// Tools configures inline REST tools exposed to Gemini Live.
+	Tools []*Agora.LlmTool
+	// McpServers configures MCP servers available to Gemini Live.
+	McpServers    []*Agora.McpServer
+	TurnDetection *Agora.MllmTurnDetection
 }
 
 type GeminiLive struct {
@@ -308,7 +541,7 @@ func NewGeminiLive(opts GeminiLiveOptions) *GeminiLive {
 
 func (g *GeminiLive) ToConfig() map[string]interface{} {
 	if g.options.Model == GeminiLiveModel38Live || g.options.Model == GeminiLiveModel38LiveExtendedThinking {
-		return buildGeminiPreviewConfig(g.options)
+		return buildGemini38Config(g.options)
 	}
 	params := map[string]interface{}{}
 	for k, v := range g.options.AdditionalParams {
@@ -358,6 +591,7 @@ func (g *GeminiLive) ToConfig() map[string]interface{} {
 	if g.options.Messages != nil {
 		config["messages"] = g.options.Messages
 	}
+	addMllmTools(config, g.options.Tools, g.options.McpServers)
 	if g.options.TurnDetection != nil {
 		config["turn_detection"] = g.options.TurnDetection
 	}
@@ -383,7 +617,11 @@ type VertexAIOptions struct {
 	FailureMessage      string
 	InputModalities     []string
 	OutputModalities    []string
-	TurnDetection       *Agora.MllmTurnDetection
+	// Tools configures inline REST tools exposed to Vertex AI.
+	Tools []*Agora.LlmTool
+	// McpServers configures MCP servers available to Vertex AI.
+	McpServers    []*Agora.McpServer
+	TurnDetection *Agora.MllmTurnDetection
 }
 
 type VertexAI struct {
@@ -460,9 +698,19 @@ func (v *VertexAI) ToConfig() map[string]interface{} {
 	if v.options.Messages != nil {
 		config["messages"] = v.options.Messages
 	}
+	addMllmTools(config, v.options.Tools, v.options.McpServers)
 	if v.options.TurnDetection != nil {
 		config["turn_detection"] = v.options.TurnDetection
 	}
 
 	return config
+}
+
+func addMllmTools(config map[string]interface{}, tools []*Agora.LlmTool, mcpServers []*Agora.McpServer) {
+	if tools != nil {
+		config["tools"] = tools
+	}
+	if mcpServers != nil {
+		config["mcp_servers"] = mcpServers
+	}
 }

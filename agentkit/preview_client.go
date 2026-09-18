@@ -27,12 +27,14 @@ const PreviewAPIBaseURL = "https://partner.ai.agora.io/preview/api/conversationa
 // environment, where the preview providers do not exist.
 const PreviewFeatureHeader = "agora-feature"
 
-// PreviewFeatureGeminiLive gates the Gemini preview MLLM providers.
-//
-// Gemini ASR is available through the production endpoint; the MLLMs remain preview-only.
+// PreviewFeatureGeminiLive is retained for source compatibility with the
+// former Gemini preview integration. Gemini Live models use production
+// routing and no longer request this feature.
 const PreviewFeatureGeminiLive = "gemini-live"
 
-// PreviewFeatureLiveModels gates the OpenAI GPT Live MLLM provider.
+// PreviewFeatureLiveModels is retained for source compatibility with the
+// former OpenAI GPT Live preview integration. GPT Live uses production
+// routing and no longer requests this feature.
 const PreviewFeatureLiveModels = "live-models"
 
 // previewGateClient pins the gate header onto every request.
@@ -72,45 +74,11 @@ func previewRequestOptions(features []string, inner core.HTTPClient, debug bool)
 // previewASRVendors are served only by the preview endpoint.
 var previewASRVendors = map[string]string{}
 
-func isPreviewOpenAIModel(properties map[string]interface{}) bool {
-	mllm, ok := properties["mllm"].(map[string]interface{})
-	return ok && mllm["vendor"] == "openai_gpt_live"
-}
-
-var previewGeminiModels = map[string]bool{
-	"models/gemini-3.8-live":                   true,
-	"models/gemini-3.8-live-extended-thinking": true,
-}
-
-func previewGeminiLive(properties map[string]interface{}) (map[string]interface{}, bool) {
-	mllm, ok := properties["mllm"].(map[string]interface{})
-	if !ok || mllm["vendor"] != "gemini" {
-		return nil, false
-	}
-	params, ok := mllm["params"].(map[string]interface{})
-	if !ok {
-		return nil, false
-	}
-	if model, ok := params["model"].(string); ok && previewGeminiModels[model] {
-		return mllm, true
-	}
-	url, _ := mllm["url"].(string)
-	_, hasKey := mllm["api_key"].(string)
-	return mllm, hasKey && strings.HasPrefix(url, "https://generativelanguage.googleapis.com")
-}
-
-// ApplyPreviewShape translates the builder's production greeting field for Gemini preview.
+// ApplyPreviewShape is retained for source compatibility with the former
+// Gemini preview integration. Gemini Live requests now keep the production
+// greeting shape and are never rewritten for preview routing.
 func ApplyPreviewShape(properties map[string]interface{}) {
-	mllm, ok := previewGeminiLive(properties)
-	if !ok {
-		return
-	}
-	if greeting, exists := mllm["greeting_message"]; exists {
-		if _, set := mllm["greeting"]; !set {
-			mllm["greeting"] = greeting
-		}
-		delete(mllm, "greeting_message")
-	}
+	_ = properties
 }
 
 // RequiredPreviewFeatures returns the preview features a start request needs.
@@ -139,12 +107,5 @@ func requiredPreviewFeatures(properties map[string]interface{}, previewVendors m
 			}
 		}
 	}
-	if isPreviewOpenAIModel(properties) {
-		add(PreviewFeatureLiveModels)
-	}
-	if _, ok := previewGeminiLive(properties); ok {
-		add(PreviewFeatureGeminiLive)
-	}
-
 	return features
 }

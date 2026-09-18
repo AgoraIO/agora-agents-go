@@ -15,7 +15,11 @@ type QwenOmniOptions struct {
 	OutputModalities []string
 	Messages         []map[string]interface{}
 	Params           map[string]interface{}
-	TurnDetection    *Agora.MllmTurnDetection
+	// Tools configures inline LLM tools exposed to Qwen Omni.
+	Tools []*Agora.LlmTool
+	// McpServers configures MCP servers available to Qwen Omni.
+	McpServers    []*Agora.McpServer
+	TurnDetection *Agora.MllmTurnDetection
 }
 
 // QwenOmni is the mainland China Qwen Omni Realtime MLLM provider.
@@ -70,6 +74,12 @@ func (q *QwenOmni) ToConfig() map[string]interface{} {
 	}
 	if q.options.Messages != nil {
 		config["messages"] = q.options.Messages
+	}
+	if q.options.Tools != nil {
+		config["tools"] = q.options.Tools
+	}
+	if q.options.McpServers != nil {
+		config["mcp_servers"] = q.options.McpServers
 	}
 	if q.options.TurnDetection != nil {
 		config["turn_detection"] = q.options.TurnDetection
