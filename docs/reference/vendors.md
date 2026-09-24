@@ -911,6 +911,8 @@ Panics if `APIKey` is empty.
 | `OutputModalities` | `[]string`                | No       | —                           | Output modalities                                  |
 | `Messages`        | `[]map[string]interface{}` | No       | —                           | Conversation messages for short-term memory        |
 | `Params`          | `map[string]interface{}`   | No       | —                           | Additional realtime params such as `voice`         |
+| `Tools`           | `[]*Agora.LlmTool`          | No       | —                           | Inline REST tools exposed to the MLLM               |
+| `McpServers`      | `[]*Agora.McpServer`        | No       | —                           | MCP servers exposed to the MLLM                     |
 | `TurnDetection`   | `*Agora.MllmTurnDetection` | No | — | MLLM turn detection configuration; overrides top-level turn detection |
 
 ### NewOpenAIGPTLive
@@ -983,11 +985,13 @@ Panics if `APIKey` or `URL` is empty, or if `TurnDetection` is nil. Azure OpenAI
 | `MaxHistory` | `*int` | No | — | Azure-only conversation history limit at `mllm.max_history` |
 | `OutputModalities` | `[]string` | No | — | Output modalities |
 | `Messages` | `[]map[string]interface{}` | No | — | Conversation messages for short-term memory |
+| `Tools` | `[]*Agora.LlmTool` | No | — | Inline REST tools exposed to the MLLM |
+| `McpServers` | `[]*Agora.McpServer` | No | — | MCP servers exposed to the MLLM |
 | `TurnDetection` | `*Agora.MllmTurnDetection` | Yes | — | Required MLLM turn detection configuration; overrides top-level turn detection |
 
 ### NewGeminiLive
 
-`NewGeminiLive` supports existing Gemini Live models and both public Gemini 3.8 voice models. The 3.8 IDs use production routing and `greeting_message`. Legacy configurations with another model ID and a Gemini Developer API URL retain preview routing. See [Preview Endpoint](../guides/preview-endpoint.md).
+`NewGeminiLive` supports existing Gemini Live models and both public Gemini 3.8 voice models. Every model ID uses production routing and `greeting_message`. `GeminiLivePreviewURL` remains exported for source compatibility only; it does not enable preview routing. See [Preview Endpoint](../guides/preview-endpoint.md).
 
 <!-- snippet: fragment -->
 ```go
@@ -1013,6 +1017,8 @@ Panics if `APIKey` is empty. An empty `Model` defaults to `models/gemini-3.8-liv
 | `OutputModalities` | `[]string`                 | No       | —       | Output modalities |
 | `Messages`         | `[]map[string]interface{}` | No       | —       | Conversation messages |
 | `AdditionalParams` | `map[string]interface{}`   | No       | —       | Additional Gemini params |
+| `Tools`            | `[]*Agora.LlmTool`          | No       | —       | Inline REST tools exposed to the MLLM |
+| `McpServers`       | `[]*Agora.McpServer`        | No       | —       | MCP servers exposed to the MLLM |
 | `TurnDetection`    | `*Agora.MllmTurnDetection` | No | — | MLLM turn detection configuration; overrides top-level turn detection |
 
 ### NewXaiGrok
@@ -1054,6 +1060,8 @@ Deprecated. Use `NewXaiGrok` instead.
 | `OutputModalities` | `[]string` | No | — | Output modalities |
 | `Messages` | `[]map[string]interface{}` | No | — | Conversation messages |
 | `Params` | `map[string]interface{}` | No | — | Additional xAI params |
+| `Tools` | `[]*Agora.LlmTool` | No | — | Inline REST tools exposed to the MLLM |
+| `McpServers` | `[]*Agora.McpServer` | No | — | MCP servers exposed to the MLLM |
 | `TurnDetection` | `*Agora.MllmTurnDetection` | No | — | `agora_vad` / `server_vad` turn detection |
 
 ### NewVertexAI
@@ -1082,6 +1090,8 @@ func NewVertexAI(opts VertexAIOptions) *VertexAI
 | `InputModalities` | `[]string`                 | No       | —                        | Input modalities                                |
 | `OutputModalities` | `[]string`                | No       | —                        | Output modalities                               |
 | `AdditionalParams` | `map[string]interface{}`  | No       | —                        | Additional Vertex/Gemini params                 |
+| `Tools`            | `[]*Agora.LlmTool`         | No       | —                        | Inline REST tools exposed to the MLLM           |
+| `McpServers`       | `[]*Agora.McpServer`       | No       | —                        | MCP servers exposed to the MLLM                 |
 | `TurnDetection`    | `*Agora.MllmTurnDetection` | No | — | MLLM turn detection configuration; overrides top-level turn detection |
 
 ## CN STT and MLLM Vendors

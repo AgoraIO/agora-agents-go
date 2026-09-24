@@ -101,6 +101,7 @@ func buildGemini38Config(o GeminiLiveOptions) map[string]interface{} {
 	if o.OutputModalities != nil {
 		config["output_modalities"] = o.OutputModalities
 	}
+	addMllmTools(config, o.Tools, o.McpServers)
 	if o.TurnDetection != nil {
 		config["turn_detection"] = o.TurnDetection
 	}

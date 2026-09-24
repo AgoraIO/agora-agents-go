@@ -1125,6 +1125,7 @@ type Asr struct {
 	Assemblyai    *AssemblyAiAsr
 	Speechmatics  *SpeechmaticsAsr
 	Sarvam        *SarvamAsr
+	Rtzr          *RtzrAsr
 	Xai           *XAiAsr
 	Xfyun         *XfyunAsr
 	XfyunBigmodel *XfyunBigmodelAsr
@@ -1221,6 +1222,13 @@ func (a *Asr) GetSarvam() *SarvamAsr {
 		return nil
 	}
 	return a.Sarvam
+}
+
+func (a *Asr) GetRtzr() *RtzrAsr {
+	if a == nil {
+		return nil
+	}
+	return a.Rtzr
 }
 
 func (a *Asr) GetXai() *XAiAsr {
@@ -1342,6 +1350,12 @@ func (a *Asr) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		a.Sarvam = value
+	case "rtzr":
+		value := new(RtzrAsr)
+		if err := json.Unmarshal(data, &value); err != nil {
+			return err
+		}
+		a.Rtzr = value
 	case "xai":
 		value := new(XAiAsr)
 		if err := json.Unmarshal(data, &value); err != nil {
@@ -1416,6 +1430,9 @@ func (a Asr) MarshalJSON() ([]byte, error) {
 	if a.Sarvam != nil {
 		return internal.MarshalJSONWithExtraProperty(a.Sarvam, "vendor", "sarvam")
 	}
+	if a.Rtzr != nil {
+		return internal.MarshalJSONWithExtraProperty(a.Rtzr, "vendor", "rtzr")
+	}
 	if a.Xai != nil {
 		return internal.MarshalJSONWithExtraProperty(a.Xai, "vendor", "xai")
 	}
@@ -1447,6 +1464,7 @@ type AsrVisitor interface {
 	VisitAssemblyai(*AssemblyAiAsr) error
 	VisitSpeechmatics(*SpeechmaticsAsr) error
 	VisitSarvam(*SarvamAsr) error
+	VisitRtzr(*RtzrAsr) error
 	VisitXai(*XAiAsr) error
 	VisitXfyun(*XfyunAsr) error
 	VisitXfyunBigmodel(*XfyunBigmodelAsr) error
@@ -1490,6 +1508,9 @@ func (a *Asr) Accept(visitor AsrVisitor) error {
 	}
 	if a.Sarvam != nil {
 		return visitor.VisitSarvam(a.Sarvam)
+	}
+	if a.Rtzr != nil {
+		return visitor.VisitRtzr(a.Rtzr)
 	}
 	if a.Xai != nil {
 		return visitor.VisitXai(a.Xai)
@@ -1549,6 +1570,9 @@ func (a *Asr) validate() error {
 	}
 	if a.Sarvam != nil {
 		fields = append(fields, "sarvam")
+	}
+	if a.Rtzr != nil {
+		fields = append(fields, "rtzr")
 	}
 	if a.Xai != nil {
 		fields = append(fields, "xai")
@@ -3234,7 +3258,7 @@ func (d *DeepgramAsr) String() string {
 // Deepgram ASR configuration parameters.
 var (
 	deepgramAsrParamsFieldURL      = big.NewInt(1 << 0)
-	deepgramAsrParamsFieldKey      = big.NewInt(1 << 1)
+	deepgramAsrParamsFieldAPIKey   = big.NewInt(1 << 1)
 	deepgramAsrParamsFieldModel    = big.NewInt(1 << 2)
 	deepgramAsrParamsFieldLanguage = big.NewInt(1 << 3)
 	deepgramAsrParamsFieldKeyterm  = big.NewInt(1 << 4)
@@ -3244,7 +3268,7 @@ type DeepgramAsrParams struct {
 	// WebSocket URL for Deepgram's streaming API
 	URL *string `json:"url,omitempty" url:"url,omitempty"`
 	// Deepgram API key
-	Key string `json:"key" url:"key"`
+	APIKey string `json:"api_key" url:"api_key"`
 	// Speech recognition model
 	Model *string `json:"model,omitempty" url:"model,omitempty"`
 	// Language code for speech recognition
@@ -3267,11 +3291,11 @@ func (d *DeepgramAsrParams) GetURL() *string {
 	return d.URL
 }
 
-func (d *DeepgramAsrParams) GetKey() string {
+func (d *DeepgramAsrParams) GetAPIKey() string {
 	if d == nil {
 		return ""
 	}
-	return d.Key
+	return d.APIKey
 }
 
 func (d *DeepgramAsrParams) GetModel() *string {
@@ -3313,11 +3337,11 @@ func (d *DeepgramAsrParams) SetURL(url *string) {
 	d.require(deepgramAsrParamsFieldURL)
 }
 
-// SetKey sets the Key field and marks it as non-optional;
+// SetAPIKey sets the APIKey field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (d *DeepgramAsrParams) SetKey(key string) {
-	d.Key = key
-	d.require(deepgramAsrParamsFieldKey)
+func (d *DeepgramAsrParams) SetAPIKey(apiKey string) {
+	d.APIKey = apiKey
+	d.require(deepgramAsrParamsFieldAPIKey)
 }
 
 // SetModel sets the Model field and marks it as non-optional;
@@ -7031,7 +7055,7 @@ var (
 
 type LlmToolExecution struct {
 	// Execution mode. Phase 1a only accepts `sync`.
-	Mode *LlmToolExecutionMode `json:"mode,omitempty" url:"mode,omitempty"`
+	Mode *string `json:"mode,omitempty" url:"mode,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
 	explicitFields *big.Int `json:"-" url:"-"`
@@ -7054,20 +7078,9 @@ func (l *LlmToolExecution) require(field *big.Int) {
 
 // SetMode sets the Mode field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (l *LlmToolExecution) SetMode(mode *LlmToolExecutionMode) {
+func (l *LlmToolExecution) SetMode(mode *string) {
 	l.Mode = mode
 	l.require(llmToolExecutionFieldMode)
-}
-
-// LlmToolExecutionMode controls how an inline REST tool is executed.
-type LlmToolExecutionMode string
-
-const (
-	LlmToolExecutionModeSync LlmToolExecutionMode = "sync"
-)
-
-func (l LlmToolExecutionMode) Ptr() *LlmToolExecutionMode {
-	return &l
 }
 
 func (l *LlmToolExecution) UnmarshalJSON(data []byte) error {
@@ -11808,6 +11821,378 @@ func (r *RimeTtsParams) String() string {
 	return fmt.Sprintf("%#v", r)
 }
 
+// RTZR ASR configuration.
+var (
+	rtzrAsrFieldLanguage = big.NewInt(1 << 0)
+	rtzrAsrFieldParams   = big.NewInt(1 << 1)
+)
+
+type RtzrAsr struct {
+	Language *AsrLanguage   `json:"language,omitempty" url:"language,omitempty"`
+	Params   *RtzrAsrParams `json:"params" url:"params"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (r *RtzrAsr) GetLanguage() *AsrLanguage {
+	if r == nil {
+		return nil
+	}
+	return r.Language
+}
+
+func (r *RtzrAsr) GetParams() *RtzrAsrParams {
+	if r == nil {
+		return nil
+	}
+	return r.Params
+}
+
+func (r *RtzrAsr) GetExtraProperties() map[string]interface{} {
+	return r.ExtraProperties
+}
+
+func (r *RtzrAsr) require(field *big.Int) {
+	if r.explicitFields == nil {
+		r.explicitFields = big.NewInt(0)
+	}
+	r.explicitFields.Or(r.explicitFields, field)
+}
+
+// SetLanguage sets the Language field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (r *RtzrAsr) SetLanguage(language *AsrLanguage) {
+	r.Language = language
+	r.require(rtzrAsrFieldLanguage)
+}
+
+// SetParams sets the Params field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (r *RtzrAsr) SetParams(params *RtzrAsrParams) {
+	r.Params = params
+	r.require(rtzrAsrFieldParams)
+}
+
+func (r *RtzrAsr) UnmarshalJSON(data []byte) error {
+	type embed RtzrAsr
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*r),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*r = RtzrAsr(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *r)
+	if err != nil {
+		return err
+	}
+	r.ExtraProperties = extraProperties
+	r.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (r *RtzrAsr) MarshalJSON() ([]byte, error) {
+	type embed RtzrAsr
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*r),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, r.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, r.ExtraProperties)
+}
+
+func (r *RtzrAsr) String() string {
+	if len(r.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(r.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(r); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", r)
+}
+
+// RTZR ASR configuration parameters.
+var (
+	rtzrAsrParamsFieldClientID            = big.NewInt(1 << 0)
+	rtzrAsrParamsFieldClientSecret        = big.NewInt(1 << 1)
+	rtzrAsrParamsFieldAPIBase             = big.NewInt(1 << 2)
+	rtzrAsrParamsFieldModelName           = big.NewInt(1 << 3)
+	rtzrAsrParamsFieldLanguage            = big.NewInt(1 << 4)
+	rtzrAsrParamsFieldSampleRate          = big.NewInt(1 << 5)
+	rtzrAsrParamsFieldEncoding            = big.NewInt(1 << 6)
+	rtzrAsrParamsFieldUseItn              = big.NewInt(1 << 7)
+	rtzrAsrParamsFieldUseDisfluencyFilter = big.NewInt(1 << 8)
+	rtzrAsrParamsFieldUseProfanityFilter  = big.NewInt(1 << 9)
+	rtzrAsrParamsFieldUsePunctuation      = big.NewInt(1 << 10)
+	rtzrAsrParamsFieldKeywords            = big.NewInt(1 << 11)
+)
+
+type RtzrAsrParams struct {
+	// RTZR client ID.
+	ClientID string `json:"client_id" url:"client_id"`
+	// RTZR client secret.
+	ClientSecret string `json:"client_secret" url:"client_secret"`
+	// RTZR API base URL.
+	APIBase *string `json:"api_base,omitempty" url:"api_base,omitempty"`
+	// RTZR recognition model name.
+	ModelName *string `json:"model_name,omitempty" url:"model_name,omitempty"`
+	// RTZR recognition language code. Defaults to Korean (`ko`).
+	Language *string `json:"language,omitempty" url:"language,omitempty"`
+	// Input audio sample rate in Hz.
+	SampleRate *int `json:"sample_rate,omitempty" url:"sample_rate,omitempty"`
+	// Input audio encoding.
+	Encoding *string `json:"encoding,omitempty" url:"encoding,omitempty"`
+	// Whether to enable inverse text normalization.
+	UseItn *bool `json:"use_itn,omitempty" url:"use_itn,omitempty"`
+	// Whether to filter disfluencies such as stuttering.
+	UseDisfluencyFilter *bool `json:"use_disfluency_filter,omitempty" url:"use_disfluency_filter,omitempty"`
+	// Whether to filter profanity.
+	UseProfanityFilter *bool `json:"use_profanity_filter,omitempty" url:"use_profanity_filter,omitempty"`
+	// Whether to add punctuation to the recognized text.
+	UsePunctuation *bool `json:"use_punctuation,omitempty" url:"use_punctuation,omitempty"`
+	// Keywords to improve recognition accuracy.
+	Keywords []string `json:"keywords,omitempty" url:"keywords,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (r *RtzrAsrParams) GetClientID() string {
+	if r == nil {
+		return ""
+	}
+	return r.ClientID
+}
+
+func (r *RtzrAsrParams) GetClientSecret() string {
+	if r == nil {
+		return ""
+	}
+	return r.ClientSecret
+}
+
+func (r *RtzrAsrParams) GetAPIBase() *string {
+	if r == nil {
+		return nil
+	}
+	return r.APIBase
+}
+
+func (r *RtzrAsrParams) GetModelName() *string {
+	if r == nil {
+		return nil
+	}
+	return r.ModelName
+}
+
+func (r *RtzrAsrParams) GetLanguage() *string {
+	if r == nil {
+		return nil
+	}
+	return r.Language
+}
+
+func (r *RtzrAsrParams) GetSampleRate() *int {
+	if r == nil {
+		return nil
+	}
+	return r.SampleRate
+}
+
+func (r *RtzrAsrParams) GetEncoding() *string {
+	if r == nil {
+		return nil
+	}
+	return r.Encoding
+}
+
+func (r *RtzrAsrParams) GetUseItn() *bool {
+	if r == nil {
+		return nil
+	}
+	return r.UseItn
+}
+
+func (r *RtzrAsrParams) GetUseDisfluencyFilter() *bool {
+	if r == nil {
+		return nil
+	}
+	return r.UseDisfluencyFilter
+}
+
+func (r *RtzrAsrParams) GetUseProfanityFilter() *bool {
+	if r == nil {
+		return nil
+	}
+	return r.UseProfanityFilter
+}
+
+func (r *RtzrAsrParams) GetUsePunctuation() *bool {
+	if r == nil {
+		return nil
+	}
+	return r.UsePunctuation
+}
+
+func (r *RtzrAsrParams) GetKeywords() []string {
+	if r == nil {
+		return nil
+	}
+	return r.Keywords
+}
+
+func (r *RtzrAsrParams) GetExtraProperties() map[string]interface{} {
+	return r.ExtraProperties
+}
+
+func (r *RtzrAsrParams) require(field *big.Int) {
+	if r.explicitFields == nil {
+		r.explicitFields = big.NewInt(0)
+	}
+	r.explicitFields.Or(r.explicitFields, field)
+}
+
+// SetClientID sets the ClientID field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (r *RtzrAsrParams) SetClientID(clientID string) {
+	r.ClientID = clientID
+	r.require(rtzrAsrParamsFieldClientID)
+}
+
+// SetClientSecret sets the ClientSecret field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (r *RtzrAsrParams) SetClientSecret(clientSecret string) {
+	r.ClientSecret = clientSecret
+	r.require(rtzrAsrParamsFieldClientSecret)
+}
+
+// SetAPIBase sets the APIBase field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (r *RtzrAsrParams) SetAPIBase(apiBase *string) {
+	r.APIBase = apiBase
+	r.require(rtzrAsrParamsFieldAPIBase)
+}
+
+// SetModelName sets the ModelName field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (r *RtzrAsrParams) SetModelName(modelName *string) {
+	r.ModelName = modelName
+	r.require(rtzrAsrParamsFieldModelName)
+}
+
+// SetLanguage sets the Language field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (r *RtzrAsrParams) SetLanguage(language *string) {
+	r.Language = language
+	r.require(rtzrAsrParamsFieldLanguage)
+}
+
+// SetSampleRate sets the SampleRate field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (r *RtzrAsrParams) SetSampleRate(sampleRate *int) {
+	r.SampleRate = sampleRate
+	r.require(rtzrAsrParamsFieldSampleRate)
+}
+
+// SetEncoding sets the Encoding field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (r *RtzrAsrParams) SetEncoding(encoding *string) {
+	r.Encoding = encoding
+	r.require(rtzrAsrParamsFieldEncoding)
+}
+
+// SetUseItn sets the UseItn field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (r *RtzrAsrParams) SetUseItn(useItn *bool) {
+	r.UseItn = useItn
+	r.require(rtzrAsrParamsFieldUseItn)
+}
+
+// SetUseDisfluencyFilter sets the UseDisfluencyFilter field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (r *RtzrAsrParams) SetUseDisfluencyFilter(useDisfluencyFilter *bool) {
+	r.UseDisfluencyFilter = useDisfluencyFilter
+	r.require(rtzrAsrParamsFieldUseDisfluencyFilter)
+}
+
+// SetUseProfanityFilter sets the UseProfanityFilter field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (r *RtzrAsrParams) SetUseProfanityFilter(useProfanityFilter *bool) {
+	r.UseProfanityFilter = useProfanityFilter
+	r.require(rtzrAsrParamsFieldUseProfanityFilter)
+}
+
+// SetUsePunctuation sets the UsePunctuation field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (r *RtzrAsrParams) SetUsePunctuation(usePunctuation *bool) {
+	r.UsePunctuation = usePunctuation
+	r.require(rtzrAsrParamsFieldUsePunctuation)
+}
+
+// SetKeywords sets the Keywords field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (r *RtzrAsrParams) SetKeywords(keywords []string) {
+	r.Keywords = keywords
+	r.require(rtzrAsrParamsFieldKeywords)
+}
+
+func (r *RtzrAsrParams) UnmarshalJSON(data []byte) error {
+	type embed RtzrAsrParams
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*r),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*r = RtzrAsrParams(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *r)
+	if err != nil {
+		return err
+	}
+	r.ExtraProperties = extraProperties
+	r.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (r *RtzrAsrParams) MarshalJSON() ([]byte, error) {
+	type embed RtzrAsrParams
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*r),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, r.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, r.ExtraProperties)
+}
+
+func (r *RtzrAsrParams) String() string {
+	if len(r.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(r.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(r); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", r)
+}
+
 // Sarvam ASR configuration.
 var (
 	sarvamAsrFieldLanguage = big.NewInt(1 << 0)
@@ -12108,30 +12493,36 @@ func (s *SarvamTts) String() string {
 
 // Sarvam TTS configuration parameters.
 var (
-	sarvamTtsParamsFieldAPISubscriptionKey = big.NewInt(1 << 0)
-	sarvamTtsParamsFieldSpeaker            = big.NewInt(1 << 1)
-	sarvamTtsParamsFieldTargetLanguageCode = big.NewInt(1 << 2)
-	sarvamTtsParamsFieldPitch              = big.NewInt(1 << 3)
-	sarvamTtsParamsFieldPace               = big.NewInt(1 << 4)
-	sarvamTtsParamsFieldLoudness           = big.NewInt(1 << 5)
-	sarvamTtsParamsFieldSampleRate         = big.NewInt(1 << 6)
+	sarvamTtsParamsFieldAPISubscriptionKey  = big.NewInt(1 << 0)
+	sarvamTtsParamsFieldSpeaker             = big.NewInt(1 << 1)
+	sarvamTtsParamsFieldTargetLanguageCode  = big.NewInt(1 << 2)
+	sarvamTtsParamsFieldPitch               = big.NewInt(1 << 3)
+	sarvamTtsParamsFieldPace                = big.NewInt(1 << 4)
+	sarvamTtsParamsFieldLoudness            = big.NewInt(1 << 5)
+	sarvamTtsParamsFieldSpeechSampleRate    = big.NewInt(1 << 6)
+	sarvamTtsParamsFieldEnablePreprocessing = big.NewInt(1 << 7)
+	sarvamTtsParamsFieldModel               = big.NewInt(1 << 8)
 )
 
 type SarvamTtsParams struct {
 	// Sarvam API subscription key
 	APISubscriptionKey string `json:"api_subscription_key" url:"api_subscription_key"`
-	// Voice ID (e.g., anushka, abhilash, karun, hitesh, manisha, vidya, arya)
+	// Speaker voice to use.
 	Speaker string `json:"speaker" url:"speaker"`
-	// Target language code (e.g., en-IN)
+	// Target language code in BCP-47 format (e.g., `hi-IN`, `bn-IN`, `en-IN`).
 	TargetLanguageCode SarvamTtsParamsTargetLanguageCode `json:"target_language_code" url:"target_language_code"`
-	// Pitch adjustment for the voice
+	// Pitch control for the `bulbul:v2` model.
 	Pitch *float64 `json:"pitch,omitempty" url:"pitch,omitempty"`
-	// Speed of speech
+	// Speech speed. Defaults to `1.0`.
 	Pace *float64 `json:"pace,omitempty" url:"pace,omitempty"`
-	// Volume level of the speech
+	// Audio loudness control for the `bulbul:v2` model.
 	Loudness *float64 `json:"loudness,omitempty" url:"loudness,omitempty"`
-	// Audio sample rate in Hz
-	SampleRate *float64 `json:"sample_rate,omitempty" url:"sample_rate,omitempty"`
+	// Output speech sample rate in Hz. Defaults to `24000`.
+	SpeechSampleRate *int `json:"speech_sample_rate,omitempty" url:"speech_sample_rate,omitempty"`
+	// Whether to normalize English words and numeric entities. Defaults to `false`.
+	EnablePreprocessing *bool `json:"enable_preprocessing,omitempty" url:"enable_preprocessing,omitempty"`
+	// TTS model to use. Defaults to `bulbul:v3`.
+	Model *string `json:"model,omitempty" url:"model,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
 	explicitFields *big.Int `json:"-" url:"-"`
@@ -12183,11 +12574,25 @@ func (s *SarvamTtsParams) GetLoudness() *float64 {
 	return s.Loudness
 }
 
-func (s *SarvamTtsParams) GetSampleRate() *float64 {
+func (s *SarvamTtsParams) GetSpeechSampleRate() *int {
 	if s == nil {
 		return nil
 	}
-	return s.SampleRate
+	return s.SpeechSampleRate
+}
+
+func (s *SarvamTtsParams) GetEnablePreprocessing() *bool {
+	if s == nil {
+		return nil
+	}
+	return s.EnablePreprocessing
+}
+
+func (s *SarvamTtsParams) GetModel() *string {
+	if s == nil {
+		return nil
+	}
+	return s.Model
 }
 
 func (s *SarvamTtsParams) GetExtraProperties() map[string]interface{} {
@@ -12243,11 +12648,25 @@ func (s *SarvamTtsParams) SetLoudness(loudness *float64) {
 	s.require(sarvamTtsParamsFieldLoudness)
 }
 
-// SetSampleRate sets the SampleRate field and marks it as non-optional;
+// SetSpeechSampleRate sets the SpeechSampleRate field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (s *SarvamTtsParams) SetSampleRate(sampleRate *float64) {
-	s.SampleRate = sampleRate
-	s.require(sarvamTtsParamsFieldSampleRate)
+func (s *SarvamTtsParams) SetSpeechSampleRate(speechSampleRate *int) {
+	s.SpeechSampleRate = speechSampleRate
+	s.require(sarvamTtsParamsFieldSpeechSampleRate)
+}
+
+// SetEnablePreprocessing sets the EnablePreprocessing field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *SarvamTtsParams) SetEnablePreprocessing(enablePreprocessing *bool) {
+	s.EnablePreprocessing = enablePreprocessing
+	s.require(sarvamTtsParamsFieldEnablePreprocessing)
+}
+
+// SetModel sets the Model field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *SarvamTtsParams) SetModel(model *string) {
+	s.Model = model
+	s.require(sarvamTtsParamsFieldModel)
 }
 
 func (s *SarvamTtsParams) UnmarshalJSON(data []byte) error {
@@ -12293,7 +12712,7 @@ func (s *SarvamTtsParams) String() string {
 	return fmt.Sprintf("%#v", s)
 }
 
-// Target language code (e.g., en-IN)
+// Target language code in BCP-47 format (e.g., `hi-IN`, `bn-IN`, `en-IN`).
 type SarvamTtsParamsTargetLanguageCode string
 
 const (
@@ -13339,16 +13758,14 @@ func (s *SpeechmaticsAsr) String() string {
 
 // Speechmatics ASR configuration parameters.
 var (
-	speechmaticsAsrParamsFieldKey      = big.NewInt(1 << 0)
+	speechmaticsAsrParamsFieldAPIKey   = big.NewInt(1 << 0)
 	speechmaticsAsrParamsFieldLanguage = big.NewInt(1 << 1)
 	speechmaticsAsrParamsFieldURI      = big.NewInt(1 << 2)
 )
 
 type SpeechmaticsAsrParams struct {
 	// Speechmatics API key
-	Key string `json:"key" url:"key"`
-	// Deprecated: Use Key instead. APIKey is normalized to Key during serialization.
-	APIKey string `json:"-" url:"-"`
+	APIKey string `json:"api_key" url:"api_key"`
 	// Language code to use for transcription
 	Language string `json:"language" url:"language"`
 	// WebSocket URL for the Speechmatics streaming API
@@ -13362,19 +13779,11 @@ type SpeechmaticsAsrParams struct {
 	rawJSON json.RawMessage
 }
 
-func (s *SpeechmaticsAsrParams) GetKey() string {
+func (s *SpeechmaticsAsrParams) GetAPIKey() string {
 	if s == nil {
 		return ""
 	}
-	if s.Key != "" {
-		return s.Key
-	}
 	return s.APIKey
-}
-
-// Deprecated: Use GetKey instead.
-func (s *SpeechmaticsAsrParams) GetAPIKey() string {
-	return s.GetKey()
 }
 
 func (s *SpeechmaticsAsrParams) GetLanguage() string {
@@ -13402,19 +13811,11 @@ func (s *SpeechmaticsAsrParams) require(field *big.Int) {
 	s.explicitFields.Or(s.explicitFields, field)
 }
 
-// SetKey sets the Key field and marks it as non-optional;
+// SetAPIKey sets the APIKey field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (s *SpeechmaticsAsrParams) SetKey(key string) {
-	s.Key = key
-	s.require(speechmaticsAsrParamsFieldKey)
-}
-
-// SetAPIKey sets the deprecated APIKey field and normalizes it to Key.
-// Deprecated: Use SetKey instead.
 func (s *SpeechmaticsAsrParams) SetAPIKey(apiKey string) {
 	s.APIKey = apiKey
-	s.Key = apiKey
-	s.require(speechmaticsAsrParamsFieldKey)
+	s.require(speechmaticsAsrParamsFieldAPIKey)
 }
 
 // SetLanguage sets the Language field and marks it as non-optional;
@@ -13447,37 +13848,19 @@ func (s *SpeechmaticsAsrParams) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	s.ExtraProperties = extraProperties
-	if legacyKey, ok := s.ExtraProperties["api_key"].(string); ok {
-		if s.Key == "" {
-			s.Key = legacyKey
-		}
-		delete(s.ExtraProperties, "api_key")
-	}
-	s.APIKey = s.Key
 	s.rawJSON = json.RawMessage(data)
 	return nil
 }
 
 func (s *SpeechmaticsAsrParams) MarshalJSON() ([]byte, error) {
 	type embed SpeechmaticsAsrParams
-	normalized := *s
-	if normalized.Key == "" {
-		normalized.Key = normalized.APIKey
-	}
-	normalized.APIKey = ""
 	var marshaler = struct {
 		embed
 	}{
-		embed: embed(normalized),
+		embed: embed(*s),
 	}
 	explicitMarshaler := internal.HandleExplicitFields(marshaler, s.explicitFields)
-	extraProperties := make(map[string]interface{}, len(s.ExtraProperties))
-	for key, value := range s.ExtraProperties {
-		if key != "api_key" {
-			extraProperties[key] = value
-		}
-	}
-	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, extraProperties)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, s.ExtraProperties)
 }
 
 func (s *SpeechmaticsAsrParams) String() string {
@@ -19200,7 +19583,7 @@ type StartAgentsRequestPropertiesAdvancedFeatures struct {
 	EnableRtm *bool `json:"enable_rtm,omitempty" url:"enable_rtm,omitempty"`
 	// Enable Selective Attention Locking (SAL). When enabled, configure the `sal` field to set up speaker recognition or locking modes.
 	EnableSal *bool `json:"enable_sal,omitempty" url:"enable_sal,omitempty"`
-	// Enable invocation for MCP servers and inline REST tools.
+	// Enable tool invocation. When enabled, the agent can invoke tools provided by the MCP server to implement advanced functionality.
 	EnableTools *bool `json:"enable_tools,omitempty" url:"enable_tools,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
@@ -19801,7 +20184,7 @@ func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetPromp
 
 // SetFallbackStrategy sets the FallbackStrategy field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetFallbackStrategy(fallbackStrategy *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy) {
+func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetFallbackStrategy(fallbackStrategy *string) {
 	s.FallbackStrategy = fallbackStrategy
 	s.require(startAgentsRequestPropertiesFillerWordsContentGeneratedConfigFieldFallbackStrategy)
 }
@@ -20806,16 +21189,19 @@ func (s StartAgentsRequestPropertiesInterruptionMode) Ptr() *StartAgentsRequestP
 
 // Agent configuration parameters.
 var (
-	startAgentsRequestPropertiesParametersFieldSilenceConfig      = big.NewInt(1 << 0)
-	startAgentsRequestPropertiesParametersFieldFarewellConfig     = big.NewInt(1 << 1)
-	startAgentsRequestPropertiesParametersFieldDataChannel        = big.NewInt(1 << 2)
-	startAgentsRequestPropertiesParametersFieldEnableMetrics      = big.NewInt(1 << 3)
-	startAgentsRequestPropertiesParametersFieldEnableErrorMessage = big.NewInt(1 << 4)
-	startAgentsRequestPropertiesParametersFieldAudioScenario      = big.NewInt(1 << 5)
-	startAgentsRequestPropertiesParametersFieldOptOut             = big.NewInt(1 << 6)
+	startAgentsRequestPropertiesParametersFieldSpeak              = big.NewInt(1 << 0)
+	startAgentsRequestPropertiesParametersFieldSilenceConfig      = big.NewInt(1 << 1)
+	startAgentsRequestPropertiesParametersFieldFarewellConfig     = big.NewInt(1 << 2)
+	startAgentsRequestPropertiesParametersFieldDataChannel        = big.NewInt(1 << 3)
+	startAgentsRequestPropertiesParametersFieldEnableMetrics      = big.NewInt(1 << 4)
+	startAgentsRequestPropertiesParametersFieldEnableErrorMessage = big.NewInt(1 << 5)
+	startAgentsRequestPropertiesParametersFieldAudioScenario      = big.NewInt(1 << 6)
+	startAgentsRequestPropertiesParametersFieldOptOut             = big.NewInt(1 << 7)
 )
 
 type StartAgentsRequestPropertiesParameters struct {
+	// Settings for the agent's speak behavior.
+	Speak *StartAgentsRequestPropertiesParametersSpeak `json:"speak,omitempty" url:"speak,omitempty"`
 	// Settings related to agent silence behavior. Does not apply when you integrate a `mllm`.
 	SilenceConfig *StartAgentsRequestPropertiesParametersSilenceConfig `json:"silence_config,omitempty" url:"silence_config,omitempty"`
 	// Graceful hang-up settings for the agent.
@@ -20843,6 +21229,13 @@ type StartAgentsRequestPropertiesParameters struct {
 
 	extraProperties map[string]interface{}
 	rawJSON         json.RawMessage
+}
+
+func (s *StartAgentsRequestPropertiesParameters) GetSpeak() *StartAgentsRequestPropertiesParametersSpeak {
+	if s == nil {
+		return nil
+	}
+	return s.Speak
 }
 
 func (s *StartAgentsRequestPropertiesParameters) GetSilenceConfig() *StartAgentsRequestPropertiesParametersSilenceConfig {
@@ -20903,6 +21296,13 @@ func (s *StartAgentsRequestPropertiesParameters) require(field *big.Int) {
 		s.explicitFields = big.NewInt(0)
 	}
 	s.explicitFields.Or(s.explicitFields, field)
+}
+
+// SetSpeak sets the Speak field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *StartAgentsRequestPropertiesParameters) SetSpeak(speak *StartAgentsRequestPropertiesParametersSpeak) {
+	s.Speak = speak
+	s.require(startAgentsRequestPropertiesParametersFieldSpeak)
 }
 
 // SetSilenceConfig sets the SilenceConfig field and marks it as non-optional;
@@ -21287,6 +21687,88 @@ func NewStartAgentsRequestPropertiesParametersSilenceConfigActionFromString(s st
 
 func (s StartAgentsRequestPropertiesParametersSilenceConfigAction) Ptr() *StartAgentsRequestPropertiesParametersSilenceConfigAction {
 	return &s
+}
+
+// Settings for the agent's speak behavior.
+var (
+	startAgentsRequestPropertiesParametersSpeakFieldBatch = big.NewInt(1 << 0)
+)
+
+type StartAgentsRequestPropertiesParametersSpeak struct {
+	// Whether to skip sentence segmentation for speak requests:
+	// - `false`: Skip sentence segmentation.
+	// - Omitted or `true`: Preserve sentence segmentation.
+	Batch *bool `json:"batch,omitempty" url:"batch,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	extraProperties map[string]interface{}
+	rawJSON         json.RawMessage
+}
+
+func (s *StartAgentsRequestPropertiesParametersSpeak) GetBatch() *bool {
+	if s == nil {
+		return nil
+	}
+	return s.Batch
+}
+
+func (s *StartAgentsRequestPropertiesParametersSpeak) GetExtraProperties() map[string]interface{} {
+	return s.extraProperties
+}
+
+func (s *StartAgentsRequestPropertiesParametersSpeak) require(field *big.Int) {
+	if s.explicitFields == nil {
+		s.explicitFields = big.NewInt(0)
+	}
+	s.explicitFields.Or(s.explicitFields, field)
+}
+
+// SetBatch sets the Batch field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *StartAgentsRequestPropertiesParametersSpeak) SetBatch(batch *bool) {
+	s.Batch = batch
+	s.require(startAgentsRequestPropertiesParametersSpeakFieldBatch)
+}
+
+func (s *StartAgentsRequestPropertiesParametersSpeak) UnmarshalJSON(data []byte) error {
+	type unmarshaler StartAgentsRequestPropertiesParametersSpeak
+	var value unmarshaler
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	*s = StartAgentsRequestPropertiesParametersSpeak(value)
+	extraProperties, err := internal.ExtractExtraProperties(data, *s)
+	if err != nil {
+		return err
+	}
+	s.extraProperties = extraProperties
+	s.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (s *StartAgentsRequestPropertiesParametersSpeak) MarshalJSON() ([]byte, error) {
+	type embed StartAgentsRequestPropertiesParametersSpeak
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*s),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, s.explicitFields)
+	return json.Marshal(explicitMarshaler)
+}
+
+func (s *StartAgentsRequestPropertiesParametersSpeak) String() string {
+	if len(s.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(s.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(s); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", s)
 }
 
 // RTC media encryption configuration.

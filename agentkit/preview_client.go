@@ -27,11 +27,13 @@ const PreviewAPIBaseURL = "https://partner.ai.agora.io/preview/api/conversationa
 // environment, where the preview providers do not exist.
 const PreviewFeatureHeader = "agora-feature"
 
-// PreviewFeatureGeminiLive gates legacy Gemini preview MLLM providers.
-// Gemini 3.8 MLLMs and Gemini ASR use the production endpoint.
+// PreviewFeatureGeminiLive gates Gemini TTS preview.
+// Gemini ASR and Live use production routing.
 const PreviewFeatureGeminiLive = "gemini-live"
 
-// PreviewFeatureLiveModels gates the OpenAI GPT Live MLLM provider.
+// PreviewFeatureLiveModels is retained for source compatibility with the
+// former OpenAI GPT Live preview integration. GPT Live uses production
+// routing and no longer requests this feature.
 const PreviewFeatureLiveModels = "live-models"
 
 // previewGateClient pins the gate header onto every request.
@@ -71,37 +73,11 @@ func previewRequestOptions(features []string, inner core.HTTPClient, debug bool)
 // previewASRVendors are served only by the preview endpoint.
 var previewASRVendors = map[string]string{}
 
-func previewGeminiLive(properties map[string]interface{}) (map[string]interface{}, bool) {
-	mllm, ok := properties["mllm"].(map[string]interface{})
-	if !ok || mllm["vendor"] != "gemini" {
-		return nil, false
-	}
-	params, ok := mllm["params"].(map[string]interface{})
-	if !ok {
-		return nil, false
-	}
-	model, _ := params["model"].(string)
-	// These IDs use production even when their provider URL is the Gemini API host.
-	if model == "models/gemini-3.8-live" || model == "models/gemini-3.8-live-extended-thinking" {
-		return nil, false
-	}
-	url, _ := mllm["url"].(string)
-	_, hasKey := mllm["api_key"].(string)
-	return mllm, hasKey && strings.HasPrefix(url, "https://generativelanguage.googleapis.com")
-}
-
-// ApplyPreviewShape translates the builder's production greeting field for Gemini preview.
+// ApplyPreviewShape is retained for source compatibility with the former
+// Gemini preview integration. Gemini Live requests now keep the production
+// greeting shape and are never rewritten for preview routing.
 func ApplyPreviewShape(properties map[string]interface{}) {
-	mllm, ok := previewGeminiLive(properties)
-	if !ok {
-		return
-	}
-	if greeting, exists := mllm["greeting_message"]; exists {
-		if _, set := mllm["greeting"]; !set {
-			mllm["greeting"] = greeting
-		}
-		delete(mllm, "greeting_message")
-	}
+	_ = properties
 }
 
 // RequiredPreviewFeatures returns the preview features a start request needs.
@@ -130,9 +106,8 @@ func requiredPreviewFeatures(properties map[string]interface{}, previewVendors m
 			}
 		}
 	}
-	if _, ok := previewGeminiLive(properties); ok {
+	if tts, ok := properties["tts"].(map[string]interface{}); ok && tts["vendor"] == "gemini" {
 		add(PreviewFeatureGeminiLive)
 	}
-
 	return features
 }

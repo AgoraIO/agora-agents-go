@@ -366,9 +366,20 @@ func CloneValue(value interface{}) interface{} {
 		}
 		return clone
 	case []string:
-		return append([]string(nil), v...)
+		if v == nil {
+			return nil
+		}
+		// Use make so an empty non-nil slice stays non-nil (JSON []).
+		clone := make([]string, len(v))
+		copy(clone, v)
+		return clone
 	case []int:
-		return append([]int(nil), v...)
+		if v == nil {
+			return nil
+		}
+		clone := make([]int, len(v))
+		copy(clone, v)
+		return clone
 	case map[string]string:
 		clone := make(map[string]string, len(v))
 		for key, item := range v {

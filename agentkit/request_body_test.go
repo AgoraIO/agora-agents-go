@@ -621,6 +621,36 @@ func TestRequestBodyScenario8cMLLMVendorGreetingWins(t *testing.T) {
 	assert.Equal(t, "vendor greeting", mllm["greeting_message"])
 }
 
+func TestRequestBodyScenario8dMLLMTools(t *testing.T) {
+	tool := &Agora.LlmTool{
+		Function: &Agora.LlmToolFunction{Name: "lookup"},
+		Server: &Agora.LlmToolServer{
+			Method: Agora.LlmToolServerMethodPost,
+			URL:    "https://tools.example.com/lookup",
+		},
+	}
+	server := &Agora.McpServer{
+		Name:     "catalog",
+		Endpoint: "https://mcp.example.com",
+	}
+	agent := NewAgent(testAgoraClient()).
+		WithMllm(vendors.NewOpenAIRealtime(vendors.OpenAIRealtimeOptions{
+			APIKey:     "realtime-key",
+			Tools:      []*Agora.LlmTool{tool},
+			McpServers: []*Agora.McpServer{server},
+		})).
+		WithTools(true)
+
+	properties, err := agent.ToPropertiesMap(basePropertiesOpts())
+	require.NoError(t, err)
+
+	mllm := properties["mllm"].(map[string]interface{})
+	assert.Equal(t, []*Agora.LlmTool{tool}, mllm["tools"])
+	assert.Equal(t, []*Agora.McpServer{server}, mllm["mcp_servers"])
+	advancedFeatures := properties["advanced_features"].(map[string]interface{})
+	assert.Equal(t, true, advancedFeatures["enable_tools"])
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // BYOK ASR Vendor Shapes
 // ─────────────────────────────────────────────────────────────────────────────
