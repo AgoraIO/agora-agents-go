@@ -189,6 +189,28 @@ func NewGenericAvatar(opts GenericAvatarOptions) *GenericAvatar {
 	return &GenericAvatar{options: opts}
 }
 
+// TavusOptions uses the same configuration as GenericAvatarOptions.
+type TavusOptions = GenericAvatarOptions
+
+// Tavus is a branded alias of GenericAvatar and uses the "generic" wire vendor.
+type Tavus = GenericAvatar
+
+// NewTavus constructs a GenericAvatar with Tavus branding.
+func NewTavus(opts TavusOptions) *Tavus {
+	return NewGenericAvatar(opts)
+}
+
+// ProtofaceOptions uses the same configuration as GenericAvatarOptions.
+type ProtofaceOptions = GenericAvatarOptions
+
+// Protoface is a branded alias of GenericAvatar and uses the "generic" wire vendor.
+type Protoface = GenericAvatar
+
+// NewProtoface constructs a GenericAvatar with Protoface branding.
+func NewProtoface(opts ProtofaceOptions) *Protoface {
+	return NewGenericAvatar(opts)
+}
+
 func (g *GenericAvatar) RequiredSampleRate() SampleRate {
 	return 0
 }
