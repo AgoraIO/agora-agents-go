@@ -50,6 +50,8 @@ type (
 	AdvancedFeatures   = Agora.StartAgentsRequestPropertiesAdvancedFeatures
 	SessionParams      = Agora.StartAgentsRequestPropertiesParameters
 	SessionParamsInput = SessionParams
+	SpeakConfig        = Agora.StartAgentsRequestPropertiesParametersSpeak
+	ParametersSpeak    = SpeakConfig
 	GeofenceConfig     = Agora.StartAgentsRequestPropertiesGeofence
 	RtcConfig          = Agora.StartAgentsRequestPropertiesRtc
 	FillerWordsConfig  = Agora.StartAgentsRequestPropertiesFillerWords
@@ -109,6 +111,8 @@ type (
 	MllmTurnDetectionConfig = Agora.MllmTurnDetection
 	MllmTurnDetectionMode   = Agora.MllmTurnDetectionMode
 	AsrConfig               = Agora.Asr
+	RtzrAsr                 = Agora.RtzrAsr
+	RtzrAsrParams           = Agora.RtzrAsrParams
 	SttConfig               = AsrConfig
 	LlmStyle                = Agora.LlmStyle
 	SttVendor               = string
