@@ -42,6 +42,12 @@ var sensitiveBodyKeys = map[string]struct{}{
 	"credentials":            {},
 	"subscription_key":       {},
 	"subscriptionkey":        {},
+	"api_subscription_key":   {},
+	"apisubscriptionkey":     {},
+	"client_id":              {},
+	"clientid":               {},
+	"client_secret":          {},
+	"clientsecret":           {},
 	// Agora credentials and account identifiers
 	"token":           {},
 	"agora_token":     {},
