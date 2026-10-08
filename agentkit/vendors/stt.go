@@ -92,7 +92,7 @@ func (d *DeepgramSTT) ToConfig() map[string]interface{} {
 		params[k] = v
 	}
 	if d.options.APIKey != "" {
-		params["key"] = d.options.APIKey
+		params["api_key"] = d.options.APIKey
 	}
 	if d.options.Model != "" {
 		params["model"] = d.options.Model

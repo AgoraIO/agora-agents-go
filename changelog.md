@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+
+- **RTZR STT** — Added the global `NewRTZRSTT` provider with typed options and `RtzrAsr`/`RtzrAsrParams` aliases.
+- **Speak configuration** — Added `SpeakConfig` and `ParametersSpeak` aliases for `WithParameters` support of `parameters.speak.batch` in the global and CN facades.
+- **Sarvam TTS options** — Added `SpeechSampleRate`, `EnablePreprocessing`, `Model`, flattened `AdditionalParams`, and `SarvamTTSLanguage` constants.
+
+### Changed
+
+- **Deepgram STT credentials** — `APIKey` now serializes as `asr.params.api_key`. Legacy raw `key` configurations are normalized before sending, and both credential fields prevent managed ASR preset inference.
+- **Sarvam TTS sample rate** — The deprecated `SampleRate` alias now serializes as `speech_sample_rate`; `SpeechSampleRate` takes precedence. Avatar validation recognizes the configured speech sample rate, including custom TTS configs.
+
+### Fixed
+
+- **Credential redaction** — Debug logging now redacts RTZR client credentials and Sarvam subscription keys.
+
 ## [v2.11.0] — 2026-09-23
 
 ### Added

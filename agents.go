@@ -1464,11 +1464,15 @@ type AsrVisitor interface {
 	VisitAssemblyai(*AssemblyAiAsr) error
 	VisitSpeechmatics(*SpeechmaticsAsr) error
 	VisitSarvam(*SarvamAsr) error
-	VisitRtzr(*RtzrAsr) error
 	VisitXai(*XAiAsr) error
 	VisitXfyun(*XfyunAsr) error
 	VisitXfyunBigmodel(*XfyunBigmodelAsr) error
 	VisitXfyunDialect(*XfyunDialectAsr) error
+}
+
+// RtzrAsrVisitor supports the RTZR variant without changing existing AsrVisitor implementations.
+type RtzrAsrVisitor interface {
+	VisitRtzr(*RtzrAsr) error
 }
 
 type SmallestAiAsrVisitor interface {
@@ -1513,7 +1517,11 @@ func (a *Asr) Accept(visitor AsrVisitor) error {
 		return visitor.VisitSarvam(a.Sarvam)
 	}
 	if a.Rtzr != nil {
-		return visitor.VisitRtzr(a.Rtzr)
+		rtzrVisitor, ok := visitor.(RtzrAsrVisitor)
+		if !ok {
+			return fmt.Errorf("visitor %T does not support rtzr ASR", visitor)
+		}
+		return rtzrVisitor.VisitRtzr(a.Rtzr)
 	}
 	if a.Xai != nil {
 		return visitor.VisitXai(a.Xai)
