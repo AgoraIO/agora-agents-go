@@ -72,20 +72,14 @@ generations:
     cli_version: unknown
     generator_versions:
       fernapi/fern-go-sdk: 1.16.5
-  - commit_sha: 30d5c5b658cf52847ed36de49f4e894d0de36956
-    tree_hash: 6e6a839241686aeaaf6ba8803798c95295a4b90c
-    timestamp: 2026-10-08T06:56:07.450Z
-    cli_version: unknown
-    generator_versions:
-      fernapi/fern-go-sdk: 1.16.5
-current_generation: 30d5c5b658cf52847ed36de49f4e894d0de36956
+current_generation: 2673db0ad93fb41f3443d524fa3a2e38471c06c0
 patches:
   - id: patch-69644e80
     content_hash: sha256:47e5dc31d5823a159b4c7abafc86d8b4ade17fd80b73df7b3e4d44bf17204f55
     original_commit: 69644e80506fa1c57bdb6b9a5dc5767a78f333ad
     original_message: "feat(core): add tests for Pool and RequestOptions with fixed base URL handling"
     original_author: seymourtang <tangxianmeng@live.com>
-    base_generation: 30d5c5b658cf52847ed36de49f4e894d0de36956
+    base_generation: 2673db0ad93fb41f3443d524fa3a2e38471c06c0
     files:
       - core/request_option_custom_test.go
     patch_content: |
@@ -373,7 +367,7 @@ patches:
     original_commit: eb09f0ee6aec94edb1cf24a833a35d98a9a35580
     original_message: "refactor(core): rename internal API base URL to configured base URL"
     original_author: seymourtang <tangxianmeng@live.com>
-    base_generation: 30d5c5b658cf52847ed36de49f4e894d0de36956
+    base_generation: 2673db0ad93fb41f3443d524fa3a2e38471c06c0
     files:
       - core/request_option_custom_test.go
     patch_content: |
@@ -661,7 +655,7 @@ patches:
     original_commit: dda5517eb2c926b0de9b1fafac5763798586527d
     original_message: "fix(vendors): send Speechmatics STT key instead of api_key"
     original_author: digitallysavvy <hermes.frangoudis@gmail.com>
-    base_generation: 30d5c5b658cf52847ed36de49f4e894d0de36956
+    base_generation: 2673db0ad93fb41f3443d524fa3a2e38471c06c0
     files:
       - agents.go
     patch_content: |
@@ -47330,13 +47324,12 @@ patches:
         	u.Properties = properties
         	u.require(updateAgentsRequestFieldProperties)
         }
-    status: resolving
   - id: patch-5541e488
     content_hash: sha256:4795a51483f282347e16e274913cf0c678bfe02a6a268a121e476931835f0370
     original_commit: 5541e48887db3917fd470c2d0c89197135184d52
     original_message: "chore: resolve Fern replay conflicts"
     original_author: txm <tangxianmeng@MAGIT04734.local>
-    base_generation: 30d5c5b658cf52847ed36de49f4e894d0de36956
+    base_generation: 2673db0ad93fb41f3443d524fa3a2e38471c06c0
     files:
       - agents.go
     patch_content: |
