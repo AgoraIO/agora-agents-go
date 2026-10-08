@@ -33,11 +33,11 @@ Use a unique avatar `AgoraUID`; do not reuse the session `AgentUID`. If you prov
 | SenseTime (CN) | `cn/vendors.NewSensetimeAvatar` | Not enforced by AgentKit | `AgoraUID`, `AppID`, `AppKey` |
 | Spatius (CN) | `cn/vendors.NewSpatiusAvatar` | Not enforced by AgentKit | `SpatiusAPIKey`, `SpatiusAppID`, `SpatiusAvatarID`, `AgoraUID` |
 
-## Tavus and Protoface aliases
+## Tavus, Protoface, and LemonSlice aliases
 
 Import `github.com/AgoraIO/agora-agents-go/v2/agentkit/vendors` to use
-`Tavus` or `Protoface`. Both are Go type aliases of `GenericAvatar`;
-`TavusOptions` and `ProtofaceOptions` alias `GenericAvatarOptions`.
+`Tavus`, `Protoface`, or `LemonSlice`. All three are Go type aliases of `GenericAvatar`;
+`TavusOptions`, `ProtofaceOptions`, and `LemonSliceOptions` alias `GenericAvatarOptions`.
 Their constructors use the same validation and configuration, serialize with
 `vendor: "generic"`, and inherit Generic Avatar token handling and sample rate behavior.
 
@@ -55,8 +55,16 @@ protoface := vendors.NewProtoface(vendors.ProtofaceOptions{
     AgoraUID:   "2002",
 })
 
+lemonSlice := vendors.NewLemonSlice(vendors.LemonSliceOptions{
+    APIKey:     "<lemon_slice_key>",
+    APIBaseURL: "<lemon_slice_api_base_url>",
+    AvatarID:   "<lemon_slice_avatar_id>",
+    AgoraUID:   "2003",
+})
+
 agent := agentkit.NewAgent(client).WithAvatar(tavus)
 // Alternatively: agentkit.NewAgent(client).WithAvatar(protoface)
+// Alternatively: agentkit.NewAgent(client).WithAvatar(lemonSlice)
 ```
 
 Supply your provider's API base URL explicitly. Optional `AgoraToken`, `AgoraAppID`,

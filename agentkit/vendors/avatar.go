@@ -211,6 +211,17 @@ func NewProtoface(opts ProtofaceOptions) *Protoface {
 	return NewGenericAvatar(opts)
 }
 
+// LemonSliceOptions uses the same configuration as GenericAvatarOptions.
+type LemonSliceOptions = GenericAvatarOptions
+
+// LemonSlice is a branded alias of GenericAvatar and uses the "generic" wire vendor.
+type LemonSlice = GenericAvatar
+
+// NewLemonSlice constructs a GenericAvatar with LemonSlice branding.
+func NewLemonSlice(opts LemonSliceOptions) *LemonSlice {
+	return NewGenericAvatar(opts)
+}
+
 func (g *GenericAvatar) RequiredSampleRate() SampleRate {
 	return 0
 }

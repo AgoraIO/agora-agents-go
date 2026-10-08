@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
-- **Tavus and Protoface avatar aliases** — AgentKit now exports `Tavus`, `Protoface`, `TavusOptions`, `ProtofaceOptions`, `NewTavus`, and `NewProtoface` from `agentkit/vendors`. Both providers reuse `GenericAvatar` configuration, validation, token handling, and the `generic` wire vendor. The avatar guide includes examples, with public API and serialization tests covering the aliases.
+- **Tavus, Protoface, and LemonSlice avatar aliases** — AgentKit now exports `Tavus`, `Protoface`, `TavusOptions`, `ProtofaceOptions`, `NewTavus`, `NewProtoface`, `LemonSlice`, `LemonSliceOptions`, and `NewLemonSlice` from `agentkit/vendors`. All three providers reuse `GenericAvatar` configuration, validation, token handling, and the `generic` wire vendor. The avatar guide includes examples, with public API and serialization tests covering the aliases.
 
 ## [v2.11.0] — 2026-09-23
 

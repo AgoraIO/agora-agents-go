@@ -12,17 +12,21 @@ import (
 // Function signatures verify public option and return type identity, not just
 // interface compatibility, from an external consumer package.
 var avatarAliases = map[string]func(vendors.GenericAvatarOptions) *vendors.GenericAvatar{
-	"Tavus":     vendors.NewTavus,
-	"Protoface": vendors.NewProtoface,
+	"Tavus":      vendors.NewTavus,
+	"Protoface":  vendors.NewProtoface,
+	"LemonSlice": vendors.NewLemonSlice,
 }
 
 var (
 	_ *vendors.Tavus               = (*vendors.GenericAvatar)(nil)
 	_ *vendors.Protoface           = (*vendors.GenericAvatar)(nil)
+	_ *vendors.LemonSlice          = (*vendors.GenericAvatar)(nil)
 	_ vendors.GenericAvatarOptions = vendors.TavusOptions{}
 	_ vendors.GenericAvatarOptions = vendors.ProtofaceOptions{}
+	_ vendors.GenericAvatarOptions = vendors.LemonSliceOptions{}
 	_ vendors.Avatar               = (*vendors.Tavus)(nil)
 	_ vendors.Avatar               = (*vendors.Protoface)(nil)
+	_ vendors.Avatar               = (*vendors.LemonSlice)(nil)
 )
 
 func TestAvatarAliasesSerialization(t *testing.T) {
