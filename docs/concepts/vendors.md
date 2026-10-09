@@ -73,6 +73,7 @@ agent := agentkit.NewAgent(client).WithLlm(llm)
 | `NewOpenAITTS` | `OpenAITTSOptions` | `Voice` for Agora-managed `tts-1`; `APIKey`, `Model`, `BaseURL`, `Voice` for BYOK |
 | `NewCartesiaTTS` | `CartesiaTTSOptions` | `APIKey`, `VoiceID`, `ModelID` |
 | `NewGoogleTTS` | `GoogleTTSOptions` | `Key`, `VoiceName` |
+| `NewGeminiTTS` | `GeminiTTSOptions` | `APIKey`; model defaults to `gemini-3.8-flash-tts`, voice to `Puck` |
 | `NewAmazonTTS` | `AmazonTTSOptions` | `AccessKey`, `SecretKey`, `Region`, `VoiceID`, `Engine` |
 | `NewHumeAITTS` | `HumeAITTSOptions` | `Key`, `VoiceID`, `Provider` |
 | `NewRimeTTS` | `RimeTTSOptions` | `BaseURL`, `ModelID` for managed credentials; `Key`, `Speaker`, `ModelID` for BYOK or omitted `CredentialMode` |

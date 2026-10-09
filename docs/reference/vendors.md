@@ -335,6 +335,31 @@ Panics if `APIKey`, `VoiceID`, or `ModelID` is empty.
 | `SampleRate`   | `*SampleRate` | No       | Output sample rate                                   |
 | `SkipPatterns` | `[]int`       | No       | Patterns to skip                                     |
 
+### NewGeminiTTS
+
+<!-- snippet: fragment -->
+```go
+func NewGeminiTTS(opts GeminiTTSOptions) *GeminiTTS
+```
+
+Uses the configured regional production endpoint. Existing v2.11.0 preview calls
+remain compatible and no longer add a preview feature header. Credentials and
+options serialize inside `tts.params`, with `tts.vendor = "gemini"`.
+
+#### GeminiTTSOptions
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `APIKey` | `string` | Yes | — | Google Gemini API key |
+| `Model` | `string` | No | `GeminiTTSModelFlash38` | Model identifier, sent verbatim |
+| `Voice` | `string` | No | `Puck` | Voice name |
+| `Style` | `string` | No | omitted | Natural-language speaking instruction |
+| `AdditionalParams` | `map[string]interface{}` | No | omitted | Provider-specific parameters merged into `tts.params`; named fields take precedence |
+| `SkipPatterns` | `[]int` | No | omitted | Patterns to skip in TTS output |
+
+Panics on blank credentials, model, or voice. An empty model or voice uses its
+default. `GetSampleRate()` returns nil.
+
 ### NewGoogleTTS
 
 <!-- snippet: fragment -->
