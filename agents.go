@@ -4677,6 +4677,238 @@ func (g GeminiAsrParamsMode) Ptr() *GeminiAsrParamsMode {
 	return &g
 }
 
+// Gemini Text-to-Speech configuration.
+var (
+	geminiTtsFieldParams       = big.NewInt(1 << 0)
+	geminiTtsFieldSkipPatterns = big.NewInt(1 << 1)
+)
+
+type GeminiTts struct {
+	Params *GeminiTtsParams `json:"params" url:"params"`
+	// Controls whether the TTS module skips bracketed content when reading LLM response text.
+	SkipPatterns []int `json:"skip_patterns,omitempty" url:"skip_patterns,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	extraProperties map[string]interface{}
+	rawJSON         json.RawMessage
+}
+
+func (g *GeminiTts) GetParams() *GeminiTtsParams {
+	if g == nil {
+		return nil
+	}
+	return g.Params
+}
+
+func (g *GeminiTts) GetSkipPatterns() []int {
+	if g == nil {
+		return nil
+	}
+	return g.SkipPatterns
+}
+
+func (g *GeminiTts) GetExtraProperties() map[string]interface{} {
+	return g.extraProperties
+}
+
+func (g *GeminiTts) require(field *big.Int) {
+	if g.explicitFields == nil {
+		g.explicitFields = big.NewInt(0)
+	}
+	g.explicitFields.Or(g.explicitFields, field)
+}
+
+// SetParams sets the Params field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiTts) SetParams(params *GeminiTtsParams) {
+	g.Params = params
+	g.require(geminiTtsFieldParams)
+}
+
+// SetSkipPatterns sets the SkipPatterns field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiTts) SetSkipPatterns(skipPatterns []int) {
+	g.SkipPatterns = skipPatterns
+	g.require(geminiTtsFieldSkipPatterns)
+}
+
+func (g *GeminiTts) UnmarshalJSON(data []byte) error {
+	type unmarshaler GeminiTts
+	var value unmarshaler
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	*g = GeminiTts(value)
+	extraProperties, err := internal.ExtractExtraProperties(data, *g)
+	if err != nil {
+		return err
+	}
+	g.extraProperties = extraProperties
+	g.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (g *GeminiTts) MarshalJSON() ([]byte, error) {
+	type embed GeminiTts
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*g),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, g.explicitFields)
+	return json.Marshal(explicitMarshaler)
+}
+
+func (g *GeminiTts) String() string {
+	if len(g.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(g.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(g); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", g)
+}
+
+// Gemini TTS configuration parameters.
+var (
+	geminiTtsParamsFieldAPIKey = big.NewInt(1 << 0)
+	geminiTtsParamsFieldModel  = big.NewInt(1 << 1)
+	geminiTtsParamsFieldVoice  = big.NewInt(1 << 2)
+	geminiTtsParamsFieldStyle  = big.NewInt(1 << 3)
+)
+
+type GeminiTtsParams struct {
+	// Gemini API key.
+	APIKey string `json:"api_key" url:"api_key"`
+	// Gemini TTS model name.
+	Model string `json:"model" url:"model"`
+	// Gemini voice name.
+	Voice string `json:"voice" url:"voice"`
+	// Style instruction for the generated speech.
+	Style string `json:"style" url:"style"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (g *GeminiTtsParams) GetAPIKey() string {
+	if g == nil {
+		return ""
+	}
+	return g.APIKey
+}
+
+func (g *GeminiTtsParams) GetModel() string {
+	if g == nil {
+		return ""
+	}
+	return g.Model
+}
+
+func (g *GeminiTtsParams) GetVoice() string {
+	if g == nil {
+		return ""
+	}
+	return g.Voice
+}
+
+func (g *GeminiTtsParams) GetStyle() string {
+	if g == nil {
+		return ""
+	}
+	return g.Style
+}
+
+func (g *GeminiTtsParams) GetExtraProperties() map[string]interface{} {
+	return g.ExtraProperties
+}
+
+func (g *GeminiTtsParams) require(field *big.Int) {
+	if g.explicitFields == nil {
+		g.explicitFields = big.NewInt(0)
+	}
+	g.explicitFields.Or(g.explicitFields, field)
+}
+
+// SetAPIKey sets the APIKey field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiTtsParams) SetAPIKey(apiKey string) {
+	g.APIKey = apiKey
+	g.require(geminiTtsParamsFieldAPIKey)
+}
+
+// SetModel sets the Model field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiTtsParams) SetModel(model string) {
+	g.Model = model
+	g.require(geminiTtsParamsFieldModel)
+}
+
+// SetVoice sets the Voice field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiTtsParams) SetVoice(voice string) {
+	g.Voice = voice
+	g.require(geminiTtsParamsFieldVoice)
+}
+
+// SetStyle sets the Style field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiTtsParams) SetStyle(style string) {
+	g.Style = style
+	g.require(geminiTtsParamsFieldStyle)
+}
+
+func (g *GeminiTtsParams) UnmarshalJSON(data []byte) error {
+	type embed GeminiTtsParams
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*g),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*g = GeminiTtsParams(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *g)
+	if err != nil {
+		return err
+	}
+	g.ExtraProperties = extraProperties
+	g.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (g *GeminiTtsParams) MarshalJSON() ([]byte, error) {
+	type embed GeminiTtsParams
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*g),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, g.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, g.ExtraProperties)
+}
+
+func (g *GeminiTtsParams) String() string {
+	if len(g.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(g.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(g); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", g)
+}
+
 // Generic OpenAI-compatible Text-to-Speech configuration.
 var (
 	genericHTTPTtsFieldURL          = big.NewInt(1 << 0)
@@ -14711,6 +14943,7 @@ type Tts struct {
 	Rime            *RimeTts
 	Fishaudio       *FishAudioTts
 	Google          *GoogleTts
+	Gemini          *GeminiTts
 	Amazon          *AmazonTts
 	Sarvam          *SarvamTts
 	GenericHTTP     *GenericHTTPTts
@@ -14814,6 +15047,13 @@ func (t *Tts) GetGoogle() *GoogleTts {
 		return nil
 	}
 	return t.Google
+}
+
+func (t *Tts) GetGemini() *GeminiTts {
+	if t == nil {
+		return nil
+	}
+	return t.Gemini
 }
 
 func (t *Tts) GetAmazon() *AmazonTts {
@@ -14984,6 +15224,12 @@ func (t *Tts) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		t.Google = value
+	case "gemini":
+		value := new(GeminiTts)
+		if err := json.Unmarshal(data, &value); err != nil {
+			return err
+		}
+		t.Gemini = value
 	case "amazon":
 		value := new(AmazonTts)
 		if err := json.Unmarshal(data, &value); err != nil {
@@ -15100,6 +15346,9 @@ func (t Tts) MarshalJSON() ([]byte, error) {
 	if t.Google != nil {
 		return internal.MarshalJSONWithExtraProperty(t.Google, "vendor", "google")
 	}
+	if t.Gemini != nil {
+		return internal.MarshalJSONWithExtraProperty(t.Gemini, "vendor", "gemini")
+	}
 	if t.Amazon != nil {
 		return internal.MarshalJSONWithExtraProperty(t.Amazon, "vendor", "amazon")
 	}
@@ -15152,6 +15401,7 @@ type TtsVisitor interface {
 	VisitRime(*RimeTts) error
 	VisitFishaudio(*FishAudioTts) error
 	VisitGoogle(*GoogleTts) error
+	VisitGemini(*GeminiTts) error
 	VisitAmazon(*AmazonTts) error
 	VisitSarvam(*SarvamTts) error
 	VisitGenericHTTP(*GenericHTTPTts) error
@@ -15205,6 +15455,9 @@ func (t *Tts) Accept(visitor TtsVisitor) error {
 	}
 	if t.Google != nil {
 		return visitor.VisitGoogle(t.Google)
+	}
+	if t.Gemini != nil {
+		return visitor.VisitGemini(t.Gemini)
 	}
 	if t.Amazon != nil {
 		return visitor.VisitAmazon(t.Amazon)
@@ -15289,6 +15542,9 @@ func (t *Tts) validate() error {
 	}
 	if t.Google != nil {
 		fields = append(fields, "google")
+	}
+	if t.Gemini != nil {
+		fields = append(fields, "gemini")
 	}
 	if t.Amazon != nil {
 		fields = append(fields, "amazon")
