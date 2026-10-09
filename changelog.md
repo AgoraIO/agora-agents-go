@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- **Gemini TTS production routing** — `NewGeminiTTS` and raw `tts.vendor = "gemini"` configurations now use the configured regional production endpoint without the `gemini-live` preview gate for the full session lifecycle. The v2.11.0 constructor, model constant, defaults, validation, and `tts.params` wire fields remain compatible; preview routing helpers and constants remain exported.
 - **Deepgram STT credentials** — `APIKey` now serializes as `asr.params.api_key`. Legacy raw `key` configurations are normalized before sending, and both credential fields prevent managed ASR preset inference.
 - **Sarvam TTS sample rate** — The deprecated `SampleRate` alias now serializes as `speech_sample_rate`; `SpeechSampleRate` takes precedence. Avatar validation recognizes the configured speech sample rate, including custom TTS configs.
 

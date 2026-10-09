@@ -27,8 +27,9 @@ const PreviewAPIBaseURL = "https://partner.ai.agora.io/preview/api/conversationa
 // environment, where the preview providers do not exist.
 const PreviewFeatureHeader = "agora-feature"
 
-// PreviewFeatureGeminiLive gates Gemini TTS preview.
-// Gemini ASR and Live use production routing.
+// PreviewFeatureGeminiLive is retained for source compatibility with former
+// Gemini preview integrations. Gemini ASR, Live, and TTS use production routing
+// and no longer request this feature.
 const PreviewFeatureGeminiLive = "gemini-live"
 
 // PreviewFeatureLiveModels is retained for source compatibility with the
@@ -105,9 +106,6 @@ func requiredPreviewFeatures(properties map[string]interface{}, previewVendors m
 				add(feature)
 			}
 		}
-	}
-	if tts, ok := properties["tts"].(map[string]interface{}); ok && tts["vendor"] == "gemini" {
-		add(PreviewFeatureGeminiLive)
 	}
 	return features
 }
