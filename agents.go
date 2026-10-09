@@ -1469,6 +1469,9 @@ type AsrVisitor interface {
 	VisitXfyun(*XfyunAsr) error
 	VisitXfyunBigmodel(*XfyunBigmodelAsr) error
 	VisitXfyunDialect(*XfyunDialectAsr) error
+}
+
+type SmallestAiAsrVisitor interface {
 	VisitSmallestai(*SmallestAiAsr) error
 }
 
@@ -1525,7 +1528,11 @@ func (a *Asr) Accept(visitor AsrVisitor) error {
 		return visitor.VisitXfyunDialect(a.XfyunDialect)
 	}
 	if a.Smallestai != nil {
-		return visitor.VisitSmallestai(a.Smallestai)
+		smallestaiVisitor, ok := visitor.(SmallestAiAsrVisitor)
+		if !ok {
+			return fmt.Errorf("visitor %T does not support smallestai ASR", visitor)
+		}
+		return smallestaiVisitor.VisitSmallestai(a.Smallestai)
 	}
 	return fmt.Errorf("type %T does not define a non-empty union type", a)
 }
@@ -7287,7 +7294,7 @@ var (
 
 type LlmToolExecution struct {
 	// Execution mode. Phase 1a only accepts `sync`.
-	Mode *string `json:"mode,omitempty" url:"mode,omitempty"`
+	Mode *LlmToolExecutionMode `json:"mode,omitempty" url:"mode,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
 	explicitFields *big.Int `json:"-" url:"-"`
@@ -7310,9 +7317,20 @@ func (l *LlmToolExecution) require(field *big.Int) {
 
 // SetMode sets the Mode field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (l *LlmToolExecution) SetMode(mode *string) {
+func (l *LlmToolExecution) SetMode(mode *LlmToolExecutionMode) {
 	l.Mode = mode
 	l.require(llmToolExecutionFieldMode)
+}
+
+// LlmToolExecutionMode controls how an inline REST tool is executed.
+type LlmToolExecutionMode string
+
+const (
+	LlmToolExecutionModeSync LlmToolExecutionMode = "sync"
+)
+
+func (l LlmToolExecutionMode) Ptr() *LlmToolExecutionMode {
+	return &l
 }
 
 func (l *LlmToolExecution) UnmarshalJSON(data []byte) error {
@@ -13990,14 +14008,16 @@ func (s *SpeechmaticsAsr) String() string {
 
 // Speechmatics ASR configuration parameters.
 var (
-	speechmaticsAsrParamsFieldAPIKey   = big.NewInt(1 << 0)
+	speechmaticsAsrParamsFieldKey      = big.NewInt(1 << 0)
 	speechmaticsAsrParamsFieldLanguage = big.NewInt(1 << 1)
 	speechmaticsAsrParamsFieldURI      = big.NewInt(1 << 2)
 )
 
 type SpeechmaticsAsrParams struct {
 	// Speechmatics API key
-	APIKey string `json:"api_key" url:"api_key"`
+	Key string `json:"key" url:"key"`
+	// Deprecated: Use Key instead. APIKey is normalized to Key during serialization.
+	APIKey string `json:"-" url:"-"`
 	// Language code to use for transcription
 	Language string `json:"language" url:"language"`
 	// WebSocket URL for the Speechmatics streaming API
@@ -14011,11 +14031,19 @@ type SpeechmaticsAsrParams struct {
 	rawJSON json.RawMessage
 }
 
-func (s *SpeechmaticsAsrParams) GetAPIKey() string {
+func (s *SpeechmaticsAsrParams) GetKey() string {
 	if s == nil {
 		return ""
 	}
+	if s.Key != "" {
+		return s.Key
+	}
 	return s.APIKey
+}
+
+// Deprecated: Use GetKey instead.
+func (s *SpeechmaticsAsrParams) GetAPIKey() string {
+	return s.GetKey()
 }
 
 func (s *SpeechmaticsAsrParams) GetLanguage() string {
@@ -14043,11 +14071,19 @@ func (s *SpeechmaticsAsrParams) require(field *big.Int) {
 	s.explicitFields.Or(s.explicitFields, field)
 }
 
-// SetAPIKey sets the APIKey field and marks it as non-optional;
+// SetKey sets the Key field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
+func (s *SpeechmaticsAsrParams) SetKey(key string) {
+	s.Key = key
+	s.require(speechmaticsAsrParamsFieldKey)
+}
+
+// SetAPIKey sets the deprecated APIKey field and normalizes it to Key.
+// Deprecated: Use SetKey instead.
 func (s *SpeechmaticsAsrParams) SetAPIKey(apiKey string) {
 	s.APIKey = apiKey
-	s.require(speechmaticsAsrParamsFieldAPIKey)
+	s.Key = apiKey
+	s.require(speechmaticsAsrParamsFieldKey)
 }
 
 // SetLanguage sets the Language field and marks it as non-optional;
@@ -14080,19 +14116,37 @@ func (s *SpeechmaticsAsrParams) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	s.ExtraProperties = extraProperties
+	if legacyKey, ok := s.ExtraProperties["api_key"].(string); ok {
+		if s.Key == "" {
+			s.Key = legacyKey
+		}
+		delete(s.ExtraProperties, "api_key")
+	}
+	s.APIKey = s.Key
 	s.rawJSON = json.RawMessage(data)
 	return nil
 }
 
 func (s *SpeechmaticsAsrParams) MarshalJSON() ([]byte, error) {
 	type embed SpeechmaticsAsrParams
+	normalized := *s
+	if normalized.Key == "" {
+		normalized.Key = normalized.APIKey
+	}
+	normalized.APIKey = ""
 	var marshaler = struct {
 		embed
 	}{
-		embed: embed(*s),
+		embed: embed(normalized),
 	}
 	explicitMarshaler := internal.HandleExplicitFields(marshaler, s.explicitFields)
-	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, s.ExtraProperties)
+	extraProperties := make(map[string]interface{}, len(s.ExtraProperties))
+	for key, value := range s.ExtraProperties {
+		if key != "api_key" {
+			extraProperties[key] = value
+		}
+	}
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, extraProperties)
 }
 
 func (s *SpeechmaticsAsrParams) String() string {
@@ -15359,6 +15413,9 @@ type TtsVisitor interface {
 	VisitGradium(*GradiumTts) error
 	VisitMistral(*MistralTts) error
 	VisitTypecast(*TypecastTts) error
+}
+
+type SmallestAiTtsVisitor interface {
 	VisitSmallestai(*SmallestAiTts) error
 }
 
@@ -15436,7 +15493,11 @@ func (t *Tts) Accept(visitor TtsVisitor) error {
 		return visitor.VisitTypecast(t.Typecast)
 	}
 	if t.Smallestai != nil {
-		return visitor.VisitSmallestai(t.Smallestai)
+		smallestaiVisitor, ok := visitor.(SmallestAiTtsVisitor)
+		if !ok {
+			return fmt.Errorf("visitor %T does not support smallestai TTS", visitor)
+		}
+		return smallestaiVisitor.VisitSmallestai(t.Smallestai)
 	}
 	return fmt.Errorf("type %T does not define a non-empty union type", t)
 }
@@ -19839,7 +19900,7 @@ type StartAgentsRequestPropertiesAdvancedFeatures struct {
 	EnableRtm *bool `json:"enable_rtm,omitempty" url:"enable_rtm,omitempty"`
 	// Enable Selective Attention Locking (SAL). When enabled, configure the `sal` field to set up speaker recognition or locking modes.
 	EnableSal *bool `json:"enable_sal,omitempty" url:"enable_sal,omitempty"`
-	// Enable tool invocation. When enabled, the agent can invoke tools provided by the MCP server to implement advanced functionality.
+	// Enable invocation for MCP servers and inline REST tools.
 	EnableTools *bool `json:"enable_tools,omitempty" url:"enable_tools,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
@@ -20372,7 +20433,7 @@ type StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig struct {
 	// System prompt used to generate a short filler phrase based on recent conversation context. The generated text should be conversational and must not answer the user's question.
 	Prompt *string `json:"prompt,omitempty" url:"prompt,omitempty"`
 	// Fallback strategy when generated filler text is not ready, fails, or returns empty text. Phase 1 only supports `static`.
-	FallbackStrategy *string `json:"fallback_strategy,omitempty" url:"fallback_strategy,omitempty"`
+	FallbackStrategy *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy `json:"fallback_strategy,omitempty" url:"fallback_strategy,omitempty"`
 	// Maximum number of recent conversation messages used to generate a filler word.
 	ContextMessageLimit *int `json:"context_message_limit,omitempty" url:"context_message_limit,omitempty"`
 	// Maximum number of characters from conversation history used to generate a filler word.
@@ -20440,9 +20501,20 @@ func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetPromp
 
 // SetFallbackStrategy sets the FallbackStrategy field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetFallbackStrategy(fallbackStrategy *string) {
+func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetFallbackStrategy(fallbackStrategy *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy) {
 	s.FallbackStrategy = fallbackStrategy
 	s.require(startAgentsRequestPropertiesFillerWordsContentGeneratedConfigFieldFallbackStrategy)
+}
+
+// StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy controls fallback behavior for generated filler words.
+type StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy string
+
+const (
+	StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategyStatic StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy = "static"
+)
+
+func (s StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy) Ptr() *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy {
+	return &s
 }
 
 // SetContextMessageLimit sets the ContextMessageLimit field and marks it as non-optional;
