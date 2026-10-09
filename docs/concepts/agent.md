@@ -62,7 +62,7 @@ These are passed to `agentkit.NewAgent(client, opts ...AgentOption)`:
 | `WithTurnDetectionConfig(td *TurnDetectionConfig)` | Turn detection config | Configure `turn_detection.language` and cascading-flow SOS/EOS detection |
 | `WithSalConfig(sal *SalConfig)` | SAL config | Speech analytics configuration |
 | `WithAdvancedFeatures(af *AdvancedFeatures)` | Feature flags | RTM, tools, and other advanced features |
-| `WithParameters(params *SessionParams)` | Session params | Additional session parameters |
+| `WithParameters(params *SessionParams)` | Session params | Additional session parameters, including `Speak.Batch` |
 | `WithGeofence(gf *GeofenceConfig)` | Geofence config | Regional access restriction |
 | `WithLabels(labels map[string]string)` | Labels map | Custom key-value labels (returned in callbacks) |
 | `WithRtc(rtc *RtcConfig)` | RTC config | RTC media encryption |

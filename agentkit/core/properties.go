@@ -205,6 +205,17 @@ func resolveAsrConfig(profile Profile, base *BaseAgent, turnDetection map[string
 	if len(asrConfig) == 0 {
 		asrConfig["vendor"] = defaultASRVendor(profile)
 	}
+	if asrConfig["vendor"] == "deepgram" {
+		params := AsMap(asrConfig["params"])
+		if params != nil {
+			if _, exists := params["api_key"]; !exists {
+				if key, exists := params["key"]; exists {
+					params["api_key"] = key
+				}
+			}
+			delete(params, "key")
+		}
+	}
 	// Unconditional: turn detection is the single source of truth for the
 	// interaction language, so a vendor-level Language would be silently
 	// discarded here. Do not add one to a vendor options struct — see

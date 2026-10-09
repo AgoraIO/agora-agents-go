@@ -47,6 +47,8 @@ func main() {
 | `agentkit/cn` | Mainland China facade; sets `option.AreaCN` on the client |
 | `agentkit/cn/vendors` | Mainland China vendor constructors |
 
+RTZR STT is a global provider exposed by `agentkit/vendors.NewRTZRSTT`; it is not part of the CN vendor package.
+
 MLLM constructors follow the same boundary:
 
 | MLLM | Package | Agora routing |
