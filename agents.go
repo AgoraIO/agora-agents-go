@@ -4789,7 +4789,7 @@ type GeminiTtsParams struct {
 	// Gemini voice name.
 	Voice string `json:"voice" url:"voice"`
 	// Style instruction for the generated speech.
-	Style string `json:"style" url:"style"`
+	Style *string `json:"style,omitempty" url:"style,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
 	explicitFields *big.Int `json:"-" url:"-"`
@@ -4820,9 +4820,9 @@ func (g *GeminiTtsParams) GetVoice() string {
 	return g.Voice
 }
 
-func (g *GeminiTtsParams) GetStyle() string {
+func (g *GeminiTtsParams) GetStyle() *string {
 	if g == nil {
-		return ""
+		return nil
 	}
 	return g.Style
 }
@@ -4861,7 +4861,7 @@ func (g *GeminiTtsParams) SetVoice(voice string) {
 
 // SetStyle sets the Style field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (g *GeminiTtsParams) SetStyle(style string) {
+func (g *GeminiTtsParams) SetStyle(style *string) {
 	g.Style = style
 	g.require(geminiTtsParamsFieldStyle)
 }
