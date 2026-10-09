@@ -1244,6 +1244,34 @@ Generic avatars do not enforce a fixed TTS sample rate. Use the sample rate requ
 | `Enable` | `*bool` | No | Enable or disable the avatar |
 | `AdditionalParams` | `map[string]interface{}` | No | Additional vendor params |
 
+### Branded generic avatar providers
+
+`NewTavus(TavusOptions) *Tavus`, `NewProtoface(ProtofaceOptions) *Protoface`,
+and `NewLemonSlice(LemonSliceOptions) *LemonSlice` are exported by
+`agentkit/vendors`. They reuse GenericAvatar validation, serialization, session
+defaults, and managed tokens with wire vendor `generic`. Their options expose
+all GenericAvatarOptions fields directly.
+
+Default APIBaseURL values are `https://tavusapi.com/v2/conversations/agora`,
+`https://api.protoface.com/v1/agora`, and
+`https://lemonslice.com/api/liveai/agora`, respectively. Explicit overrides are
+retained. Tavus and Protoface still require AvatarID. LemonSlice defaults AvatarID
+to the vendor-recommended fixed `lemonslice`, while retaining explicit overrides.
+
+| LemonSlice option | Type | avatar.params key |
+|---|---|---|
+| AgentID | *string | agent_id |
+| AgentImageURL | *string | agent_image_url |
+| AgentImageBase64 | *string | agent_image_base64 |
+| AspectRatio | *string | aspect_ratio |
+
+Exactly one selector must be a nonempty string in effective merged params.
+Empty, whitespace-only, or nonstring supplied selectors panic, including malformed
+alternative selectors. Typed fields override matching AdditionalParams keys.
+AspectRatio accepts only `2x3`, `9x16`, or `1x1`; nil omits the field
+(provider default `2x3`). Input maps are not mutated.
+See [provider examples](../guides/avatars.md#tavus-protoface-and-lemonslice-providers).
+
 ## CN Avatar Vendors
 
 CN avatar constructors live in `github.com/AgoraIO/agora-agents-go/v2/agentkit/cn/vendors` and are used with `agentkit/cn.Agent.WithAvatar`.

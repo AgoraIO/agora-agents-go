@@ -1,5 +1,7 @@
 package vendors
 
+import "strings"
+
 const (
 	LiveAvatarRequiredSampleRate = SampleRate24kHz
 	AkoolRequiredSampleRate      = SampleRate16kHz
@@ -189,37 +191,100 @@ func NewGenericAvatar(opts GenericAvatarOptions) *GenericAvatar {
 	return &GenericAvatar{options: opts}
 }
 
-// TavusOptions uses the same configuration as GenericAvatarOptions.
+// TavusOptions retains the generic options with an optional provider URL.
 type TavusOptions = GenericAvatarOptions
 
-// Tavus is a branded alias of GenericAvatar and uses the "generic" wire vendor.
-type Tavus = GenericAvatar
+// Tavus reuses GenericAvatar configuration and session/token handling.
+type Tavus struct{ *GenericAvatar }
 
-// NewTavus constructs a GenericAvatar with Tavus branding.
 func NewTavus(opts TavusOptions) *Tavus {
-	return NewGenericAvatar(opts)
+	generic := GenericAvatarOptions(opts)
+	if generic.APIBaseURL == "" {
+		generic.APIBaseURL = "https://tavusapi.com/v2/conversations/agora"
+	}
+	return &Tavus{NewGenericAvatar(generic)}
 }
 
-// ProtofaceOptions uses the same configuration as GenericAvatarOptions.
 type ProtofaceOptions = GenericAvatarOptions
 
-// Protoface is a branded alias of GenericAvatar and uses the "generic" wire vendor.
-type Protoface = GenericAvatar
+// Protoface reuses GenericAvatar configuration and session/token handling.
+type Protoface struct{ *GenericAvatar }
 
-// NewProtoface constructs a GenericAvatar with Protoface branding.
 func NewProtoface(opts ProtofaceOptions) *Protoface {
-	return NewGenericAvatar(opts)
+	generic := GenericAvatarOptions(opts)
+	if generic.APIBaseURL == "" {
+		generic.APIBaseURL = "https://api.protoface.com/v1/agora"
+	}
+	return &Protoface{NewGenericAvatar(generic)}
 }
 
-// LemonSliceOptions uses the same configuration as GenericAvatarOptions.
-type LemonSliceOptions = GenericAvatarOptions
+// LemonSliceOptions exposes generic fields directly for struct literals.
+// Pointer fields distinguish omission from explicitly supplied empty values.
+type LemonSliceOptions struct {
+	APIKey           string
+	APIBaseURL       string
+	AvatarID         string
+	AgoraUID         string
+	AgoraToken       string
+	AgoraAppID       string
+	AgoraChannel     string
+	Enable           *bool
+	AdditionalParams map[string]interface{}
+	AgentImageURL    *string
+	AgentID          *string
+	AgentImageBase64 *string
+	AspectRatio      *string
+}
 
-// LemonSlice is a branded alias of GenericAvatar and uses the "generic" wire vendor.
-type LemonSlice = GenericAvatar
+// LemonSlice reuses GenericAvatar configuration and session/token handling.
+type LemonSlice struct{ *GenericAvatar }
 
-// NewLemonSlice constructs a GenericAvatar with LemonSlice branding.
 func NewLemonSlice(opts LemonSliceOptions) *LemonSlice {
-	return NewGenericAvatar(opts)
+	params := make(map[string]interface{}, len(opts.AdditionalParams)+4)
+	for key, value := range opts.AdditionalParams {
+		params[key] = value
+	}
+	for key, value := range map[string]*string{
+		"agent_image_url":    opts.AgentImageURL,
+		"agent_id":           opts.AgentID,
+		"agent_image_base64": opts.AgentImageBase64,
+		"aspect_ratio":       opts.AspectRatio,
+	} {
+		if value != nil {
+			params[key] = *value
+		}
+	}
+	selectors := 0
+	for _, key := range []string{"agent_id", "agent_image_url", "agent_image_base64"} {
+		if value, exists := params[key]; exists {
+			text, ok := value.(string)
+			if !ok || strings.TrimSpace(text) == "" {
+				panic("LemonSlice requires nonempty string " + key)
+			}
+			selectors++
+		}
+	}
+	if selectors != 1 {
+		panic("LemonSlice requires exactly one of agent_id, agent_image_url, agent_image_base64")
+	}
+	if value, exists := params["aspect_ratio"]; exists {
+		ratio, ok := value.(string)
+		if !ok || (ratio != "2x3" && ratio != "9x16" && ratio != "1x1") {
+			panic("LemonSlice aspect_ratio must be one of: 2x3, 9x16, 1x1")
+		}
+	}
+	generic := GenericAvatarOptions{
+		APIKey: opts.APIKey, APIBaseURL: opts.APIBaseURL, AvatarID: opts.AvatarID,
+		AgoraUID: opts.AgoraUID, AgoraToken: opts.AgoraToken, AgoraAppID: opts.AgoraAppID,
+		AgoraChannel: opts.AgoraChannel, Enable: opts.Enable, AdditionalParams: params,
+	}
+	if generic.APIBaseURL == "" {
+		generic.APIBaseURL = "https://lemonslice.com/api/liveai/agora"
+	}
+	if generic.AvatarID == "" {
+		generic.AvatarID = "lemonslice"
+	}
+	return &LemonSlice{NewGenericAvatar(generic)}
 }
 
 func (g *GenericAvatar) RequiredSampleRate() SampleRate {
