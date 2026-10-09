@@ -30,6 +30,9 @@ Use a unique avatar `AgoraUID`; do not reuse the session `AgentUID`. If you prov
 | Akool | `vendors.NewAkoolAvatar` | 16kHz (`SampleRate16kHz`) | `APIKey` |
 | Anam | `vendors.NewAnamAvatar` | Provider-managed | `APIKey` |
 | Generic | `vendors.NewGenericAvatar` | Vendor-dependent; not enforced by AgentKit | `APIKey`, `APIBaseURL`, `AvatarID`, `AgoraUID` |
+| Tavus | `vendors.NewTavus` | Vendor-dependent; not enforced by AgentKit | `APIKey`, `AvatarID`, `AgoraUID` |
+| Protoface | `vendors.NewProtoface` | Vendor-dependent; not enforced by AgentKit | `APIKey`, `AvatarID`, `AgoraUID` |
+| LemonSlice | `vendors.NewLemonSlice` | Vendor-dependent; not enforced by AgentKit | `APIKey`, `AgoraUID`, exactly one image or agent selector |
 | SenseTime (CN) | `cn/vendors.NewSensetimeAvatar` | Not enforced by AgentKit | `AgoraUID`, `AppID`, `AppKey` |
 | Spatius (CN) | `cn/vendors.NewSpatiusAvatar` | Not enforced by AgentKit | `SpatiusAPIKey`, `SpatiusAppID`, `SpatiusAvatarID`, `AgoraUID` |
 
