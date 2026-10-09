@@ -47586,7 +47586,7 @@ patches:
         	u.Properties = properties
         	u.require(updateAgentsRequestFieldProperties)
         }
-    status: unresolved
+    status: resolving
   - id: patch-5541e488
     content_hash: sha256:95d4f791b2305bea3cab2d4606e135300ee125f22c5436c4fa4fefddb886a568
     original_commit: 5541e48887db3917fd470c2d0c89197135184d52
