@@ -183,11 +183,16 @@ agent = agent.WithMllm(mllm)
 |---|---|---|---|
 | `NewLiveAvatarAvatar` | `LiveAvatarAvatarOptions` | `APIKey`, `Quality`, `AgoraUID` | 24kHz |
 | `NewGenericAvatar` | `GenericAvatarOptions` | `APIKey`, `APIBaseURL`, `AvatarID`, `AgoraUID` | Provider-dependent |
+| `NewTavus` | `TavusOptions` | `APIKey`, `AvatarID`, `AgoraUID` | Provider-dependent |
+| `NewProtoface` | `ProtofaceOptions` | `APIKey`, `AvatarID`, `AgoraUID` | Provider-dependent |
+| `NewLemonSlice` | `LemonSliceOptions` | `APIKey`, `AgoraUID`, exactly one image or agent selector | Provider-dependent |
 | `NewAnamAvatar` | `AnamAvatarOptions` | `APIKey` | Provider-managed |
 | `NewAkoolAvatar` | `AkoolAvatarOptions` | `APIKey` | 16kHz |
 | `NewHeyGenAvatar` | `HeyGenAvatarOptions` | `APIKey`, `Quality`, `AgoraUID` | 24kHz; deprecated alias |
 | `NewSensetimeAvatar` (CN) | `SensetimeAvatarOptions` | `AgoraUID`, `AppID`, `AppKey` | Not enforced; see [Avatars Guide](../guides/avatars.md) |
 | `NewSpatiusAvatar` (CN) | `SpatiusAvatarOptions` | `SpatiusAPIKey`, `SpatiusAppID`, `SpatiusAvatarID`, `AgoraUID` | Not enforced; see [Avatars Guide](../guides/avatars.md) |
+
+Tavus, Protoface, and LemonSlice use the generic wire configuration with provider URL defaults. LemonSlice also defaults the avatar ID to `lemonslice` and requires exactly one image or agent selector; its optional aspect ratio accepts `2x3`, `9x16`, or `1x1`. See the [Avatar Integration guide](../guides/avatars.md) for defaults, typed fields, and additional-parameter compatibility.
 
 ## CN Vendors (`agentkit/cn/vendors`)
 
