@@ -335,6 +335,31 @@ Panics if `APIKey`, `VoiceID`, or `ModelID` is empty.
 | `SampleRate`   | `*SampleRate` | No       | Output sample rate                                   |
 | `SkipPatterns` | `[]int`       | No       | Patterns to skip                                     |
 
+### NewGeminiTTS
+
+<!-- snippet: fragment -->
+```go
+func NewGeminiTTS(opts GeminiTTSOptions) *GeminiTTS
+```
+
+Uses the configured regional production endpoint. Existing v2.11.0 preview calls
+remain compatible and no longer add a preview feature header. Credentials and
+options serialize inside `tts.params`, with `tts.vendor = "gemini"`.
+
+#### GeminiTTSOptions
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `APIKey` | `string` | Yes | — | Google Gemini API key |
+| `Model` | `string` | No | `GeminiTTSModelFlash38` | Model identifier, sent verbatim |
+| `Voice` | `string` | No | `Puck` | Voice name |
+| `Style` | `string` | No | omitted | Natural-language speaking instruction |
+| `AdditionalParams` | `map[string]interface{}` | No | omitted | Provider-specific parameters merged into `tts.params`; named fields take precedence |
+| `SkipPatterns` | `[]int` | No | omitted | Patterns to skip in TTS output |
+
+Panics on blank credentials, model, or voice. An empty model or voice uses its
+default. `GetSampleRate()` returns nil.
+
 ### NewGoogleTTS
 
 <!-- snippet: fragment -->
@@ -512,12 +537,20 @@ Panics if `Key`, `Speaker`, or `TargetLanguageCode` is empty.
 | -------------------- | -------- | -------- | -------------------- |
 | `Key`                | `string` | Yes      | Sarvam API key       |
 | `Speaker`            | `string` | Yes      | Speaker name         |
-| `TargetLanguageCode` | `string` | Yes      | Target language code |
-| `Pitch`              | `*float64` | No     | Pitch adjustment |
+| `TargetLanguageCode` | `SarvamTTSLanguage` | Yes | Target language code |
+| `Pitch`              | `*float64` | No     | Pitch adjustment for `bulbul:v2` |
 | `Pace`               | `*float64` | No     | Speed of speech |
-| `Loudness`           | `*float64` | No     | Volume level |
-| `SampleRate`         | `*int`   | No       | Audio sample rate |
+| `Loudness`           | `*float64` | No     | Volume level for `bulbul:v2` |
+| `SpeechSampleRate`   | `*int` | No | Output sample rate in Hz; service default is `24000` |
+| `SampleRate`         | `*int` | No | Deprecated alias for `SpeechSampleRate` |
+| `EnablePreprocessing` | `*bool` | No | Normalize English words and numeric entities |
+| `Model`             | `string` | No | TTS model; service default is `bulbul:v3` |
+| `AdditionalParams`  | `map[string]interface{}` | No | Additional vendor parameters, flattened into `tts.params` |
 | `SkipPatterns`       | `[]int`  | No       | Patterns to skip     |
+
+Use language constants such as `vendors.SarvamTTSLanguageEnIN` (`"en-IN"`) and `vendors.SarvamTTSLanguageHiIN` (`"hi-IN"`). String literals remain accepted; convert string variables with `vendors.SarvamTTSLanguage(code)`.
+
+Both sample-rate options serialize as `tts.params.speech_sample_rate`. When both are set, `SpeechSampleRate` wins. Explicit options override matching keys in `AdditionalParams`; the additional parameters are not sent as a nested `additional_params` field. Explicit `false` values are preserved, while omitted options leave the service defaults unchanged. Avatar sample-rate checks use the resolved speech sample rate.
 
 ### NewXaiTTS
 
@@ -662,6 +695,8 @@ func NewDeepgramSTT(opts DeepgramSTTOptions) *DeepgramSTT
 ```
 
 Panics if `APIKey` is empty unless `Model` is one of the supported Agora-managed global/default Deepgram models (`nova-2`, `nova-3`).
+
+`APIKey` serializes as `asr.params.api_key`. AgentKit normalizes a legacy raw `asr.params.key` to `api_key` before sending; an existing `api_key` takes precedence. Either credential field prevents managed ASR preset inference.
 
 #### DeepgramSTTOptions
 
@@ -832,6 +867,33 @@ Panics if `APIKey` is empty.
 | `APIKey`   | `string` | Yes      | Sarvam API key   |
 | `Language` | `string` | No       | Language code    |
 | `Model`    | `string` | No       | Model identifier |
+
+### NewRTZRSTT
+
+<!-- snippet: fragment -->
+```go
+func NewRTZRSTT(opts RTZRSTTOptions) *RTZRSTT
+```
+
+Global RTZR streaming speech recognition, available in `agentkit/vendors`. Panics if `ClientID` or `ClientSecret` is empty.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `ClientID` | `string` | Yes | RTZR client ID |
+| `ClientSecret` | `string` | Yes | RTZR client secret |
+| `APIBase` | `string` | No | RTZR API base URL |
+| `ModelName` | `string` | No | Recognition model name |
+| `Language` | `string` | No | Recognition language; service default is `ko` |
+| `SampleRate` | `*int` | No | Input audio sample rate in Hz |
+| `Encoding` | `string` | No | Input audio encoding |
+| `UseITN` | `*bool` | No | Inverse text normalization |
+| `UseDisfluencyFilter` | `*bool` | No | Filter disfluencies |
+| `UseProfanityFilter` | `*bool` | No | Filter profanity |
+| `UsePunctuation` | `*bool` | No | Add punctuation |
+| `Keywords` | `[]string` | No | Recognition keywords; nil is omitted, an empty slice sends `[]` |
+| `AdditionalParams` | `map[string]interface{}` | No | Additional RTZR params; explicit options take precedence |
+
+RTZR options serialize as snake_case fields under `asr.params`, including `client_id`, `client_secret`, `model_name`, and `use_itn`. Provider `Language` stays in `params.language`; `asr.language` comes from turn detection. Unset options are omitted and explicit `false` values are preserved.
 
 ### NewXaiSTT
 
@@ -1216,6 +1278,9 @@ Panics if `APIKey` is empty.
 |---|---|---|---|
 | `APIKey` | `string` | Yes | Anam API key |
 | `AvatarID` | `string` | No | Anam avatar identifier (wire key: `params.avatar_id`) |
+| `AvatarModel` | `string` | No | Anam model, such as `cara_mk4` for Cara 4 portrait mode |
+| `VideoWidth` | `*int` | No | Output width in pixels; set together with `VideoHeight` |
+| `VideoHeight` | `*int` | No | Output height in pixels; set together with `VideoWidth` |
 | `Enable` | `*bool` | No | Enable or disable the avatar |
 | `AdditionalParams` | `map[string]interface{}` | No | Additional vendor params |
 

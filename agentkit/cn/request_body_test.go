@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	Agora "github.com/AgoraIO/agora-agents-go/v2"
 	"github.com/AgoraIO/agora-agents-go/v2/agentkit/cn/vendors"
 	"github.com/AgoraIO/agora-agents-go/v2/client"
 	"github.com/AgoraIO/agora-agents-go/v2/option"
@@ -47,6 +48,19 @@ func basePropertiesOpts() ToPropertiesOptions {
 		AgentUID:   "1",
 		RemoteUIDs: []string{"100"},
 	}
+}
+
+func TestSpeakBatchParameters(t *testing.T) {
+	t.Parallel()
+	agent := NewAgent(testAgoraClient(), WithParameters(&SessionParamsInput{
+		Speak: &ParametersSpeak{Batch: Agora.Bool(false)},
+	}))
+	opts := basePropertiesOpts()
+	opts.SkipVendorValidation = true
+	properties, err := agent.ToProperties(opts)
+	require.NoError(t, err)
+	require.NotNil(t, properties.Parameters.Speak)
+	assert.Equal(t, Agora.Bool(false), properties.Parameters.Speak.Batch)
 }
 
 func TestDefaultASRFallsBackToFengming(t *testing.T) {
