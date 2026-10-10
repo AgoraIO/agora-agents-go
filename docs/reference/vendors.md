@@ -1278,6 +1278,9 @@ Panics if `APIKey` is empty.
 |---|---|---|---|
 | `APIKey` | `string` | Yes | Anam API key |
 | `AvatarID` | `string` | No | Anam avatar identifier (wire key: `params.avatar_id`) |
+| `AvatarModel` | `string` | No | Anam model, such as `cara_mk4` for Cara 4 portrait mode |
+| `VideoWidth` | `*int` | No | Output width in pixels; set together with `VideoHeight` |
+| `VideoHeight` | `*int` | No | Output height in pixels; set together with `VideoWidth` |
 | `Enable` | `*bool` | No | Enable or disable the avatar |
 | `AdditionalParams` | `map[string]interface{}` | No | Additional vendor params |
 
