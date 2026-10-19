@@ -391,3 +391,71 @@ func TestDeployAudioGreetingSettingsStayAudioOnly(t *testing.T) {
 		}
 	}
 }
+
+func TestSaveSavedAgentUpdateAndProjectResourceAliases(t *testing.T) {
+	calls := 0
+	httpClient := v3HTTPFunc(func(r *http.Request) (*http.Response, error) {
+		calls++
+		switch calls {
+		case 1:
+			if r.Method != "POST" || !strings.HasSuffix(r.URL.Path, "/agents") {
+				t.Fatalf("create request: %s %s", r.Method, r.URL.Path)
+			}
+			return v3Reply(201, `{"agent_id":"a1","agent_name":"Support","create_ts":1,"update_ts":1}`, "e1"), nil
+		case 2:
+			if r.Method != "GET" || !strings.HasSuffix(r.URL.Path, "/agents/a1") {
+				t.Fatalf("get request: %s %s", r.Method, r.URL.Path)
+			}
+			return v3Reply(200, `{"agent_id":"a1","agent_name":"Support","create_ts":1,"update_ts":1}`, "e1"), nil
+		case 3:
+			if r.Method != "PATCH" || r.Header.Get("If-Match") != "e1" {
+				t.Fatalf("update request: %s %v", r.Method, r.Header)
+			}
+			var patch map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&patch); err != nil {
+				t.Fatal(err)
+			}
+			if patch["agent_name"] != "Support" {
+				t.Fatalf("update did not retain saved name: %#v", patch)
+			}
+			return v3Reply(200, `{"agent_id":"a1","agent_name":"Support","create_ts":1,"update_ts":2}`, "e2"), nil
+		default:
+			t.Fatalf("unexpected request %d", calls)
+			return nil, nil
+		}
+	})
+	c := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token", HTTPClient: httpClient, V3: &V3Options{BaseURL: "https://stage.example"}})
+	if c.Secrets != c.V3.Secrets || c.Numbers != c.V3.Numbers {
+		t.Fatal("version-neutral resource accessors must share the V3 client resources")
+	}
+	a := NewAgent(c)
+	saved, err := a.Save(context.Background(), SaveOptions{Name: "Support"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated, err := saved.Update(context.Background(), a.WithVariable("priority", VariableDefinition{Type: "str"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.ID != "a1" || saved.ETag != "e1" || updated.ID != "a1" || updated.ETag != "e2" || updated.Name != "Support" || calls != 3 {
+		t.Fatalf("save/update handles: saved=%#v updated=%#v calls=%d", saved, updated, calls)
+	}
+	if a.base.Variables != nil {
+		t.Fatal("Update mutated the original Agent config")
+	}
+}
+
+func TestSavedAgentUpdateRejectsDifferentClient(t *testing.T) {
+	calls := 0
+	transport := v3HTTPFunc(func(*http.Request) (*http.Response, error) {
+		calls++
+		return nil, errors.New("unexpected request")
+	})
+	first := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token", HTTPClient: transport})
+	second := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token", HTTPClient: transport})
+	saved := &SavedAgent{ID: "a1", Name: "Support", client: first}
+	_, err := saved.Update(context.Background(), NewAgent(second))
+	if err == nil || !strings.Contains(err.Error(), "same AgoraClient instance") || calls != 0 {
+		t.Fatalf("cross-client update: err=%v requests=%d", err, calls)
+	}
+}

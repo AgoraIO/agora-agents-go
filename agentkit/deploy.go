@@ -40,6 +40,18 @@ func SecretRef(set, key string) string {
 
 type VariableDefinition = v3.VariableDefinition
 
+// Project resource aliases let AgentKit users provision secrets and numbers
+// without importing the versioned low-level package.
+type SecretCreate = v3.SecretCreate
+type SecretSet = v3.SecretSet
+type SecretUpdate = v3.SecretUpdate
+type SecretReplace = v3.SecretReplace
+type NumberCreate = v3.NumberCreate
+type Number = v3.Number
+type SipTrunk = v3.SipTrunk
+type SipAuth = v3.SipAuth
+type Inbound = v3.Inbound
+
 func WithVariable(name string, def VariableDefinition) AgentOption {
 	if err := validateVariable(name, def); err != nil {
 		panic(err)
@@ -125,13 +137,18 @@ func validateVariable(name string, def VariableDefinition) error {
 	return nil
 }
 
-type DeployOptions struct {
+// SaveOptions identifies the stored configuration to create or update.
+// Leave AgentID empty to create a new saved agent.
+type SaveOptions struct {
 	Name    string
 	AgentID string
 }
 
-// DeployedAgent represents a stored v3 agent. Raw exposes the low-level client.
-type DeployedAgent struct {
+// DeployOptions is retained for source compatibility. New code should use SaveOptions.
+type DeployOptions = SaveOptions
+
+// SavedAgent represents a stored agent. Raw exposes the low-level client.
+type SavedAgent struct {
 	ID     string
 	ETag   string
 	Name   string
@@ -139,15 +156,31 @@ type DeployedAgent struct {
 	client *AgoraClient
 }
 
+// DeployedAgent is retained as a source-compatible name for SavedAgent.
+type DeployedAgent = SavedAgent
+
+// Save creates a stored configuration, or updates the saved agent identified
+// by opts.AgentID. It does not start a running session.
+func (a *Agent) Save(ctx context.Context, opts SaveOptions) (*SavedAgent, error) {
+	return a.save(ctx, opts.Name, opts.AgentID)
+}
+
+// Deploy is retained for source compatibility. New code should use Save.
 func (a *Agent) Deploy(ctx context.Context, opts DeployOptions) (*DeployedAgent, error) {
+	return a.save(ctx, opts.Name, opts.AgentID)
+}
+
+func (a *Agent) save(ctx context.Context, name, id string) (*SavedAgent, error) {
+	if a == nil || a.base == nil {
+		return nil, errors.New("agentkit: agent is required")
+	}
 	c, ok := a.base.Client.(*AgoraClient)
 	if !ok || c == nil {
-		return nil, errors.New("agentkit: deploy requires AgoraClient")
+		return nil, errors.New("agentkit: save requires AgoraClient")
 	}
 	if c.Area == option.AreaCN {
-		return nil, errors.New("agentkit: v3 deployment in CN is pending backend confirmation")
+		return nil, errors.New("agentkit: saved agents in CN are pending backend confirmation")
 	}
-	name := opts.Name
 	if name == "" {
 		name = fmt.Sprintf("agent-%d", time.Now().Unix())
 	}
@@ -155,14 +188,14 @@ func (a *Agent) Deploy(ctx context.Context, opts DeployOptions) (*DeployedAgent,
 	if err != nil {
 		return nil, err
 	}
-	if opts.AgentID == "" {
+	if id == "" {
 		r, err := c.V3.Agents.Create(ctx, body)
 		if err != nil {
 			return nil, err
 		}
 		return &DeployedAgent{ID: r.Body.AgentID, ETag: r.ETag, Name: r.Body.AgentName, Raw: c.V3.Agents, client: c}, nil
 	}
-	current, err := c.V3.Agents.Get(ctx, opts.AgentID)
+	current, err := c.V3.Agents.Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -170,14 +203,15 @@ func (a *Agent) Deploy(ctx context.Context, opts DeployOptions) (*DeployedAgent,
 	if err != nil {
 		return nil, err
 	}
-	r, err := c.V3.Agents.Update(ctx, opts.AgentID, current.ETag, patch)
+	r, err := c.V3.Agents.Update(ctx, id, current.ETag, patch)
 	if err != nil {
 		return nil, translatePrecondition(err)
 	}
-	return &DeployedAgent{ID: r.Body.AgentID, ETag: r.ETag, Name: r.Body.AgentName, Raw: c.V3.Agents, client: c}, nil
+	return &SavedAgent{ID: r.Body.AgentID, ETag: r.ETag, Name: r.Body.AgentName, Raw: c.V3.Agents, client: c}, nil
 }
 
-func GetDeployedAgent(ctx context.Context, c *AgoraClient, id string) (*DeployedAgent, error) {
+// GetSavedAgent loads a stored configuration by ID.
+func GetSavedAgent(ctx context.Context, c *AgoraClient, id string) (*SavedAgent, error) {
 	if c == nil {
 		return nil, errors.New("agentkit: client is required")
 	}
@@ -185,9 +219,30 @@ func GetDeployedAgent(ctx context.Context, c *AgoraClient, id string) (*Deployed
 	if err != nil {
 		return nil, err
 	}
-	return &DeployedAgent{ID: r.Body.AgentID, ETag: r.ETag, Name: r.Body.AgentName, Raw: c.V3.Agents, client: c}, nil
+	return &SavedAgent{ID: r.Body.AgentID, ETag: r.ETag, Name: r.Body.AgentName, Raw: c.V3.Agents, client: c}, nil
 }
-func (d *DeployedAgent) Delete(ctx context.Context) error {
+
+// GetDeployedAgent is retained for source compatibility. New code should use GetSavedAgent.
+func GetDeployedAgent(ctx context.Context, c *AgoraClient, id string) (*DeployedAgent, error) {
+	return GetSavedAgent(ctx, c, id)
+}
+
+// Update saves config over this stored agent and returns a handle with the new
+// ETag. Both handles must belong to the same AgoraClient instance.
+func (d *SavedAgent) Update(ctx context.Context, config *Agent) (*SavedAgent, error) {
+	if d == nil || d.client == nil || d.ID == "" {
+		return nil, errors.New("agentkit: saved agent with ID and client is required")
+	}
+	if config == nil || config.base == nil {
+		return nil, errors.New("agentkit: agent config is required")
+	}
+	c, ok := config.base.Client.(*AgoraClient)
+	if !ok || c != d.client {
+		return nil, errors.New("agentkit: saved agent update requires the same AgoraClient instance")
+	}
+	return config.Save(ctx, SaveOptions{Name: d.Name, AgentID: d.ID})
+}
+func (d *SavedAgent) Delete(ctx context.Context) error {
 	_, err := d.Raw.Delete(ctx, d.ID)
 	return err
 }

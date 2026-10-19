@@ -19,9 +19,9 @@ type AssignNumberOptions struct {
 // ListNumbers scans this project's number pages for inbound assignments to d.ID.
 // The v3 list endpoint has no agent filter, so the scan cost grows with the
 // project's total number count. It does not make per-number GET requests.
-func (d *DeployedAgent) ListNumbers(ctx context.Context) ([]v3.Number, error) {
+func (d *SavedAgent) ListNumbers(ctx context.Context) ([]v3.Number, error) {
 	if d == nil || d.client == nil || d.ID == "" {
-		return nil, errors.New("agentkit: deployed agent with ID and client is required")
+		return nil, errors.New("agentkit: saved agent with ID and client is required")
 	}
 	out := []v3.Number{}
 	cursor := ""
@@ -58,7 +58,7 @@ func (d *DeployedAgent) ListNumbers(ctx context.Context) ([]v3.Number, error) {
 
 // AssignNumber resolves either a number ID or its E.164 value in this project,
 // then binds its inbound agent with If-Match. A number must already exist.
-func (d *DeployedAgent) AssignNumber(ctx context.Context, number any, opts AssignNumberOptions) (*v3.Number, error) {
+func (d *SavedAgent) AssignNumber(ctx context.Context, number any, opts AssignNumberOptions) (*v3.Number, error) {
 	policy := map[string]any{}
 	if opts.MaxCallDurationSeconds != nil {
 		if *opts.MaxCallDurationSeconds < 1 {
@@ -75,11 +75,11 @@ func (d *DeployedAgent) AssignNumber(ctx context.Context, number any, opts Assig
 	return d.setNumber(ctx, number, d.ID, policy)
 }
 
-func (d *DeployedAgent) UnassignNumber(ctx context.Context, number any) (*v3.Number, error) {
+func (d *SavedAgent) UnassignNumber(ctx context.Context, number any) (*v3.Number, error) {
 	return d.setNumber(ctx, number, nil, nil)
 }
 
-func (d *DeployedAgent) setNumber(ctx context.Context, number any, agent any, policy map[string]any) (*v3.Number, error) {
+func (d *SavedAgent) setNumber(ctx context.Context, number any, agent any, policy map[string]any) (*v3.Number, error) {
 	current, err := d.resolveNumber(ctx, number)
 	if err != nil {
 		return nil, err
@@ -105,7 +105,7 @@ func (d *DeployedAgent) setNumber(ctx context.Context, number any, agent any, po
 	return nil, errors.New("agentkit: number update failed")
 }
 
-func (d *DeployedAgent) resolveNumber(ctx context.Context, number any) (*v3.Response[v3.Number], error) {
+func (d *SavedAgent) resolveNumber(ctx context.Context, number any) (*v3.Response[v3.Number], error) {
 	var input string
 	switch n := number.(type) {
 	case string:

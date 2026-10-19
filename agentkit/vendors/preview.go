@@ -8,27 +8,6 @@ import "strings"
 // served by the production environment. See agentkit/preview_client.go for the
 // routing and the agora-feature gate.
 
-// Preview MLLM model names.
-//
-// The models/ prefix is part of the requested model ID.
-const (
-	GeminiLiveModel38Live                 = "models/gemini-3.8-live"
-	GeminiLiveModel38LiveExtendedThinking = "models/gemini-3.8-live-extended-thinking"
-)
-
-// The low-latency Gemini voice model is the default.
-const GeminiLiveDefaultModel = GeminiLiveModel38Live
-
-// Gemini extended-thinking reasoning budgets.
-const (
-	GeminiThinkingLevelLow    = "low"
-	GeminiThinkingLevelMedium = "medium"
-	GeminiThinkingLevelHigh   = "high"
-)
-
-// GeminiLivePreviewURL is the Gemini Developer API host for the 3.8 models.
-const GeminiLivePreviewURL = "https://generativelanguage.googleapis.com"
-
 // buildGeminiPreviewConfig assembles the 3.8 wire envelope from GeminiLive.
 func buildGeminiPreviewConfig(o GeminiLiveOptions) map[string]interface{} {
 	model := strings.TrimSpace(o.Model)

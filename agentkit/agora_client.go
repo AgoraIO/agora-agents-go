@@ -68,11 +68,16 @@ type AgoraClient struct {
 	AgentManagement *agentmanagement.Client
 	Telephony       *telephony.Client
 	PhoneNumbers    *phonenumbers.Client
-	V3              *v3.Client
-	appID           string
-	appCertificate  string
-	AuthMode        AuthMode
-	httpClient      core.HTTPClient
+	// Secrets and Numbers are the version-neutral AgentKit accessors for the
+	// same project-scoped resources exposed under V3.
+	Secrets *v3.SecretsClient
+	Numbers *v3.NumbersClient
+	// V3 exposes the complete low-level API, including sessions and raw CRUD.
+	V3             *v3.Client
+	appID          string
+	appCertificate string
+	AuthMode       AuthMode
+	httpClient     core.HTTPClient
 }
 
 func (c *AgoraClient) AgentsClient() *agents.Client {
@@ -159,13 +164,16 @@ func NewAgoraClient(opts AgoraClientOptions) *AgoraClient {
 			v3Opts = append(v3Opts, option.WithHTTPHeader(opts.V3.Headers))
 		}
 	}
+	v3Client := v3.NewClient(opts.AppID, v3Opts...)
 	return &AgoraClient{
 		Area:            opts.Area,
 		Agents:          c.Agents,
 		AgentManagement: c.AgentManagement,
 		Telephony:       c.Telephony,
 		PhoneNumbers:    c.PhoneNumbers,
-		V3:              v3.NewClient(opts.AppID, v3Opts...),
+		Secrets:         v3Client.Secrets,
+		Numbers:         v3Client.Numbers,
+		V3:              v3Client,
 		appID:           opts.AppID,
 		appCertificate:  opts.AppCertificate,
 		AuthMode:        authMode,

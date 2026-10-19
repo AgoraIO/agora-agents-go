@@ -61,7 +61,7 @@ Requires Go 1.21 or later.
 | [Pagination](./guides/pagination.md) | Iterate over paginated list endpoints |
 | [Advanced](./guides/advanced.md) | Headers, retries, timeouts, raw response, custom HTTP client |
 | [Low-Level API](./guides/low-level-api.md) | Generated REST APIs |
-| [Conversational AI v3 preview](./guides/v3-preview.md) | Staging setup, AgentKit deploy, all 20 v3 operations, and limits |
+| [Conversational AI v3 preview](./guides/v3-preview.md) | Staging setup, AgentKit save/update workflows, project secrets and numbers, all 20 low-level v3 operations, and limits |
 | [Preview Endpoint](./guides/preview-endpoint.md) | Session-scoped preview routing for providers under development |
 | [Client Reference](./reference/client.md) | Constructor options, public methods |
 | [v3 Preview Reference](./reference/v3.md) | v3 resource types and operation index |

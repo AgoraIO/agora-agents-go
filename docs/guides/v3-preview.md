@@ -1,12 +1,12 @@
 ---
 sidebar_position: 10
 title: Conversational AI v3 preview
-description: Deploy stored agents and manage v3 secrets, numbers, and read-only sessions with Go.
+description: Save agent configurations and manage secrets, numbers, and read-only sessions with Go.
 ---
 
 # Conversational AI v3 preview (P1)
 
-In v3, an **agent** is a saved configuration identified by `agent_id`. A running instance is a **session**, identified by `agent_session_id`. Existing `Agent.CreateSession(...).Start(ctx)` still starts a v2 `/join` session; `Deploy` saves a v3 configuration and does not start a session. The Go import path remains `github.com/AgoraIO/agora-agents-go/v2`: its `/v2` suffix is the module's semantic major version, independent of the REST API version.
+In v3, an **agent** is a saved configuration identified by `agent_id`. A running instance is a **session**, identified by `agent_session_id`. Existing `Agent.CreateSession(...).Start(ctx)` still starts a v2 `/join` session. `Save` creates or updates a saved configuration; it does not start a session. The Go import path remains `github.com/AgoraIO/agora-agents-go/v2`: its `/v2` suffix is the module's semantic major version, independent of the REST API version.
 
 ## Quickstart on staging
 
@@ -57,11 +57,11 @@ func main() {
 }
 ```
 
-An app certificate client can set `AppCertificate` in place of `Token`; AgentKit signs a fresh ConvoAI token for each v3 request. Basic auth uses `CustomerID` and `CustomerSecret`. `AGORA_AGENTS_V3_BASE_URL` is a second origin override; explicit `V3Options.BaseURL` takes precedence. Put staging-only headers in `V3Options.Headers` so v2 requests never receive them. Production path and regional availability are unconfirmed; AgentKit rejects CN deployment pending backend confirmation.
+An app certificate client can set `AppCertificate` in place of `Token`; AgentKit signs a fresh ConvoAI token for each v3 request. Basic auth uses `CustomerID` and `CustomerSecret`. `AGORA_AGENTS_V3_BASE_URL` is a second origin override; explicit `V3Options.BaseURL` takes precedence. Put staging-only headers in `V3Options.Headers` so v2 requests never receive them. Production path and regional availability are unconfirmed; AgentKit rejects CN saved-agent operations pending backend confirmation.
 
 ## AgentKit workflows
 
-### Deploy and redeploy
+### Save and update a stored agent
 
 The following body assumes `ctx context.Context`, `c *agentkit.AgoraClient`, and imports for `agentkit` and `agentkit/vendors`:
 
@@ -76,54 +76,55 @@ agent := agentkit.NewAgent(c,
 }))
 
 // Create once; persist the returned ID.
-deployed, err := agent.Deploy(ctx, agentkit.DeployOptions{Name: "Support"})
+saved, err := agent.Save(ctx, agentkit.SaveOptions{Name: "Support"})
 if err != nil { return err }
 
-// Later, update the same stored configuration.
-deployed, err = agent.Deploy(ctx, agentkit.DeployOptions{
-    Name: "Support", AgentID: deployed.ID,
+// Later, update the same stored configuration with a new immutable config.
+updatedAgentConfig := agent.WithVariable("priority", agentkit.VariableDefinition{
+    Type: "str", Description: "What should the agent prioritize?",
 })
+saved, err = saved.Update(ctx, updatedAgentConfig)
 if err != nil { return err }
 ```
 
-`WithVariable` also exists as `agent.WithVariable(name, def)`, returning a new immutable builder. Names match `^[a-z][a-z0-9_]{0,63}$`; types are `str`, `int`, `float`, `bool`, `date`, and `datetime`. `Options`, when provided, must contain 1–100 unique JSON scalar values. Descriptions are limited to 2000 Unicode characters; `Extract: true` requires a nonempty description. The no-error builder methods panic for invalid definitions. `agentkit.GetDeployedAgent(ctx, c, id)` loads a handle; `deployed.Delete(ctx)` deletes it. Handles expose `ID`, `Name`, `ETag`, and `Raw` (`*v3.AgentsClient`).
+`WithVariable` also exists as `agent.WithVariable(name, def)`, returning a new immutable builder. Names match `^[a-z][a-z0-9_]{0,63}$`; types are `str`, `int`, `float`, `bool`, `date`, and `datetime`. `Options`, when provided, must contain 1–100 unique JSON scalar values. Descriptions are limited to 2000 Unicode characters; `Extract: true` requires a nonempty description. The no-error builder methods panic for invalid definitions. `agentkit.GetSavedAgent(ctx, c, id)` loads a handle; `saved.Delete(ctx)` deletes it. `saved.Update(ctx, config)` reuses its ID and name and returns a handle with the fresh ETag. Handles expose `ID`, `Name`, `ETag`, and `Raw` (`*v3.AgentsClient`). The old `Deploy`, `DeployOptions`, `DeployedAgent`, and `GetDeployedAgent` names remain available as compatibility aliases.
 
-With no `AgentID`, `Deploy` POSTs a new agent. Save its ID: names are not unique upsert keys and agent POST has no supported idempotency key. With an ID, `Deploy` GETs the current ETag, then PATCHes. It sends recursive `null`s to clear readable stale fields, omitting server-owned IDs, timestamps, and resolved credential metadata. A 412 becomes `ErrPreconditionFailed` and retains the underlying v3 error; deploy does not retry the conflict automatically.
+`Save` without an ID POSTs a new agent. Save its returned ID: names are not unique upsert keys and agent POST has no supported idempotency key. `SavedAgent.Update` GETs the current ETag, then PATCHes. It sends recursive `null`s to clear readable stale fields, omitting server-owned IDs, timestamps, and resolved credential metadata. A 412 becomes `ErrPreconditionFailed` and retains the underlying v3 error; save does not retry the conflict automatically.
 
-For cascaded deployments, an explicit `TurnDetection.Language` is preserved as `pipeline.asr.language`, taking precedence over the ASR vendor language as on v2. Without an explicit STT vendor, it uses the existing global `ares` default with managed credentials; endpoint availability remains a backend concern. The same interaction-language setting is rejected on realtime deployment because the published realtime schema has no equivalent.
+For cascaded saves, an explicit `TurnDetection.Language` is preserved as `pipeline.asr.language`, taking precedence over the ASR vendor language as on v2. Without an explicit STT vendor, it uses the existing global `ares` default with managed credentials; endpoint availability remains a backend concern. The same interaction-language setting is rejected on realtime saves because the published realtime schema has no equivalent.
 
 Legacy greeting settings `mode: "single_every"` and `mode: "single_first"` map to `on: "each_join"` and `on: "first_join"`. An explicit `on` takes precedence. Unknown legacy modes and playback settings without an actual greeting are rejected before a request. Audio download timeout and PCM sample-rate settings require an audio greeting; supplying them for a text greeting is rejected. Empty message content remains valid. Variable descriptions allow up to 2000 Unicode characters, rather than 2000 UTF-8 bytes.
 
 ### Secrets and numbers
 
-Create the secret set before deploying a provider that uses `SecretRef`. Values are write-only. The optional secret `Idempotency-Key` is a `string` argument; pass `""` to omit it. This code also assumes `os`, `v3`, and `agentkit` imports:
+Create the secret set before saving a provider that uses `SecretRef`. Values are write-only. The optional secret `Idempotency-Key` is a `string` argument; pass `""` to omit it. This code also assumes `os` and `agentkit` imports:
 
 ```go
-secret, err := c.V3.Secrets.Create(ctx, v3.SecretCreate{
+secret, err := c.Secrets.Create(ctx, agentkit.SecretCreate{
     Name: "prod",
     Secrets: map[string]string{"openai": os.Getenv("OPENAI_API_KEY")},
 }, "secret-create-2026-10")
 if err != nil { return err }
 _ = secret.Body.Keys // Values are never returned.
 
-number, err := c.V3.Numbers.Create(ctx, v3.NumberCreate{
+number, err := c.Numbers.Create(ctx, agentkit.NumberCreate{
     Number: "+12025550123",
-    SipTrunk: v3.SipTrunk{Hostname: "sip.example.com", Transport: "tls"},
+    SipTrunk: agentkit.SipTrunk{Hostname: "sip.example.com", Transport: "tls"},
 }, "")
 if err != nil { return err }
 
 maxCall := 900
-_, err = deployed.AssignNumber(ctx, number.Body, agentkit.AssignNumberOptions{
+_, err = saved.AssignNumber(ctx, number.Body, agentkit.AssignNumberOptions{
     MaxCallDurationSeconds: &maxCall,
 })
 if err != nil { return err }
-_, err = deployed.UnassignNumber(ctx, number.Body.NumberID)
+_, err = saved.UnassignNumber(ctx, number.Body.NumberID)
 if err != nil { return err }
 ```
 
-Assignment accepts `number_id`, `v3.Number`, `*v3.Number`, or a formatted E.164 value. E.164 lookup scans this project's pages because the API has no number filter, then GETs the matched number for an ETag. Assignment PATCHes only the inbound agent and explicitly supplied call policy fields; one 412 causes one fresh GET and retry. A missing project number returns `ErrNumberNotFound`. Number POST accepts an idempotency argument but staging does not reliably honor it, so it is not automatically retried. `SecretRef("prod", "openai")` yields `$secrets.prod.openai`; passing it to the v2 session path returns `ErrSecretRefNotSupported`.
+Assignment accepts `number_id`, `agentkit.Number`, `*agentkit.Number`, or a formatted E.164 value. E.164 lookup scans this project's pages because the API has no number filter, then GETs the matched number for an ETag. Assignment PATCHes only the inbound agent and explicitly supplied call policy fields; one 412 causes one fresh GET and retry. A missing project number returns `ErrNumberNotFound`. Number POST accepts an idempotency argument but staging does not reliably honor it, so it is not automatically retried. `SecretRef("prod", "openai")` yields `$secrets.prod.openai`; passing it to the v2 session path returns `ErrSecretRefNotSupported`.
 
-`deployed.ListNumbers(ctx)` returns the v3 numbers whose `inbound.agent` equals the deployed agent ID. It scans **every number page in the project**, with no per-number GETs, because staging has no agent filter. Its request cost grows with the project's total number count; use it deliberately for large projects. The v3 session list is also project-wide, but the published list and get responses provide no `agent_id` association. There is no `DeployedAgent.ListSessions` helper because matching the nonunique `agent_name` would be unreliable.
+`saved.ListNumbers(ctx)` returns the numbers whose `inbound.agent` equals the saved agent ID. It scans **every number page in the project**, with no per-number GETs, because staging has no agent filter. Its request cost grows with the project's total number count; use it deliberately for large projects. The v3 session list is also project-wide, but the published list and get responses provide no `agent_id` association. There is no `SavedAgent.ListSessions` helper because matching the nonunique `agent_name` would be unreliable.
 
 ## Low-level reference: all 20 staging operations
 
@@ -189,7 +190,7 @@ return err
 
 ## Compatibility and limits
 
-`Deploy` collects unsupported v2 fields into one `ErrUnsupportedField` before HTTP. Current examples are `sal`, `advancedFeatures`, `geofence`, `labels`, `rtc`, `audioScenario`, `pipelineId`, non-silence `parameters`, nonempty `template_variables` (v3 variables have no defaults), unverified provider fields, and multipart credentials that cannot map to one API key. Remove them from the stored-agent builder or keep that use case on v2. Managed credentials use only a URL already present in a vendor config; the SDK invents no default URL.
+`Save` collects unsupported v2 fields into one `ErrUnsupportedField` before HTTP. Current examples are `sal`, `advancedFeatures`, `geofence`, `labels`, `rtc`, `audioScenario`, `pipelineId`, non-silence `parameters`, nonempty `template_variables` (v3 variables have no defaults), unverified provider fields, and multipart credentials that cannot map to one API key. Remove them from the stored-agent builder or keep that use case on v2. Managed credentials use only a URL already present in a vendor config; the SDK invents no default URL.
 
 Provider API keys and secret values are write-only. Supply credentials explicitly when redeploying; GET cannot reconstruct them. Redeploy writes `null` for readable stale nested fields, but actual backend handling of whole-pipeline merge patches still needs live verification. Session operations are **read-only and project-wide** in P1: no v3 start/stop/actions, outbound call methods, analysis shortcut on the v2 `AgentSession`, or campaigns exist yet. v2 telephony and phone-number clients keep their original semantics; they do not manage v3 project-scoped numbers.
 
