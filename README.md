@@ -1,5 +1,7 @@
 # Agora Agents Go
 
+Conversational AI v3 P1 preview: [stored agents, secrets, numbers, and read-only sessions](docs/guides/v3-preview.md). The Go module's `/v2` suffix is its semantic major version, not the REST API version.
+
 [![fern shield](https://img.shields.io/badge/%F0%9F%8C%BF-Built%20with%20Fern-brightgreen)](https://buildwithfern.com?utm_source=github&utm_medium=github&utm_campaign=readme&utm_source=https%3A%2F%2Fgithub.com%2FAgoraIO%2Fagora-agents-go)
 [![Go Reference](https://pkg.go.dev/badge/github.com/AgoraIO/agora-agents-go/v2.svg)](https://pkg.go.dev/github.com/AgoraIO/agora-agents-go/v2)
 [![Go Report Card](https://goreportcard.com/badge/github.com/AgoraIO/agora-agents-go)](https://goreportcard.com/report/github.com/AgoraIO/agora-agents-go)

@@ -14,6 +14,7 @@ import (
 	"github.com/AgoraIO/agora-agents-go/v2/option"
 	"github.com/AgoraIO/agora-agents-go/v2/phonenumbers"
 	"github.com/AgoraIO/agora-agents-go/v2/telephony"
+	"github.com/AgoraIO/agora-agents-go/v2/v3"
 )
 
 // AuthMode represents the authentication mode for the Agora client.
@@ -47,6 +48,13 @@ type AgoraClientOptions struct {
 	Token string
 	// HTTPClient overrides the transport used for requests.
 	HTTPClient core.HTTPClient
+	// V3 configures the v3 origin and staging gateway headers independently.
+	V3 *V3Options
+}
+
+type V3Options struct {
+	BaseURL string
+	Headers http.Header
 }
 
 // AgoraClient wraps the Fern-generated client with AppID, AppCertificate, and
@@ -55,10 +63,12 @@ type AgoraClientOptions struct {
 // Agents, AgentManagement, Telephony, and PhoneNumbers expose the underlying
 // REST clients for advanced usage.
 type AgoraClient struct {
+	Area            option.Area
 	Agents          *agents.Client
 	AgentManagement *agentmanagement.Client
 	Telephony       *telephony.Client
 	PhoneNumbers    *phonenumbers.Client
+	V3              *v3.Client
 	appID           string
 	appCertificate  string
 	AuthMode        AuthMode
@@ -133,16 +143,51 @@ func NewAgoraClient(opts AgoraClientOptions) *AgoraClient {
 	}
 
 	c := client.NewClient(reqOpts...)
+	v3Opts := append([]option.RequestOption(nil), reqOpts...)
+	if authMode == AuthModeAppCredentials && opts.AppCertificate != "" {
+		transport := opts.HTTPClient
+		if transport == nil {
+			transport = http.DefaultClient
+		}
+		v3Opts = append(v3Opts, option.WithHTTPClient(&v3TokenClient{transport: transport, appID: opts.AppID, appCertificate: opts.AppCertificate}))
+	}
+	if opts.V3 != nil {
+		if opts.V3.BaseURL != "" {
+			v3Opts = append(v3Opts, option.WithBaseURL(opts.V3.BaseURL))
+		}
+		if len(opts.V3.Headers) > 0 {
+			v3Opts = append(v3Opts, option.WithHTTPHeader(opts.V3.Headers))
+		}
+	}
 	return &AgoraClient{
+		Area:            opts.Area,
 		Agents:          c.Agents,
 		AgentManagement: c.AgentManagement,
 		Telephony:       c.Telephony,
 		PhoneNumbers:    c.PhoneNumbers,
+		V3:              v3.NewClient(opts.AppID, v3Opts...),
 		appID:           opts.AppID,
 		appCertificate:  opts.AppCertificate,
 		AuthMode:        authMode,
 		httpClient:      opts.HTTPClient,
 	}
+}
+
+// v3TokenClient signs each request so long-lived clients do not retain an
+// expired token. The v3 gateway accepts the same ConvoAI token scheme as v2.
+type v3TokenClient struct {
+	transport             core.HTTPClient
+	appID, appCertificate string
+}
+
+func (c *v3TokenClient) Do(req *http.Request) (*http.Response, error) {
+	token, err := GenerateConvoAIToken(GenerateConvoAITokenOptions{AppID: c.appID, AppCertificate: c.appCertificate, ChannelName: "v3", UID: 0})
+	if err != nil {
+		return nil, err
+	}
+	clone := req.Clone(req.Context())
+	clone.Header.Set("Authorization", "agora token="+token)
+	return c.transport.Do(clone)
 }
 
 // StopAgent stops an agent by its ID without requiring an AgentSession reference.

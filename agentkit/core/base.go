@@ -9,7 +9,10 @@ import (
 	"github.com/AgoraIO/agora-agents-go/v2/agentmanagement"
 	"github.com/AgoraIO/agora-agents-go/v2/agents"
 	basecore "github.com/AgoraIO/agora-agents-go/v2/core"
+	"github.com/AgoraIO/agora-agents-go/v2/v3"
 )
+
+type VariableDefinition = v3.VariableDefinition
 
 type SampleRate int
 
@@ -79,6 +82,7 @@ type BaseAgent struct {
 	Labels                   map[string]string
 	RTC                      *RtcConfig
 	FillerWords              *FillerWordsConfig
+	Variables                map[string]VariableDefinition
 }
 
 type AgentRuntime interface {
@@ -246,6 +250,13 @@ func WithSessionOptOut(optOut bool) AgentOption {
 
 func (a *BaseAgent) Clone() *BaseAgent {
 	clone := *a
+	if a.Variables != nil {
+		clone.Variables = make(map[string]VariableDefinition, len(a.Variables))
+		for k, v := range a.Variables {
+			v.Options = append([]any(nil), v.Options...)
+			clone.Variables[k] = v
+		}
+	}
 	if a.Labels != nil {
 		clone.Labels = make(map[string]string, len(a.Labels))
 		for k, v := range a.Labels {
