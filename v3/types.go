@@ -2,11 +2,16 @@
 // module's /v2 suffix is its semantic major version, not the REST API version.
 package v3
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"net/http"
+)
 
 // Response retains headers such as ETag and Agora-Request-Id alongside a body.
 type Response[T any] struct {
-	Body       T
+	Body T
+	// Header is a detached copy of all response headers.
+	Header     http.Header
 	ETag       string
 	RequestID  string
 	StatusCode int
@@ -43,7 +48,7 @@ type Greeting struct {
 	Mode              string `json:"mode"`
 	On                string `json:"on,omitempty"`
 	DelayMs           *int   `json:"delay_ms,omitempty"`
-	Text              string `json:"text,omitempty"`
+	Text              string `json:"text"`
 	URL               string `json:"url,omitempty"`
 	DownloadTimeoutMs *int   `json:"download_timeout_ms,omitempty"`
 	PCMSampleRate     *int   `json:"pcm_sample_rate,omitempty"`
@@ -161,7 +166,7 @@ type SipTrunk struct {
 	Auth      *SipAuth `json:"auth,omitempty"`
 }
 type Inbound struct {
-	Agent      *string        `json:"agent,omitempty"`
+	Agent      *string        `json:"agent"`
 	CallPolicy map[string]any `json:"call_policy,omitempty"`
 }
 type NumberCreate struct {

@@ -42,12 +42,16 @@ func WithVariable(name string, def VariableDefinition) AgentOption {
 	if err := validateVariable(name, def); err != nil {
 		panic(err)
 	}
+	// Capture caller-owned slices now, then copy again for each application.
+	// Reusing an option must not alias builders or mutate this closure.
+	def.Options = append([]any(nil), def.Options...)
 	return func(a *agentcore.BaseAgent) {
 		if a.Variables == nil {
 			a.Variables = map[string]VariableDefinition{}
 		}
-		def.Options = append([]any(nil), def.Options...)
-		a.Variables[name] = def
+		value := def
+		value.Options = append([]any(nil), def.Options...)
+		a.Variables[name] = value
 	}
 }
 
@@ -267,6 +271,22 @@ func (a *Agent) toV3(name string) (v3.AgentCreate, error) {
 		unsupported = append(unsupported, bad...)
 	}
 	turn := b.TurnDetection
+	if turn != nil && turn.Language != nil {
+		if pipe.Mode == "realtime" {
+			unsupported = append(unsupported, "turnDetection.language in realtime pipeline")
+		} else {
+			// Match the global v2 ASR default and language precedence. Do not
+			// invent a provider endpoint; managed endpoint validation is server-side.
+			if pipe.ASR == nil {
+				pipe.ASR = map[string]any{"vendor": "ares", "credential": map[string]any{"mode": "managed"}}
+			}
+			language := string(*turn.Language)
+			if language == "" {
+				language = "en-US"
+			}
+			pipe.ASR["language"] = language
+		}
+	}
 	var vendorTurn map[string]interface{}
 	if b.MLLM != nil {
 		if x, ok := b.MLLM["turn_detection"]; ok && x != nil {
@@ -388,9 +408,27 @@ func (a *Agent) toV3(name string) (v3.AgentCreate, error) {
 			greet["text"] = greetingText
 		}
 	}
+	if len(gc) > 0 && len(greet) == 0 {
+		unsupported = append(unsupported, "greetingConfigs without greeting")
+	}
 	if gc != nil {
+		if mode, exists := gc["mode"]; exists {
+			var on string
+			switch mode {
+			case "single_every":
+				on = "each_join"
+			case "single_first":
+				on = "first_join"
+			default:
+				unsupported = append(unsupported, "greetingConfigs.mode")
+			}
+			if _, explicit := gc["on"]; !explicit && on != "" {
+				greet["on"] = on
+			}
+		}
 		for k, v := range gc {
 			switch k {
+			case "mode": // Legacy aliases are normalized above; explicit on wins.
 			case "on", "delay_ms":
 				greet[k] = v
 			case "audio_download_timeout_ms":
@@ -659,6 +697,9 @@ func convertTurnMap(m map[string]interface{}, interruption *InterruptionConfig, 
 					bad = append(bad, "turnDetection."+k)
 				}
 			case "language":
+				if v != nil {
+					bad = append(bad, "turnDetection.language in realtime pipeline")
+				}
 			default:
 				if v != nil {
 					bad = append(bad, "turnDetection."+k)

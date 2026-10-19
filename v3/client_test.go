@@ -2,6 +2,7 @@ package v3
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -86,5 +87,77 @@ func TestCursorAndRawETag(t *testing.T) {
 	}
 	if r.ETag != "e2" || r.RequestID != "req1" || len(r.Body.Data.List) != 1 {
 		t.Fatalf("bad page: %#v", r)
+	}
+}
+
+func TestTypedCreatePreservesRequiredNullAndEmptyFields(t *testing.T) {
+	ctx := context.Background()
+	calls := 0
+	c := NewClient("app", option.WithBaseURL("https://staging.example"), option.WithHTTPClient(httpFunc(func(r *http.Request) (*http.Response, error) {
+		calls++
+		var body map[string]json.RawMessage
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		switch calls {
+		case 1:
+			var inbound map[string]json.RawMessage
+			if err := json.Unmarshal(body["inbound"], &inbound); err != nil {
+				t.Fatal(err)
+			}
+			if got, ok := inbound["agent"]; !ok || string(got) != "null" {
+				t.Fatalf("required nullable agent was omitted: %s", body["inbound"])
+			}
+			return reply(201, `{"number_id":"n1","number":"+12025550123","create_ts":1}`, nil), nil
+		case 2:
+			var greeting map[string]json.RawMessage
+			if err := json.Unmarshal(body["greeting"], &greeting); err != nil {
+				t.Fatal(err)
+			}
+			if got, ok := greeting["text"]; !ok || string(got) != `""` {
+				t.Fatalf("required empty text was omitted: %s", body["greeting"])
+			}
+			return reply(201, `{"agent_id":"a1","agent_name":"Greeting","create_ts":1,"update_ts":1}`, nil), nil
+		default:
+			t.Fatal("unexpected request")
+			return nil, nil
+		}
+	})))
+	if _, err := c.Numbers.Create(ctx, NumberCreate{Number: "+12025550123", SipTrunk: SipTrunk{Hostname: "sip.example"}, Inbound: &Inbound{CallPolicy: map[string]any{"max_call_duration_seconds": 900}}}, ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Agents.Create(ctx, AgentCreate{AgentName: "Greeting", Greeting: Greeting{Mode: "text", Text: ""}}); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 2 {
+		t.Fatalf("calls = %d", calls)
+	}
+}
+
+func TestResponsePreservesDetachedRawHeaders(t *testing.T) {
+	header := http.Header{}
+	header.Set("ETag", "e1")
+	header.Set("Agora-Request-Id", "request-1")
+	header.Set("Location", "/secrets/test")
+	header.Set("Idempotent-Replayed", "true")
+	header["X-Multi"] = []string{"first", "second"}
+	c := NewClient("app", option.WithBaseURL("https://staging.example"), option.WithHTTPClient(httpFunc(func(r *http.Request) (*http.Response, error) {
+		return reply(201, `{"name":"test","keys":["key"],"create_ts":1,"update_ts":1}`, header), nil
+	})))
+	got, err := c.Secrets.Create(context.Background(), SecretCreate{Name: "test", Secrets: map[string]string{"key": "value"}}, "once")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Header.Get("Location") != "/secrets/test" || got.Header.Get("Idempotent-Replayed") != "true" || got.ETag != "e1" || got.RequestID != "request-1" || got.StatusCode != 201 {
+		t.Fatalf("response headers lost: %#v", got)
+	}
+	header["X-Multi"][0] = "changed by transport"
+	header.Set("Location", "changed")
+	if got.Header["X-Multi"][0] != "first" || got.Header.Get("Location") != "/secrets/test" {
+		t.Fatal("response headers alias transport headers")
+	}
+	got.Header["X-Multi"][1] = "changed by caller"
+	if header["X-Multi"][1] != "second" {
+		t.Fatal("transport headers alias caller response")
 	}
 }

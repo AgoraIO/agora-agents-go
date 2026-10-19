@@ -127,7 +127,7 @@ func (t *transport) call(ctx context.Context, method, path string, query url.Val
 	if err != nil {
 		return Response[any]{}, err
 	}
-	return Response[any]{Body: output, ETag: raw.Header.Get("ETag"), RequestID: raw.Header.Get("Agora-Request-Id"), StatusCode: raw.StatusCode}, nil
+	return Response[any]{Body: output, Header: raw.Header.Clone(), ETag: raw.Header.Get("ETag"), RequestID: raw.Header.Get("Agora-Request-Id"), StatusCode: raw.StatusCode}, nil
 }
 func listQuery(o ListOptions) url.Values {
 	q := url.Values{}
@@ -156,7 +156,7 @@ func requiredETag(v string) error {
 	return nil
 }
 func response[T any](r Response[any], body T) *Response[T] {
-	return &Response[T]{Body: body, ETag: r.ETag, RequestID: r.RequestID, StatusCode: r.StatusCode}
+	return &Response[T]{Body: body, Header: r.Header.Clone(), ETag: r.ETag, RequestID: r.RequestID, StatusCode: r.StatusCode}
 }
 
 type AgentsClient struct{ t *transport }

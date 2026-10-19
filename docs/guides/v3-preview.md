@@ -90,6 +90,10 @@ if err != nil { return err }
 
 With no `AgentID`, `Deploy` POSTs a new agent. Save its ID: names are not unique upsert keys and agent POST has no supported idempotency key. With an ID, `Deploy` GETs the current ETag, then PATCHes. It sends recursive `null`s to clear readable stale fields, omitting server-owned IDs, timestamps, and resolved credential metadata. A 412 becomes `ErrPreconditionFailed` and retains the underlying v3 error; deploy does not retry the conflict automatically.
 
+For cascaded deployments, an explicit `TurnDetection.Language` is preserved as `pipeline.asr.language`, taking precedence over the ASR vendor language as on v2. Without an explicit STT vendor, it uses the existing global `ares` default with managed credentials; endpoint availability remains a backend concern. The same interaction-language setting is rejected on realtime deployment because the published realtime schema has no equivalent.
+
+Legacy greeting settings `mode: "single_every"` and `mode: "single_first"` map to `on: "each_join"` and `on: "first_join"`. An explicit `on` takes precedence. Unknown legacy modes and playback settings without an actual greeting are rejected before a request.
+
 ### Secrets and numbers
 
 Create the secret set before deploying a provider that uses `SecretRef`. Values are write-only. The optional secret `Idempotency-Key` is a `string` argument; pass `""` to omit it. This code also assumes `os`, `v3`, and `agentkit` imports:
@@ -125,7 +129,7 @@ Assignment accepts `number_id`, `v3.Number`, `*v3.Number`, or a formatted E.164 
 
 Import `github.com/AgoraIO/agora-agents-go/v2/v3`. `agentkit.AgoraClient.V3` already has the App ID. The root `client.NewClient(...)` has no App ID option: use `api.V3.ForAppID(appID)` before calling its resources, or construct `v3.NewClient(appID, opts...)` directly. An empty App ID or resource ID fails locally before HTTP.
 
-Every method takes `ctx context.Context` first and returns `(*v3.Response[T], error)`. Below are its **exact remaining arguments**, response body `T`, and relevant headers. A `Response[T]` contains `Body`, raw `ETag`, `RequestID` (from `Agora-Request-Id`), and `StatusCode`; it does not expose arbitrary response headers. `ifMatch` must be the literal ETag, including quotes if the server sent them. `""` omits optional header arguments.
+Every method takes `ctx context.Context` first and returns `(*v3.Response[T], error)`. Below are its **exact remaining arguments**, response body `T`, and relevant headers. A `Response[T]` contains `Body`, a detached `Header http.Header` with all response headers, raw `ETag`, `RequestID` (from `Agora-Request-Id`), and `StatusCode`. Use `response.Header.Get("Location")` or `response.Header.Get("Idempotent-Replayed")` to inspect those headers. `ifMatch` must be the literal ETag, including quotes if the server sent them. `""` omits optional header arguments.
 
 | Method after `c.V3` | Arguments after `ctx` | Body `T` | Header/filter note |
 |---|---|---|---|
