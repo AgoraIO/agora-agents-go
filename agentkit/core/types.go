@@ -154,4 +154,5 @@ type (
 	LlmToolExecutionMode      = Agora.LlmToolExecutionMode
 	LlmToolServer             = Agora.LlmToolServer
 	LlmToolServerMethod       = Agora.LlmToolServerMethod
+	McpServer                 = Agora.McpServer
 )

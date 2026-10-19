@@ -68,32 +68,36 @@ func TestUnifiedGeminiLiveModelNames(t *testing.T) {
 				}
 			}
 			features := requiredPreviewFeatures(map[string]interface{}{"mllm": config}, nil)
-			if len(features) != 1 || features[0] != PreviewFeatureGeminiLive {
-				t.Fatalf("features = %v, want gemini-live", features)
+			if len(features) != 0 {
+				t.Fatalf("features = %v, want production routing", features)
 			}
 			manual := map[string]interface{}{"mllm": map[string]interface{}{
-				"vendor": "gemini", "params": map[string]interface{}{"model": tt.model},
+				"vendor": "gemini", "api_key": previewAPIKey, "url": vendors.GeminiLivePreviewURL,
+				"params": map[string]interface{}{"model": tt.model},
 			}}
 			features = requiredPreviewFeatures(manual, nil)
-			if len(features) != 1 || features[0] != PreviewFeatureGeminiLive {
-				t.Fatalf("manual features = %v, want gemini-live", features)
+			if len(features) != 0 {
+				t.Fatalf("manual features = %v, want production routing", features)
 			}
 		})
 	}
 }
 
-func TestGeminiUnknownModelKeepsPreviewGreetingWithoutNestedAPIKey(t *testing.T) {
+func TestGeminiUnknownModelUsesProductionRouting(t *testing.T) {
 	config := vendors.NewGeminiLive(vendors.GeminiLiveOptions{
 		APIKey: previewAPIKey, Model: "future-live-model", URL: vendors.GeminiLivePreviewURL,
 	}).ToConfig()
 	config["greeting_message"] = "Hello"
 	properties := map[string]interface{}{"mllm": config}
 	ApplyPreviewShape(properties)
-	if config["greeting"] != "Hello" {
-		t.Fatalf("unknown preview model greeting = %v", config["greeting"])
+	if got := RequiredPreviewFeatures(properties); len(got) != 0 {
+		t.Fatalf("legacy Gemini production features = %v", got)
 	}
-	if _, exists := config["greeting_message"]; exists {
-		t.Fatal("production greeting field leaked into preview request")
+	if config["greeting_message"] != "Hello" {
+		t.Fatalf("unknown production model greeting_message = %v", config["greeting_message"])
+	}
+	if _, exists := config["greeting"]; exists {
+		t.Fatal("preview greeting field was added to production request")
 	}
 }
 
@@ -398,6 +402,16 @@ func TestRequiredPreviewFeaturesLeavesAGAPipelineAlone(t *testing.T) {
 	}
 }
 
+func TestRequiredPreviewFeaturesLeavesGPTLiveOnGA(t *testing.T) {
+	properties := map[string]interface{}{
+		"mllm": map[string]interface{}{"vendor": "openai_gpt_live"},
+	}
+
+	if got := RequiredPreviewFeatures(properties); len(got) != 0 {
+		t.Errorf("RequiredPreviewFeatures(openai_gpt_live) = %v, want none", got)
+	}
+}
+
 func TestDebugHTTPClientLogsFinalRedactedRequest(t *testing.T) {
 	// The debug client must be below the preview gate: users need to see the
 	// actual endpoint and feature header, not the partial request assembled by
@@ -481,12 +495,34 @@ func TestDebugLoggerLeavesNonReplayableBodyUntouched(t *testing.T) {
 	}
 }
 
-func TestGPTLiveV3RoutesSessionLifecycle(t *testing.T) {
+func TestGPTLiveV3SessionLifecycleUsesProductionRouting(t *testing.T) {
 	rec := &recordingClient{}
 	zero := 0
-	session := NewAgent(newTestPreviewClient(rec)).WithMllm(vendors.NewOpenAIGPTLive(vendors.OpenAIGPTLiveOptions{
-		APIKey: "test", Prompt: "Be brief", OutputIdleEndMs: &zero,
-	})).CreateSession(CreateSessionOptions{Channel: "preview", AgentUID: "1", RemoteUIDs: []string{"100"}})
+	tool := &Agora.LlmTool{
+		Function: &Agora.LlmToolFunction{Name: "lookup"},
+		Server: &Agora.LlmToolServer{
+			Method: Agora.LlmToolServerMethodPost,
+			URL:    "https://tools.example.com/lookup",
+		},
+	}
+	mcpServer := &Agora.McpServer{
+		Name:     "catalog",
+		Endpoint: "https://mcp.example.com",
+	}
+	session := NewAgent(
+		newTestPreviewClient(rec),
+		WithTools(true),
+	).WithMllm(vendors.NewOpenAIGPTLive(vendors.OpenAIGPTLiveOptions{
+		APIKey:           "test",
+		Prompt:           "Be brief",
+		OutputIdleEndMs:  &zero,
+		Tools:            []*Agora.LlmTool{tool},
+		McpServerConfigs: []*Agora.McpServer{mcpServer},
+	})).CreateSession(CreateSessionOptions{
+		Channel:    "production",
+		AgentUID:   "1",
+		RemoteUIDs: []string{"100"},
+	})
 	ctx := context.Background()
 	if _, err := session.Start(ctx); err != nil {
 		t.Fatal(err)
@@ -506,9 +542,12 @@ func TestGPTLiveV3RoutesSessionLifecycle(t *testing.T) {
 	if len(rec.requests) != 5 {
 		t.Fatalf("got %d requests", len(rec.requests))
 	}
-	for _, req := range rec.requests {
-		if req.Header.Get(PreviewFeatureHeader) != PreviewFeatureLiveModels || !strings.HasPrefix(req.URL.String(), PreviewAPIBaseURL) {
-			t.Fatal("lost preview route")
+	for i, req := range rec.requests {
+		if got := req.Header.Get(PreviewFeatureHeader); got != "" {
+			t.Errorf("request %d: %s = %q, want no preview gate", i, PreviewFeatureHeader, got)
+		}
+		if strings.HasPrefix(req.URL.String(), PreviewAPIBaseURL) {
+			t.Errorf("request %d unexpectedly used preview host: %s", i, req.URL)
 		}
 	}
 	var body map[string]interface{}
@@ -516,23 +555,40 @@ func TestGPTLiveV3RoutesSessionLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	mllm := body["properties"].(map[string]interface{})["mllm"].(map[string]interface{})
+	advancedFeatures := body["properties"].(map[string]interface{})["advanced_features"].(map[string]interface{})
 	if mllm["enable"] != true || mllm["url"] != "wss://api.openai.com/v1/live/sessions" {
 		t.Fatalf("mllm = %#v", mllm)
 	}
+	if advancedFeatures["enable_tools"] != true {
+		t.Fatalf("advanced_features.enable_tools = %#v, want true", advancedFeatures["enable_tools"])
+	}
 	assertJSONEqual(t, mllm["params"], `{"model":"gpt-live-1","prompt":"Be brief","output_idle_end_ms":0}`)
+	assertJSONEqual(
+		t,
+		mllm["tools"],
+		`[{"type":"function","function":{"name":"lookup","parameters":null},"server":{"method":"POST","url":"https://tools.example.com/lookup"}}]`,
+	)
+	assertJSONEqual(t, mllm["mcp_servers"], `[{"name":"catalog","endpoint":"https://mcp.example.com"}]`)
 }
 
-func TestGeminiLiveStartRequestSendsAPIKeyAtTopLevel(t *testing.T) {
+func TestGeminiLiveStartRequestUsesProduction(t *testing.T) {
 	rec := &recordingClient{}
 	session := NewAgent(newTestPreviewClient(rec)).WithMllm(vendors.NewGeminiLive(vendors.GeminiLiveOptions{
 		APIKey: previewAPIKey, Model: vendors.GeminiLiveModel38LiveExtendedThinking,
+		GreetingMessage:  "Hello",
 		AdditionalParams: map[string]interface{}{"api_key": "ignored-key"},
 	})).CreateSession(CreateSessionOptions{Channel: "preview", AgentUID: "1", RemoteUIDs: []string{"100"}})
 	if _, err := session.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if len(rec.requests) != 1 || rec.requests[0].Header.Get(PreviewFeatureHeader) != PreviewFeatureGeminiLive {
-		t.Fatal("Gemini start request lost its preview feature")
+	if len(rec.requests) != 1 {
+		t.Fatalf("requests = %d, want one", len(rec.requests))
+	}
+	if got := rec.requests[0].Header.Get(PreviewFeatureHeader); got != "" {
+		t.Fatalf("Gemini 3.8 preview feature = %q", got)
+	}
+	if strings.HasPrefix(rec.requests[0].URL.String(), PreviewAPIBaseURL) {
+		t.Fatalf("Gemini 3.8 used preview host: %s", rec.requests[0].URL)
 	}
 	var body map[string]interface{}
 	if err := json.Unmarshal(rec.bodies[0], &body); err != nil {
@@ -544,5 +600,36 @@ func TestGeminiLiveStartRequestSendsAPIKeyAtTopLevel(t *testing.T) {
 	}
 	if _, exists := mllm["params"].(map[string]interface{})["api_key"]; exists {
 		t.Fatal("Gemini start request contains params.api_key")
+	}
+	if mllm["greeting_message"] != "Hello" || mllm["greeting"] != nil {
+		t.Fatalf("Gemini production greeting = %v", mllm)
+	}
+}
+
+func TestLegacyGeminiModelUsesProductionRouting(t *testing.T) {
+	rec := &recordingClient{}
+	session := NewAgent(newTestPreviewClient(rec)).WithMllm(vendors.NewGeminiLive(vendors.GeminiLiveOptions{
+		APIKey: previewAPIKey, Model: "future-live-model", URL: vendors.GeminiLivePreviewURL,
+		GreetingMessage: "Hello",
+	})).CreateSession(CreateSessionOptions{Channel: "preview", AgentUID: "1", RemoteUIDs: []string{"100"}})
+	if _, err := session.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(rec.requests) != 1 {
+		t.Fatalf("requests = %d, want one", len(rec.requests))
+	}
+	if got := rec.requests[0].Header.Get(PreviewFeatureHeader); got != "" {
+		t.Fatalf("legacy Gemini production feature = %q", got)
+	}
+	if strings.HasPrefix(rec.requests[0].URL.String(), PreviewAPIBaseURL) {
+		t.Fatalf("legacy Gemini unexpectedly used preview host: %s", rec.requests[0].URL)
+	}
+	var body map[string]interface{}
+	if err := json.Unmarshal(rec.bodies[0], &body); err != nil {
+		t.Fatal(err)
+	}
+	mllm := body["properties"].(map[string]interface{})["mllm"].(map[string]interface{})
+	if mllm["greeting_message"] != "Hello" || mllm["greeting"] != nil {
+		t.Fatalf("legacy Gemini production greeting = %v", mllm)
 	}
 }

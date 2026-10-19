@@ -86,6 +86,7 @@ agent := agentkit.NewAgent(client).WithLlm(llm)
 | `NewGradiumTTS` | `GradiumTTSOptions` | `APIKey` |
 | `NewMistralTTS` | `MistralTTSOptions` | `APIKey` |
 | `NewTypecastTTS` | `TypecastTTSOptions` | `APIKey`, `VoiceID`, `Model` |
+| `NewSmallestAITTS` | `SmallestAITTSOptions` | `APIKey` |
 
 `NewGenericTTS` is available in both `agentkit/vendors` and `agentkit/cn/vendors`. The required `URL` must be an absolute HTTP or HTTPS URL; other schemes are currently rejected. Supported URLs serialize with `vendor: "generic_http"`. All other fields are optional, and `AdditionalParams` forwards provider-specific values under `tts.params`; explicitly set named fields take precedence over matching additional parameters.
 
@@ -133,6 +134,7 @@ Use `TurnDetectionConfig.Language` for Agora interaction language; it defaults t
 | `NewAresSTT` | `AresSTTOptions` | None; optional `Keywords` and `AdditionalParams` |
 | `NewSarvamSTT` | `SarvamSTTOptions` | `APIKey`, `Language` |
 | `NewXaiSTT` | `XaiSTTOptions` | `APIKey` |
+| `NewSmallestAISTT` | `SmallestAISTTOptions` | `APIKey` |
 
 For Gemini ASR, use `LanguageHints` for candidate transcription languages. The deprecated `LanguageCodes` field remains as a fallback and is ignored when `LanguageHints` is set. `Mode` accepts the generated `GeminiTranscriptionModeSmart` and `GeminiTranscriptionModeVerbatim` values; SMART cannot be combined with word timestamps or diarization.
 
@@ -149,14 +151,14 @@ stt := vendors.NewDeepgramSTT(vendors.DeepgramSTTOptions{
 agent = agent.WithStt(stt)
 ```
 
-> **Gemini 3.8 preview models** — `NewGeminiLive` uses the preview gateway only for the two 3.8 model IDs. Other Gemini Live model IDs keep the production route. See [Preview Endpoint](../guides/preview-endpoint.md).
+> **Gemini Live routing** — All Gemini Live model IDs use the production gateway. `GeminiLivePreviewURL` remains exported for source compatibility, but does not opt requests into preview routing. See [Preview Endpoint](../guides/preview-endpoint.md).
 
 ## MLLM Vendors
 
 | Constructor | Options Struct | Required Fields | Default Model |
 |---|---|---|---|
 | `NewOpenAIRealtime` | `OpenAIRealtimeOptions` | `APIKey` | `gpt-4o-realtime-preview` |
-| `NewOpenAIGPTLive` (preview) | `OpenAIGPTLiveOptions` | `APIKey` | — |
+| `NewOpenAIGPTLive` | `OpenAIGPTLiveOptions` | `APIKey` | `gpt-live-1` |
 | `NewAzureOpenAIRealtime` (global) | `AzureOpenAIRealtimeOptions` | `APIKey`, `URL`, `TurnDetection` | — |
 | `NewXaiGrok` | `XaiGrokOptions` | `APIKey`, `Model` | — |
 | `NewGeminiLive` | `GeminiLiveOptions` | `APIKey` | `models/gemini-3.8-live` |
@@ -205,6 +207,8 @@ Use with `agentkit/cn.Agent`. CN LLM constructors share `OpenAIOptions` shape an
 | Constructor | Wire `vendor` | Required fields | Default URL |
 |---|---|---|---|
 | `NewQwenOmni` | `qwen_omni` | `APIKey`, `Model`, `URL` | None |
+
+Qwen Omni accepts typed inline `Tools` and typed `McpServers`.
 
 ### CN STT
 

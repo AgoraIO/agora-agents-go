@@ -1,6 +1,7 @@
 package vendors
 
 import (
+	"strconv"
 	"strings"
 
 	Agora "github.com/AgoraIO/agora-agents-go/v2"
@@ -581,6 +582,93 @@ type XaiSTTOptions struct {
 
 type XaiSTT struct {
 	options XaiSTTOptions
+}
+
+// SmallestAISTTOptions configures the Smallest AI streaming speech-to-text provider.
+// AdditionalParams are copied into the provider params map and are useful for
+// fields introduced by the service before the SDK adds a first-class option.
+type SmallestAISTTOptions struct {
+	APIKey             string
+	URL                string
+	Language           string
+	SampleRate         *int
+	Encoding           string
+	WordTimestamps     bool
+	SentenceTimestamps bool
+	Diarize            bool
+	VADEvents          bool
+	Endpointing        bool
+	EOUTimeoutMs       *int
+	Format             bool
+	FinalizeOnWords    bool
+	MaxWords           string
+	Punctuate          bool
+	Capitalize         bool
+	ITNNormalize       bool
+	FullTranscript     bool
+	Keywords           string
+	RedactPII          bool
+	RedactPCI          bool
+	AdditionalParams   map[string]interface{}
+}
+
+// SmallestAISTT is a Smallest AI streaming speech-to-text provider.
+type SmallestAISTT struct{ options SmallestAISTTOptions }
+
+// NewSmallestAISTT creates a Smallest AI speech-to-text configuration.
+func NewSmallestAISTT(opts SmallestAISTTOptions) *SmallestAISTT {
+	if opts.APIKey == "" {
+		panic("SmallestAISTT requires APIKey")
+	}
+	return &SmallestAISTT{options: opts}
+}
+
+// ToConfig returns the Smallest AI ASR configuration expected by the API.
+func (s *SmallestAISTT) ToConfig() map[string]interface{} {
+	params := map[string]interface{}{}
+	for key, value := range s.options.AdditionalParams {
+		params[key] = value
+	}
+	params["api_key"] = s.options.APIKey
+	put := func(key, value string) {
+		if value != "" {
+			params[key] = value
+		}
+	}
+	putBool := func(key string, value bool) { params[key] = strconv.FormatBool(value) }
+	if s.options.URL != "" {
+		params["url"] = s.options.URL
+	}
+	if s.options.Language != "" {
+		params["language"] = s.options.Language
+	}
+	if s.options.SampleRate != nil {
+		params["sample_rate"] = *s.options.SampleRate
+	}
+	put("encoding", s.options.Encoding)
+	putBool("word_timestamps", s.options.WordTimestamps)
+	putBool("sentence_timestamps", s.options.SentenceTimestamps)
+	putBool("diarize", s.options.Diarize)
+	putBool("vad_events", s.options.VADEvents)
+	putBool("endpointing", s.options.Endpointing)
+	if s.options.EOUTimeoutMs != nil {
+		params["eou_timeout_ms"] = *s.options.EOUTimeoutMs
+	}
+	putBool("format", s.options.Format)
+	putBool("finalize_on_words", s.options.FinalizeOnWords)
+	put("max_words", s.options.MaxWords)
+	putBool("punctuate", s.options.Punctuate)
+	putBool("capitalize", s.options.Capitalize)
+	putBool("itn_normalize", s.options.ITNNormalize)
+	putBool("full_transcript", s.options.FullTranscript)
+	put("keywords", s.options.Keywords)
+	putBool("redact_pii", s.options.RedactPII)
+	putBool("redact_pci", s.options.RedactPCI)
+	config := map[string]interface{}{"vendor": "smallestai", "params": params}
+	if s.options.Language != "" {
+		config["language"] = s.options.Language
+	}
+	return config
 }
 
 func NewXaiSTT(opts XaiSTTOptions) *XaiSTT {

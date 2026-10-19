@@ -111,7 +111,7 @@ func (m *MiniMaxTTS) ToConfig() map[string]interface{} {
 	}
 	if m.options.PronunciationDict != nil {
 		params["pronunciation_dict"] = map[string]interface{}{
-			"tone": append([]string(nil), m.options.PronunciationDict.Tone...),
+			"tone": m.options.PronunciationDict.Tone,
 		}
 	}
 	if m.options.LanguageBoost != "" {

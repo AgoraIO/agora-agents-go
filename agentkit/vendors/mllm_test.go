@@ -39,6 +39,126 @@ func TestOpenAIRealtimeURL(t *testing.T) {
 	}
 }
 
+func TestMLLMVendorsSupportToolsAndMCPServers(t *testing.T) {
+	tool := &Agora.LlmTool{
+		Function: &Agora.LlmToolFunction{Name: "lookup"},
+		Server: &Agora.LlmToolServer{
+			Method: Agora.LlmToolServerMethodPost,
+			URL:    "https://tools.example.com/lookup",
+		},
+	}
+	server := &Agora.McpServer{
+		Name:     "catalog",
+		Endpoint: "https://mcp.example.com",
+	}
+	turnDetection := &Agora.MllmTurnDetection{
+		Mode: Agora.MllmTurnDetectionModeServerVad.Ptr(),
+	}
+	tests := []struct {
+		name   string
+		config func() map[string]interface{}
+	}{
+		{
+			name: "OpenAI Realtime",
+			config: func() map[string]interface{} {
+				return NewOpenAIRealtime(OpenAIRealtimeOptions{
+					APIKey:     "key",
+					Tools:      []*Agora.LlmTool{tool},
+					McpServers: []*Agora.McpServer{server},
+				}).ToConfig()
+			},
+		},
+		{
+			name: "OpenAI GPT Live",
+			config: func() map[string]interface{} {
+				return NewOpenAIGPTLive(OpenAIGPTLiveOptions{
+					APIKey:           "key",
+					Tools:            []*Agora.LlmTool{tool},
+					McpServerConfigs: []*Agora.McpServer{server},
+				}).ToConfig()
+			},
+		},
+		{
+			name: "Azure OpenAI Realtime",
+			config: func() map[string]interface{} {
+				return NewAzureOpenAIRealtime(AzureOpenAIRealtimeOptions{
+					APIKey:        "key",
+					URL:           "wss://azure.example.com/realtime",
+					TurnDetection: turnDetection,
+					Tools:         []*Agora.LlmTool{tool},
+					McpServers:    []*Agora.McpServer{server},
+				}).ToConfig()
+			},
+		},
+		{
+			name: "xAI Grok",
+			config: func() map[string]interface{} {
+				return NewXaiGrok(XaiGrokOptions{
+					APIKey:     "key",
+					Tools:      []*Agora.LlmTool{tool},
+					McpServers: []*Agora.McpServer{server},
+				}).ToConfig()
+			},
+		},
+		{
+			name: "Gemini Live",
+			config: func() map[string]interface{} {
+				return NewGeminiLive(GeminiLiveOptions{
+					APIKey:     "key",
+					Tools:      []*Agora.LlmTool{tool},
+					McpServers: []*Agora.McpServer{server},
+				}).ToConfig()
+			},
+		},
+		{
+			name: "Gemini Live legacy model",
+			config: func() map[string]interface{} {
+				return NewGeminiLive(GeminiLiveOptions{
+					APIKey:     "key",
+					Model:      "gemini-live-2.5-flash",
+					Tools:      []*Agora.LlmTool{tool},
+					McpServers: []*Agora.McpServer{server},
+				}).ToConfig()
+			},
+		},
+		{
+			name: "Vertex AI",
+			config: func() map[string]interface{} {
+				return NewVertexAI(VertexAIOptions{
+					ProjectID:           "project",
+					ADCredentialsString: "credentials",
+					Tools:               []*Agora.LlmTool{tool},
+					McpServers:          []*Agora.McpServer{server},
+				}).ToConfig()
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := tt.config()
+			if got := config["tools"]; !reflect.DeepEqual(got, []*Agora.LlmTool{tool}) {
+				t.Fatalf("tools = %#v, want configured REST tools", got)
+			}
+			if got := config["mcp_servers"]; !reflect.DeepEqual(got, []*Agora.McpServer{server}) {
+				t.Fatalf("mcp_servers = %#v, want configured MCP servers", got)
+			}
+
+			payload, err := json.Marshal(config)
+			if err != nil {
+				t.Fatalf("marshal MLLM config: %v", err)
+			}
+			var generated Agora.Mllm
+			if err := json.Unmarshal(payload, &generated); err != nil {
+				t.Fatalf("unmarshal generated MLLM: %v", err)
+			}
+			if len(generated.Tools) != 1 || len(generated.McpServers) != 1 {
+				t.Fatalf("generated tools/mcp_servers = %#v/%#v, want one of each", generated.Tools, generated.McpServers)
+			}
+		})
+	}
+}
+
 func TestOpenAIGPTLiveWireShape(t *testing.T) {
 	servers := []map[string]interface{}{{"name": "lookup", "endpoint": "https://tools.example/mcp"}}
 	config := NewOpenAIGPTLive(OpenAIGPTLiveOptions{
@@ -62,6 +182,35 @@ func TestOpenAIGPTLiveWireShape(t *testing.T) {
 	}
 	if _, ok := servers[0]["transport"]; ok {
 		t.Fatal("mutated MCP input")
+	}
+}
+
+func TestOpenAIGPTLiveSupportsToolsAndTypedMCP(t *testing.T) {
+	tool := &Agora.LlmTool{
+		Function: &Agora.LlmToolFunction{Name: "lookup"},
+		Server: &Agora.LlmToolServer{
+			Method: Agora.LlmToolServerMethodPost,
+			URL:    "https://tools.example.com/lookup",
+		},
+	}
+	server := &Agora.McpServer{
+		Name:     "catalog",
+		Endpoint: "https://mcp.example.com",
+	}
+	config := NewOpenAIGPTLive(OpenAIGPTLiveOptions{
+		APIKey:           "openai-key",
+		Tools:            []*Agora.LlmTool{tool},
+		McpServers:       []map[string]interface{}{{"name": "legacy"}},
+		McpServerConfigs: []*Agora.McpServer{server},
+	}).ToConfig()
+
+	tools, ok := config["tools"].([]*Agora.LlmTool)
+	if !ok || len(tools) != 1 || tools[0] != tool {
+		t.Fatalf("tools = %#v, want typed REST tool", config["tools"])
+	}
+	servers, ok := config["mcp_servers"].([]*Agora.McpServer)
+	if !ok || len(servers) != 1 || servers[0] != server {
+		t.Fatalf("mcp_servers = %#v, want typed MCP server", config["mcp_servers"])
 	}
 }
 
@@ -138,6 +287,8 @@ func TestAzureOpenAIRealtimeOptionsSurface(t *testing.T) {
 		"OutputModalities",
 		"MaxHistory",
 		"GreetingMessage",
+		"Tools",
+		"McpServers",
 		"TurnDetection",
 	}
 	if !reflect.DeepEqual(got, want) {

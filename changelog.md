@@ -4,6 +4,46 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [v2.12.0] — 2026-10-07
+
+### Added
+
+- **Tavus, Protoface, and LemonSlice avatar aliases** — AgentKit now exports `Tavus`, `Protoface`, `TavusOptions`, `ProtofaceOptions`, `NewTavus`, `NewProtoface`, `LemonSlice`, `LemonSliceOptions`, and `NewLemonSlice` from `agentkit/vendors`. All three providers reuse `GenericAvatar` configuration, validation, token handling, and the `generic` wire vendor. The avatar guide includes examples, with public API and serialization tests covering the aliases.
+
+## [v2.11.0] — 2026-09-23
+
+### Added
+
+- **Gemini TTS preview** — Added the Agent Kit Gemini TTS provider with the `gemini-3.8-flash-tts` model, default `Puck` voice, and optional natural-language `style`. Credentials serialize inside `tts.params`.
+- **Session-scoped TTS routing** — Gemini TTS selects the preview endpoint with `agora-feature: gemini-live` for the full session lifecycle, including raw TTS configs, without changing the shared client's production route. Gemini ASR, Gemini Live, and OpenAI GPT Live retain their production routing.
+
+## [v2.10.0] — 2026-09-18
+
+### Added
+
+- **Smallest AI providers** — Added `NewSmallestAISTT` and `NewSmallestAITTS` with typed provider options, passthrough parameters, and request-shape coverage.
+- **Typed MLLM tools and MCP servers** — AgentKit MLLM vendors now expose typed inline REST `Tools` and `McpServers` at the top-level `mllm` fields. Qwen Omni and mainland-China LLM vendors support the same options, while the existing map-based GPT Live MCP option remains compatible.
+
+### Changed
+
+- **Gemini Live routing** — All Gemini Live model IDs now use the regional production gateway without a preview feature header and send `greeting_message`. The exported `GeminiLivePreviewURL` and `PreviewFeatureGeminiLive` symbols remain available only for source compatibility and no longer opt requests into preview routing.
+- **OpenAI GPT Live routing** — `NewOpenAIGPTLive` now uses the production regional gateway and no longer sends the preview `agora-feature: live-models` gate. Its typed REST tool and MCP configuration options are documented alongside the production contract.
+
+### Fixed
+
+- **Configuration cloning** — `CloneValue` preserves nil slices as nil, keeps empty slices serializable as `[]`, and copies string/int slices without aliasing the source configuration.
+
+## [v2.9.0] — 2026-09-15
+
+### Added
+
+- **Gemini 3.8 Live MLLM** — `NewGeminiLive` now supports `models/gemini-3.8-live` and `models/gemini-3.8-live-extended-thinking`. The standard Live model is the default; Extended Thinking accepts `low`, `medium`, or `high` through `ThinkingLevel`.
+
+### Changed
+
+- **Gemini Live routing and credentials** — Gemini 3.8 sessions use the preview gateway with `agora-feature: gemini-live`, send the Google credential as top-level `mllm.api_key`, and keep older Gemini Live model IDs on the production route.
+- **Gemini Live documentation** — The vendor reference and MLLM guide document the existing `GeminiLive` API for both 3.8 models and the Extended Thinking level.
+
 ## [v2.8.1] — 2026-09-11
 
 ### Changed

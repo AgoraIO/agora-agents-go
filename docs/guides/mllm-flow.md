@@ -12,6 +12,9 @@ The MLLM flow uses a single multimodal model to process audio input and generate
 
 Call `WithMllm(vendor)` to enable MLLM mode. The builder sets `mllm.enable = true` automatically. Use `agentkit` plus `agentkit/vendors` for global providers, and `agentkit/cn` plus `agentkit/cn/vendors` for mainland China Qwen Omni.
 
+Every MLLM vendor option accepts typed `Tools` and `McpServers`. They serialize at
+`mllm.tools` and `mllm.mcp_servers`; enable their execution with `WithTools(true)`.
+
 ```go
 agent := agentkit.NewAgent(client).WithMllm(vendor)
 ```
@@ -74,7 +77,7 @@ func main() {
 
 ## Gemini Live Example
 
-Use `NewGeminiLive` for the existing Gemini Live models and both Gemini 3.8 models. The 3.8 IDs select the preview route automatically; Extended Thinking also accepts `ThinkingLevel`. See the [Preview Endpoint guide](./preview-endpoint.md).
+Use `NewGeminiLive` for existing Gemini Live models and both Gemini 3.8 models. All model IDs use production routing; Extended Thinking also accepts `ThinkingLevel`. The former preview exports remain available for source compatibility only. See the [Preview Endpoint guide](./preview-endpoint.md).
 
 ```go
 agent := agentkit.NewAgent(client).WithMllm(
@@ -119,7 +122,7 @@ agent := agentkit.NewAgent(client).WithMllm(
 
 ## Qwen Omni (Mainland China)
 
-Qwen Omni is exposed only by `agentkit/cn/vendors`. `URL` is required and must be the complete realtime WebSocket endpoint.
+Qwen Omni is exposed only by `agentkit/cn/vendors`. `URL` is required and must be the complete realtime WebSocket endpoint. It supports inline `Tools` and typed `McpServers`.
 
 ```go
 import (
