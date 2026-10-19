@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"net/http"
 	"regexp"
 	"sort"
@@ -87,12 +88,38 @@ func validateVariable(name string, def VariableDefinition) error {
 		if len(def.Options) < 1 || len(def.Options) > 100 {
 			return fmt.Errorf("agentkit: variable %s options must contain 1-100 scalars", name)
 		}
+		seen := make(map[string]bool, len(def.Options))
 		for _, v := range def.Options {
+			var kind string
 			switch v.(type) {
-			case string, bool, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64:
+			case string:
+				kind = "string:"
+			case bool:
+				kind = "bool:"
+			case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64:
+				kind = "number:"
 			default:
 				return fmt.Errorf("agentkit: variable %s option is not a scalar", name)
 			}
+			encoded, err := json.Marshal(v)
+			if err != nil {
+				return fmt.Errorf("agentkit: variable %s option is not a JSON scalar: %w", name, err)
+			}
+			value := string(encoded)
+			if kind == "number:" {
+				// Compare the numbers actually sent as JSON, including integral
+				// floats and signed zero, without rounding large integer values.
+				number, ok := new(big.Rat).SetString(value)
+				if !ok {
+					return fmt.Errorf("agentkit: variable %s option is not a JSON number", name)
+				}
+				value = number.RatString()
+			}
+			key := kind + value
+			if seen[key] {
+				return fmt.Errorf("agentkit: variable %s options must be unique", name)
+			}
+			seen[key] = true
 		}
 	}
 	return nil
@@ -209,16 +236,8 @@ func (a *Agent) toV3(name string) (v3.AgentCreate, error) {
 		unsupported = append(unsupported, "cascaded modules with mllm")
 	}
 	for name, def := range b.Variables {
-		if !variableNameRE.MatchString(name) {
-			unsupported = append(unsupported, "variables."+name+" (invalid name)")
-		}
-		switch def.Type {
-		case "str", "int", "float", "bool", "date", "datetime":
-		default:
-			unsupported = append(unsupported, "variables."+name+".type")
-		}
-		if def.Extract && strings.TrimSpace(def.Description) == "" {
-			unsupported = append(unsupported, "variables."+name+".description")
+		if err := validateVariable(name, def); err != nil {
+			unsupported = append(unsupported, fmt.Sprintf("variables.%s (%v)", name, err))
 		}
 	}
 	pipe := &v3.Pipeline{Mode: "cascaded"}

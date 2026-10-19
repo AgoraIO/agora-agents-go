@@ -1,7 +1,10 @@
 package agentkit
 
 import (
+	"context"
 	"errors"
+	"math"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -105,5 +108,61 @@ func TestActualRealtimeVendorTurnDetection(t *testing.T) {
 	b := NewAgent(c).WithTurnDetection(&TurnDetectionConfig{Mode: &def})
 	if _, err = b.toV3("Default turn"); err != nil {
 		t.Fatalf("modern default turn mode: %v", err)
+	}
+}
+
+func TestVariableOptionsRequireJSONSemanticUniqueness(t *testing.T) {
+	cases := []struct {
+		name    string
+		options []any
+		invalid bool
+	}{
+		{"strings", []any{"same", "same"}, true},
+		{"booleans", []any{true, true}, true},
+		{"integer and float", []any{1, float64(1)}, true},
+		{"integer widths", []any{int8(1), uint64(1)}, true},
+		{"signed zero", []any{0, math.Copysign(0, -1)}, true},
+		{"serialized floats", []any{float32(0.1), float64(0.1)}, true},
+		{"different JSON types", []any{"1", 1, true}, false},
+		{"distinct large integers", []any{uint64(9007199254740993), float64(9007199254740992)}, false},
+		{"scientific notation", []any{1e-7, 2e-7}, false},
+		{"nonfinite", []any{math.NaN()}, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			def := VariableDefinition{Type: "str", Options: tc.options}
+			for _, build := range []func(){
+				func() { WithVariable("choice", def) },
+				func() {
+					NewAgent(NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token"})).WithVariable("choice", def)
+				},
+			} {
+				panicked := false
+				func() {
+					defer func() { panicked = recover() != nil }()
+					build()
+				}()
+				if panicked != tc.invalid {
+					t.Fatalf("constructor panic = %t, want %t", panicked, tc.invalid)
+				}
+			}
+			// A custom option or externally constructed configuration can bypass
+			// the fluent validator. Deploy must apply the same validation.
+			calls := 0
+			client := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token", HTTPClient: v3HTTPFunc(func(r *http.Request) (*http.Response, error) {
+				calls++
+				return v3Reply(201, `{"agent_id":"id","agent_name":"Choice","create_ts":1,"update_ts":1}`, "e1"), nil
+			})})
+			agent := NewAgent(client)
+			agent.base.Variables = map[string]VariableDefinition{"choice": def}
+			_, err := agent.Deploy(context.Background(), DeployOptions{Name: "Choice"})
+			if tc.invalid {
+				if !errors.Is(err, ErrUnsupportedField) || !strings.Contains(err.Error(), "variables.choice") || calls != 0 {
+					t.Fatalf("deploy err=%v calls=%d", err, calls)
+				}
+			} else if err != nil || calls != 1 {
+				t.Fatalf("valid deploy err=%v calls=%d", err, calls)
+			}
+		})
 	}
 }
