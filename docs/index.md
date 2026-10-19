@@ -18,7 +18,7 @@ Source: [github.com/AgoraIO/agora-agents-go](https://github.com/AgoraIO/agora-ag
 
 ## Start here
 
-- Start with [Quick Start](./getting-started/quick-start.md). It shows the baseline app-credentials setup and starts a cascading ASR -> LLM -> TTS agent.
+- Start with [Quick Start](./getting-started/quick-start.md). It shows the baseline app-credentials setup and starts a cascading ASR -> LLM -> TTS agent. For the shared config -> session or saved-agent workflow, see [Configure, run, and save agents](./guides/saving-agents.md).
 - Use [CN AgentKit](./guides/cn-agentkit.md) when you want the mainland China facade (`agentkit/cn`) for `option.AreaCN` routing.
 - Use [MLLM Flow](./guides/mllm-flow.md) when your agent uses one realtime multimodal model, including Qwen Omni through the CN facade.
 - Use [Cascading Flow](./guides/cascading-flow.md) for more examples of the default ASR -> LLM -> TTS flow, including provider-specific configuration.
@@ -61,7 +61,8 @@ Requires Go 1.21 or later.
 | [Pagination](./guides/pagination.md) | Iterate over paginated list endpoints |
 | [Advanced](./guides/advanced.md) | Headers, retries, timeouts, raw response, custom HTTP client |
 | [Low-Level API](./guides/low-level-api.md) | Generated REST APIs |
-| [Conversational AI v3 preview](./guides/v3-preview.md) | Staging setup, AgentKit save/update workflows, project secrets and numbers, all 20 low-level v3 operations, and limits |
+| [Agent workflows](./guides/saving-agents.md) | Configure, run with the existing session flow, save/update configurations, secrets, and number assignment |
+| [Conversational AI v3 preview](./guides/v3-preview.md) | Staging setup, transport details, all 20 low-level v3 operations, and limits |
 | [Preview Endpoint](./guides/preview-endpoint.md) | Session-scoped preview routing for providers under development |
 | [Client Reference](./reference/client.md) | Constructor options, public methods |
 | [v3 Preview Reference](./reference/v3.md) | v3 resource types and operation index |

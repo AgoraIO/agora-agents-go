@@ -21,6 +21,10 @@ go get github.com/AgoraIO/agora-agents-go/v2@latest
 
 - Go 1.21+
 
+## Agent workflows
+
+Use the same immutable `Agent` configuration to start an existing session or save a reusable configuration. See [Configure, run, and save agents](docs/guides/saving-agents.md) for the version-neutral workflow. The [Conversational AI v3 P1 preview guide](docs/guides/v3-preview.md) covers staging-specific details.
+
 ## Conversational AI v3 P1 preview
 
 This checkout includes a handwritten preview client for Conversational AI v3. Use a build of the `feat/v3-api-preview` branch for these features; the `@latest` installation command above does not select this branch. The module path remains `/v2` because that suffix is the Go module's semantic major version, not the REST API version. Existing `Agent.CreateSession(...).Start(ctx)` calls retain their v2 behavior.
@@ -277,6 +281,7 @@ See the [Avatar Integration guide](./docs/guides/avatars.md) for sample-rate req
 - [Quick Start](./docs/getting-started/quick-start.md)
 - [CN AgentKit](./docs/guides/cn-agentkit.md)
 - [BYOK Guide](./docs/guides/byok.md)
+- [Configure, run, and save agents](./docs/guides/saving-agents.md)
 - [Regional Routing](./docs/guides/regional-routing.md)
 - [MLLM Flow](./docs/guides/mllm-flow.md)
 - [Low-Level API](./docs/guides/low-level-api.md)

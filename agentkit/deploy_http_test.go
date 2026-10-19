@@ -459,3 +459,94 @@ func TestSavedAgentUpdateRejectsDifferentClient(t *testing.T) {
 		t.Fatalf("cross-client update: err=%v requests=%d", err, calls)
 	}
 }
+
+func TestInlineConfigCanStartSessionAndSaveWithoutMutation(t *testing.T) {
+	calls := 0
+	inlineKey := "inline-provider-key"
+	storedAgent := `{"agent_id":"saved1","agent_name":"Support","create_ts":1,"update_ts":1,"pipeline":{"mode":"realtime","mllm":{"vendor":"openai","credential":{"mode":"byok","api_key":"inline-provider-key"},"url":"wss://api.openai.com/v1/realtime","model":"gpt-4o-realtime-preview"}}}`
+	httpClient := v3HTTPFunc(func(r *http.Request) (*http.Response, error) {
+		calls++
+		switch calls {
+		case 1:
+			if r.Method != "POST" || !strings.HasSuffix(r.URL.Path, "/join") {
+				t.Fatalf("session request: %s %s", r.Method, r.URL.Path)
+			}
+			var body map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Fatal(err)
+			}
+			properties := body["properties"].(map[string]any)
+			mllm := properties["mllm"].(map[string]any)
+			if mllm["api_key"] != inlineKey {
+				t.Fatalf("inline key missing from v2 session request: %#v", mllm)
+			}
+			return v3Reply(200, `{"agent_id":"session1","status":"RUNNING"}`, ""), nil
+		case 2:
+			if r.Method != "POST" || !strings.HasSuffix(r.URL.Path, "/agents") {
+				t.Fatalf("save request: %s %s", r.Method, r.URL.Path)
+			}
+			var body map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Fatal(err)
+			}
+			pipeline := body["pipeline"].(map[string]any)
+			mllm := pipeline["mllm"].(map[string]any)
+			credential := mllm["credential"].(map[string]any)
+			if credential["api_key"] != inlineKey {
+				t.Fatalf("inline key missing from saved config: %#v", mllm)
+			}
+			return v3Reply(201, storedAgent, "e1"), nil
+		case 3:
+			if r.Method != "GET" || !strings.HasSuffix(r.URL.Path, "/agents/saved1") {
+				t.Fatalf("get request: %s %s", r.Method, r.URL.Path)
+			}
+			return v3Reply(200, storedAgent, "e1"), nil
+		case 4:
+			if r.Method != "PATCH" || r.Header.Get("If-Match") != "e1" {
+				t.Fatalf("update request: %s %v", r.Method, r.Header)
+			}
+			var patch map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&patch); err != nil {
+				t.Fatal(err)
+			}
+			pipeline := patch["pipeline"].(map[string]any)
+			mllm := pipeline["mllm"].(map[string]any)
+			credential := mllm["credential"].(map[string]any)
+			if credential["api_key"] != inlineKey {
+				t.Fatalf("inline key missing from updated config: %#v", mllm)
+			}
+			return v3Reply(200, storedAgent, "e2"), nil
+		default:
+			t.Fatalf("unexpected request %d", calls)
+			return nil, nil
+		}
+	})
+	c := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token", HTTPClient: httpClient, V3: &V3Options{BaseURL: "https://stage.example"}})
+	config := NewAgent(c).WithMllm(vendors.NewOpenAIRealtime(vendors.OpenAIRealtimeOptions{
+		APIKey: inlineKey,
+		Model:  "gpt-4o-realtime-preview",
+	}))
+	session := config.CreateSession(CreateSessionOptions{Channel: "support", Token: "rtc-token", AgentUID: "1", RemoteUIDs: []string{"100"}})
+	if _, err := session.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := config.Save(context.Background(), SaveOptions{Name: "Support"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated, err := saved.Update(context.Background(), config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.ID != "saved1" || updated.ETag != "e2" || calls != 4 {
+		t.Fatalf("update result: %#v calls=%d", updated, calls)
+	}
+	properties, err := config.ToPropertiesMap(basePropertiesOpts())
+	if err != nil {
+		t.Fatal(err)
+	}
+	mllm := properties["mllm"].(map[string]any)
+	if mllm["api_key"] != inlineKey {
+		t.Fatalf("session/save/update mutated the source config: %#v", mllm)
+	}
+}
