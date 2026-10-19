@@ -152,6 +152,8 @@ Every method takes `ctx context.Context` first and returns `(*v3.Response[T], er
 
 `v3.ListOptions` has `Limit int`, `Cursor string`, and `Order string`. `v3.SessionListOptions` embeds it and adds `Channel`, `Status`, `StartedAfter *int64`, and `StartedBefore *int64`; session list does not send `Order`. Each page has `Data.Count`, `Data.List`, `HasMore`, and `NextCursor`. `Count` is the page count, not a promised project total. A cursor loop:
 
+The staging defaults and limits differ by resource: agents and secrets default to 50 items and allow 1–200; numbers default to 50 and allow 1–100; sessions default to 20 and require at least 1. Agents, secrets, and numbers default to `create_ts.desc` order. Leaving `SessionListOptions.Status` empty sends no filter, so the server defaults to **`RUNNING`**, not all sessions. To cover all published statuses, list separately with `IDLE`, `STARTING`, `RUNNING`, `STOPPING`, `STOPPED`, and `FAILED`, following each status's cursor independently.
+
 ```go
 cursor := ""
 for {
