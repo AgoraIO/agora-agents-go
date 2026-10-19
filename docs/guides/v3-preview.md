@@ -92,7 +92,7 @@ With no `AgentID`, `Deploy` POSTs a new agent. Save its ID: names are not unique
 
 For cascaded deployments, an explicit `TurnDetection.Language` is preserved as `pipeline.asr.language`, taking precedence over the ASR vendor language as on v2. Without an explicit STT vendor, it uses the existing global `ares` default with managed credentials; endpoint availability remains a backend concern. The same interaction-language setting is rejected on realtime deployment because the published realtime schema has no equivalent.
 
-Legacy greeting settings `mode: "single_every"` and `mode: "single_first"` map to `on: "each_join"` and `on: "first_join"`. An explicit `on` takes precedence. Unknown legacy modes and playback settings without an actual greeting are rejected before a request.
+Legacy greeting settings `mode: "single_every"` and `mode: "single_first"` map to `on: "each_join"` and `on: "first_join"`. An explicit `on` takes precedence. Unknown legacy modes and playback settings without an actual greeting are rejected before a request. Audio download timeout and PCM sample-rate settings require an audio greeting; supplying them for a text greeting is rejected. Empty message content remains valid. Variable descriptions allow up to 2000 Unicode characters, rather than 2000 UTF-8 bytes.
 
 ### Secrets and numbers
 

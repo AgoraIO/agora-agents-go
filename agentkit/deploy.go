@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	agentcore "github.com/AgoraIO/agora-agents-go/v2/agentkit/core"
 	"github.com/AgoraIO/agora-agents-go/v2/core"
@@ -79,7 +80,7 @@ func validateVariable(name string, def VariableDefinition) error {
 	if def.Extract && strings.TrimSpace(def.Description) == "" {
 		return fmt.Errorf("agentkit: extracted variable %s requires description", name)
 	}
-	if len(def.Description) > 2000 {
+	if utf8.RuneCountInString(def.Description) > 2000 {
 		return fmt.Errorf("agentkit: variable %s description exceeds 2000 characters", name)
 	}
 	if def.Options != nil {
@@ -431,10 +432,19 @@ func (a *Agent) toV3(name string) (v3.AgentCreate, error) {
 			case "mode": // Legacy aliases are normalized above; explicit on wins.
 			case "on", "delay_ms":
 				greet[k] = v
-			case "audio_download_timeout_ms":
-				greet["download_timeout_ms"] = v
-			case "audio_pcm_sample_rate":
-				greet["pcm_sample_rate"] = v
+			case "audio_download_timeout_ms", "audio_pcm_sample_rate":
+				if v == nil {
+					continue
+				}
+				if greet["mode"] != "audio" {
+					unsupported = append(unsupported, "greetingConfigs."+k+" requires audio greeting")
+					continue
+				}
+				field := "download_timeout_ms"
+				if k == "audio_pcm_sample_rate" {
+					field = "pcm_sample_rate"
+				}
+				greet[field] = v
 			default:
 				unsupported = append(unsupported, "greetingConfigs."+k)
 			}
@@ -461,16 +471,23 @@ func convertMessages(x any) ([]v3.Message, []string) {
 	if err != nil {
 		return nil, []string{"messages"}
 	}
-	var out []v3.Message
+	// Pointer content distinguishes a valid empty string from an absent or
+	// null required field, which decoding directly into v3.Message cannot do.
+	var decoded []struct {
+		Role    string  `json:"role"`
+		Content *string `json:"content"`
+	}
 	decoder := json.NewDecoder(strings.NewReader(string(b)))
 	decoder.DisallowUnknownFields()
-	if err = decoder.Decode(&out); err != nil {
+	if err = decoder.Decode(&decoded); err != nil {
 		return nil, []string{"messages"}
 	}
-	for _, m := range out {
-		if (m.Role != "system" && m.Role != "user" && m.Role != "assistant") || m.Content == "" {
+	out := make([]v3.Message, 0, len(decoded))
+	for _, m := range decoded {
+		if (m.Role != "system" && m.Role != "user" && m.Role != "assistant") || m.Content == nil {
 			return nil, []string{"messages"}
 		}
+		out = append(out, v3.Message{Role: m.Role, Content: *m.Content})
 	}
 	return out, nil
 }

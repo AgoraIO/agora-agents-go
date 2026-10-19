@@ -291,3 +291,103 @@ func TestDeployNormalizesLegacyGreetingModes(t *testing.T) {
 		})
 	}
 }
+
+func TestDeployUnicodeDescriptionsAndEmptyMessages(t *testing.T) {
+	for _, length := range []int{1000, 2000} {
+		t.Run(fmt.Sprintf("description_%d_characters", length), func(t *testing.T) {
+			description := strings.Repeat("解", length)
+			calls := 0
+			c := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token", V3: &V3Options{BaseURL: "https://stage.example"}, HTTPClient: v3HTTPFunc(func(r *http.Request) (*http.Response, error) {
+				calls++
+				var body struct {
+					Instructions *string                       `json:"instructions"`
+					Messages     []v3.Message                  `json:"messages"`
+					Variables    map[string]VariableDefinition `json:"variables"`
+				}
+				if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+					t.Fatal(err)
+				}
+				if body.Variables["outcome"].Description != description {
+					t.Fatal("Unicode description changed")
+				}
+				if body.Instructions == nil || *body.Instructions != "" {
+					t.Fatalf("empty system message lost: %#v", body.Instructions)
+				}
+				if len(body.Messages) != 1 || body.Messages[0].Role != "user" || body.Messages[0].Content != "" {
+					t.Fatalf("empty user content lost: %#v", body.Messages)
+				}
+				return v3Reply(201, `{"agent_id":"id","agent_name":"Unicode","create_ts":1,"update_ts":1}`, "e1"), nil
+			})})
+			a := NewAgent(c, WithVariable("outcome", VariableDefinition{Type: "str", Extract: true, Description: description})).WithLlm(vendors.NewOpenAI(vendors.OpenAIOptions{
+				APIKey: "key", BaseURL: "https://api.openai.com/v1/chat/completions", Model: "gpt-4o-mini",
+				SystemMessages: []map[string]interface{}{{"role": "system", "content": ""}, {"role": "user", "content": ""}},
+			}))
+			if _, err := a.Deploy(context.Background(), DeployOptions{Name: "Unicode"}); err != nil {
+				t.Fatal(err)
+			}
+			if calls != 1 {
+				t.Fatalf("calls=%d", calls)
+			}
+		})
+	}
+	t.Run("over limit", func(t *testing.T) {
+		defer func() {
+			if recover() == nil {
+				t.Fatal("accepted description longer than 2000 Unicode characters")
+			}
+		}()
+		WithVariable("outcome", VariableDefinition{Type: "str", Description: strings.Repeat("解", 2001)})
+	})
+}
+
+func TestDeployRejectsMissingMessageContent(t *testing.T) {
+	for _, message := range []map[string]interface{}{{"role": "user"}, {"role": "user", "content": nil}} {
+		calls := 0
+		c := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token", HTTPClient: v3HTTPFunc(func(r *http.Request) (*http.Response, error) { calls++; return nil, errors.New("unexpected request") })})
+		a := NewAgent(c).WithLlm(vendors.NewOpenAI(vendors.OpenAIOptions{APIKey: "key", BaseURL: "https://api.openai.com/v1/chat/completions", Model: "gpt-4o-mini", SystemMessages: []map[string]interface{}{message}}))
+		_, err := a.Deploy(context.Background(), DeployOptions{Name: "Missing content"})
+		if !errors.Is(err, ErrUnsupportedField) || calls != 0 {
+			t.Fatalf("message=%#v err=%v calls=%d", message, err, calls)
+		}
+	}
+}
+
+func TestDeployAudioGreetingSettingsStayAudioOnly(t *testing.T) {
+	for _, audio := range []bool{false, true} {
+		for _, field := range []string{"audio_download_timeout_ms", "audio_pcm_sample_rate"} {
+			t.Run(fmt.Sprintf("audio_%t_%s", audio, field), func(t *testing.T) {
+				calls := 0
+				c := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token", V3: &V3Options{BaseURL: "https://stage.example"}, HTTPClient: v3HTTPFunc(func(r *http.Request) (*http.Response, error) {
+					calls++
+					var body struct {
+						Greeting map[string]any `json:"greeting"`
+					}
+					if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+						t.Fatal(err)
+					}
+					wantField := "download_timeout_ms"
+					if field == "audio_pcm_sample_rate" {
+						wantField = "pcm_sample_rate"
+					}
+					if body.Greeting["mode"] != "audio" || body.Greeting[wantField] != float64(1000) {
+						t.Fatalf("audio greeting=%#v", body.Greeting)
+					}
+					return v3Reply(201, `{"agent_id":"id","agent_name":"Audio","create_ts":1,"update_ts":1}`, "e1"), nil
+				})})
+				config := vendors.OpenAIOptions{APIKey: "key", BaseURL: "https://api.openai.com/v1/chat/completions", Model: "gpt-4o-mini", GreetingMessage: "Hello", GreetingConfigs: map[string]interface{}{field: 1000}}
+				a := NewAgent(c).WithLlm(vendors.NewOpenAI(config))
+				if audio {
+					a = a.WithGreetingAudioURL("https://example.com/hello.wav")
+				}
+				_, err := a.Deploy(context.Background(), DeployOptions{Name: "Audio"})
+				if audio {
+					if err != nil || calls != 1 {
+						t.Fatalf("audio deploy: err=%v calls=%d", err, calls)
+					}
+				} else if !errors.Is(err, ErrUnsupportedField) || calls != 0 {
+					t.Fatalf("text greeting accepted audio settings: err=%v calls=%d", err, calls)
+				}
+			})
+		}
+	}
+}
