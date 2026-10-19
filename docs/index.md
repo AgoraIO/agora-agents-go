@@ -22,6 +22,7 @@ Source: [github.com/AgoraIO/agora-agents-go](https://github.com/AgoraIO/agora-ag
 - Use [CN AgentKit](./guides/cn-agentkit.md) when you want the mainland China facade (`agentkit/cn`) for `option.AreaCN` routing.
 - Use [MLLM Flow](./guides/mllm-flow.md) when your agent uses one realtime multimodal model, including Qwen Omni through the CN facade.
 - Use [Cascading Flow](./guides/cascading-flow.md) for more examples of the default ASR -> LLM -> TTS flow, including provider-specific configuration.
+- Explore the [Conversational AI v3 P1 preview](./guides/v3-preview.md) for stored agents, secret references, project-scoped numbers, and read-only sessions. This checkout's v3 code is a staging preview and may not be in the published release.
 
 ## How the SDK is organized
 

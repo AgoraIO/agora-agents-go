@@ -86,7 +86,7 @@ deployed, err = agent.Deploy(ctx, agentkit.DeployOptions{
 if err != nil { return err }
 ```
 
-`WithVariable` also exists as `agent.WithVariable(name, def)`, returning a new immutable builder. Names match `^[a-z][a-z0-9_]{0,63}$`; types are `str`, `int`, `float`, `bool`, `date`, and `datetime`. `Extract: true` requires a description. The no-error builder methods panic for invalid definitions. `agentkit.GetDeployedAgent(ctx, c, id)` loads a handle; `deployed.Delete(ctx)` deletes it. Handles expose `ID`, `Name`, `ETag`, and `Raw` (`*v3.AgentsClient`).
+`WithVariable` also exists as `agent.WithVariable(name, def)`, returning a new immutable builder. Names match `^[a-z][a-z0-9_]{0,63}$`; types are `str`, `int`, `float`, `bool`, `date`, and `datetime`. `Options`, when provided, must contain 1–100 unique JSON scalar values. Descriptions are limited to 2000 Unicode characters; `Extract: true` requires a nonempty description. The no-error builder methods panic for invalid definitions. `agentkit.GetDeployedAgent(ctx, c, id)` loads a handle; `deployed.Delete(ctx)` deletes it. Handles expose `ID`, `Name`, `ETag`, and `Raw` (`*v3.AgentsClient`).
 
 With no `AgentID`, `Deploy` POSTs a new agent. Save its ID: names are not unique upsert keys and agent POST has no supported idempotency key. With an ID, `Deploy` GETs the current ETag, then PATCHes. It sends recursive `null`s to clear readable stale fields, omitting server-owned IDs, timestamps, and resolved credential metadata. A 412 becomes `ErrPreconditionFailed` and retains the underlying v3 error; deploy does not retry the conflict automatically.
 

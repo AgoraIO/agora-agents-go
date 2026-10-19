@@ -21,6 +21,17 @@ go get github.com/AgoraIO/agora-agents-go/v2@latest
 
 - Go 1.21+
 
+## Conversational AI v3 P1 preview
+
+This checkout includes a handwritten preview client for Conversational AI v3. Use a build of the `feat/v3-api-preview` branch for these features; the `@latest` installation command above does not select this branch. The module path remains `/v2` because that suffix is the Go module's semantic major version, not the REST API version. Existing `Agent.CreateSession(...).Start(ctx)` calls retain their v2 behavior.
+
+- `Agent.Deploy` creates a stored agent or redeploys an existing ID with an ETag guarded patch. `WithVariable` adds typed template or extraction variables.
+- `agentkit.SecretRef("set", "key")` stores a `$secrets.set.key` reference in the agent configuration. Create secret values separately; the API never returns them.
+- `DeployedAgent.AssignNumber` and `UnassignNumber` manage project-scoped v3 numbers. E.164 lookup and `ListNumbers` scan project number pages, so the scan cost grows with the project.
+- `c.V3` exposes all 20 staging operations across agents, secrets, numbers, and sessions. Lists use cursor pagination; updates use ETags. Session list/get are read-only in this preview.
+
+V3 sessions cannot yet be started or controlled through this preview. Outbound calls and campaigns are also pending. Production routing and merge-patch behavior still need backend validation. See the [v3 preview guide](docs/guides/v3-preview.md) for staging setup, examples, and limits.
+
 ## Quick Start
 
 Start with the `Agent` builder: create a client with app credentials, pass it to `NewAgent(client, ...)` (required; `nil` panics), choose your ASR, LLM, and TTS providers, then start a session. Omit vendor API keys for supported Agora-managed global models, or provide keys when you want BYOK.
