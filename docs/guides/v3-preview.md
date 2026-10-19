@@ -1,7 +1,7 @@
 ---
 sidebar_position: 10
 title: Conversational AI v3 preview
-description: Save agent configurations and manage secrets, numbers, and read-only sessions with Go.
+description: Save agent configurations and manage secrets, numbers, and sessions with Go.
 ---
 
 # Conversational AI v3 preview (P1)
@@ -126,7 +126,7 @@ Assignment accepts `number_id`, `agentkit.Number`, `*agentkit.Number`, or a form
 
 `saved.ListNumbers(ctx)` returns the numbers whose `inbound.agent` equals the saved agent ID. It scans **every number page in the project**, with no per-number GETs, because staging has no agent filter. Its request cost grows with the project's total number count; use it deliberately for large projects. The v3 session list is also project-wide, but the published list and get responses provide no `agent_id` association. There is no `SavedAgent.ListSessions` helper because matching the nonunique `agent_name` would be unreliable.
 
-## Low-level reference: all 20 staging operations
+## Low-level reference: all 23 staging operations
 
 Import `github.com/AgoraIO/agora-agents-go/v2/v3`. `agentkit.AgoraClient.V3` already has the App ID. The root `client.NewClient(...)` has no App ID option: use `api.V3.ForAppID(appID)` before calling its resources, or construct `v3.NewClient(appID, opts...)` directly. An empty App ID or resource ID fails locally before HTTP.
 
@@ -152,12 +152,15 @@ Every method takes `ctx context.Context` first and returns `(*v3.Response[T], er
 | `Numbers.Get` | `id string` | `v3.Number` | `number_id` |
 | `Numbers.Update` | `id, ifMatch string, patch v3.NumberPatch` | `v3.Number` | Required `If-Match` |
 | `Numbers.Delete` | `id string` | `v3.Deleted` | `number_id` |
-| `Sessions.List` | `opts v3.SessionListOptions` | `v3.Page[v3.Session]` | channel, status, started_after/before, limit, cursor |
+| `Sessions.Start` | `body v3.SessionStartRequest` | `v3.Session` | Saved `agent_id`, transport, lifecycle, optional labels/client reference |
+| `Sessions.StartEphemeral` | `body v3.SessionStartEphemeralRequest` | `v3.Session` | Inline agent config; labels are not accepted |
+| `Sessions.Stop` | `id string` | `v3.Deleted` | `agent_session_id`; no request body |
+| `Sessions.List` | `opts v3.SessionListOptions` | `v3.Page[v3.Session]` | channel, comma-separated status, started_after/before, limit, cursor |
 | `Sessions.Get` | `id string` | `v3.Session` | `agent_session_id` |
 
 `v3.ListOptions` has `Limit int`, `Cursor string`, and `Order string`. `v3.SessionListOptions` embeds it and adds `Channel`, `Status`, `StartedAfter *int64`, and `StartedBefore *int64`; session list does not send `Order`. Each page has `Data.Count`, `Data.List`, `HasMore`, and `NextCursor`. `Count` is the page count, not a promised project total. A cursor loop:
 
-The staging defaults and limits differ by resource: agents and secrets default to 50 items and allow 1–200; numbers default to 50 and allow 1–100; sessions default to 20 and require at least 1. Agents, secrets, and numbers default to `create_ts.desc` order. Leaving `SessionListOptions.Status` empty sends no filter, so the server defaults to **`RUNNING`**, not all sessions. To cover all published statuses, list separately with `IDLE`, `STARTING`, `RUNNING`, `STOPPING`, `STOPPED`, and `FAILED`, following each status's cursor independently.
+The staging defaults and limits differ by resource: agents and secrets default to 50 items and allow 1–200; numbers default to 50 and allow 1–100; sessions default to 20 and require at least 1. Agents, secrets, and numbers default to `create_ts.desc` order. Leaving `SessionListOptions.Status` empty sends no filter, so the server defaults to **`RUNNING`**, not all sessions. Use comma-separated status values such as `RUNNING,STOPPED,FAILED` to filter by multiple states; pagination cursors apply to the combined result.
 
 ```go
 cursor := ""
@@ -192,7 +195,7 @@ return err
 
 `Save` collects unsupported v2 fields into one `ErrUnsupportedField` before HTTP. Current examples are `sal`, `advancedFeatures`, `geofence`, `labels`, `rtc`, `audioScenario`, `pipelineId`, non-silence `parameters`, nonempty `template_variables` (v3 variables have no defaults), unverified provider fields, and multipart credentials that cannot map to one API key. Remove them from the stored-agent builder or keep that use case on v2. Managed credentials use only a URL already present in a vendor config; the SDK invents no default URL.
 
-Provider API keys and secret values are write-only. Supply credentials explicitly when redeploying; GET cannot reconstruct them. Redeploy writes `null` for readable stale nested fields, but actual backend handling of whole-pipeline merge patches still needs live verification. Session operations are **read-only and project-wide** in P1: no v3 start/stop/actions, outbound call methods, analysis shortcut on the v2 `AgentSession`, or campaigns exist yet. v2 telephony and phone-number clients keep their original semantics; they do not manage v3 project-scoped numbers.
+Provider API keys and secret values are write-only. Supply credentials explicitly when redeploying; GET cannot reconstruct them. Redeploy writes `null` for readable stale nested fields, but actual backend handling of whole-pipeline merge patches still needs live verification. Sessions can be started from saved agent IDs or ephemeral inline configs, stopped, and retrieved. AgentKit exposes these through the same `AgentSession` handle; v3 session IDs remain distinct from v2 agent IDs, so legacy actions, history, turns, and `Raw` clients are unavailable for v3 sessions. Labels are supported for saved-agent starts only. Campaign support is not included. v2 telephony and phone-number clients keep their original semantics; they do not manage v3 project-scoped numbers.
 
 ## Maintenance and verification boundary
 

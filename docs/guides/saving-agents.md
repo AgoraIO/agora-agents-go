@@ -6,7 +6,7 @@ description: Use one immutable Agent config with existing sessions or save it fo
 
 # Configure, run, and save agents
 
-Build an `Agent` configuration once, then choose whether to start an existing session or save the configuration for reuse. The Go module path remains `/v2` for its semantic major version. Existing `CreateSession(...).Start(ctx)` keeps its v2 `/join` behavior. On the `feat/v3-api-preview` branch, `Agent.Save` stores a v3 agent configuration; it does not start a session.
+Build an `Agent` configuration once, then choose whether to start an existing session or save the configuration for reuse. The Go module path remains `/v2` for its semantic major version. Existing `CreateSession(...).Start(ctx)` keeps its v2 `/join` behavior. On the `feat/v3-api-preview` branch, `Agent.Save` stores a v3 configuration, and `SavedAgent.CreateSession` starts a session from its saved ID. Configurations that use secret references or variables start through the v3 ephemeral endpoint automatically; plain inline configurations keep the existing v2 `/join` behavior.
 
 ## Run a session with inline credentials
 
@@ -49,7 +49,7 @@ saved, err = saved.Update(ctx, updatedConfig)
 if err != nil { return err }
 ```
 
-`Save` without `AgentID` creates a stored agent. `saved.Update(ctx, config)` updates it conditionally using the current ETag; a stale ETag returns `agentkit.ErrPreconditionFailed`. `agentkit.GetSavedAgent(ctx, client, agentID)` reloads a handle. This preview currently supports reading session lists and details, while starting or controlling a session from a saved agent is not available.
+`Save` without `AgentID` creates a stored agent. `saved.Update(ctx, config)` updates it conditionally using the current ETag; a stale ETag returns `agentkit.ErrPreconditionFailed`. `agentkit.GetSavedAgent(ctx, client, agentID)` reloads a handle. Start a session from the saved handle with `saved.CreateSession(opts)`, then use the same `Start`, `GetInfo`, and `Stop` methods as an inline session. `GetInfo` reports the v3 `agent_session_id` separately from the v2 `agent_id`.
 
 For this stored-agent preview, `AgoraClientOptions.V3` configures the staging origin and any gateway headers. Use the `feat/v3-api-preview` branch build; the normal `@latest` installation command does not select it. See the [advanced v3 guide](./v3-preview.md) for transport, pagination, response headers, and API limits.
 
@@ -74,7 +74,7 @@ saved, err := storedConfig.Save(ctx, agentkit.SaveOptions{Name: "Realtime suppor
 if err != nil { return err }
 ```
 
-Create the secret set before saving the agent that references it. `SecretRef("production", "openai")` produces `$secrets.production.openai`. Secret references are for saved-agent configuration; the v2 session path requires inline credentials and returns `ErrSecretRefNotSupported` for a secret reference.
+Create the secret set before saving the agent that references it. `SecretRef("production", "openai")` produces `$secrets.production.openai`. When an inline config contains a secret reference or variable, `CreateSession` selects the v3 ephemeral session endpoint automatically. The v2 session path still requires inline credentials and returns `ErrSecretRefNotSupported` for a secret reference.
 
 ## Create and assign a number
 

@@ -1,6 +1,6 @@
 # Agora Agents Go
 
-Conversational AI v3 P1 preview: [stored agents, secrets, numbers, and read-only sessions](docs/guides/v3-preview.md). The Go module's `/v2` suffix is its semantic major version, not the REST API version.
+Conversational AI v3 P1 preview: [stored agents, secrets, numbers, and sessions](docs/guides/v3-preview.md). The Go module's `/v2` suffix is its semantic major version, not the REST API version.
 
 [![fern shield](https://img.shields.io/badge/%F0%9F%8C%BF-Built%20with%20Fern-brightgreen)](https://buildwithfern.com?utm_source=github&utm_medium=github&utm_campaign=readme&utm_source=https%3A%2F%2Fgithub.com%2FAgoraIO%2Fagora-agents-go)
 [![Go Reference](https://pkg.go.dev/badge/github.com/AgoraIO/agora-agents-go/v2.svg)](https://pkg.go.dev/github.com/AgoraIO/agora-agents-go/v2)
@@ -32,9 +32,9 @@ This checkout includes a handwritten preview client for Conversational AI v3. Us
 - `Agent.Save` creates a stored configuration, and `SavedAgent.Update` updates it with an ETag guarded patch. `WithVariable` adds typed template or extraction variables.
 - `AgoraClient.Secrets` and `AgoraClient.Numbers` provide project setup. `agentkit.SecretRef("set", "key")` stores a `$secrets.set.key` reference in the agent configuration; secret values are write-only.
 - `SavedAgent.AssignNumber`, `UnassignNumber`, and `ListNumbers` manage project-scoped number assignments. E.164 lookup and `ListNumbers` scan project number pages, so the scan cost grows with the project.
-- `c.V3` exposes all 20 staging operations for advanced use. Lists use cursor pagination; updates use ETags. Session list/get are read-only in this preview.
+- `c.V3` exposes all 23 staging operations for advanced use. Lists use cursor pagination; updates use ETags. AgentKit starts sessions from saved agents or ephemeral configs that use secret references or variables.
 
-V3 sessions cannot yet be started or controlled through this preview. Outbound calls and campaigns are also pending. Production routing and merge-patch behavior still need backend validation. See the [v3 preview guide](docs/guides/v3-preview.md) for staging setup, examples, and limits.
+Campaign support is not included. Production routing and merge-patch behavior still need backend validation. See the [v3 preview guide](docs/guides/v3-preview.md) for staging setup, examples, and limits.
 
 ## Quick Start
 

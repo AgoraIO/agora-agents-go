@@ -52,6 +52,41 @@ type SipTrunk = v3.SipTrunk
 type SipAuth = v3.SipAuth
 type Inbound = v3.Inbound
 
+func shouldStartEphemeralV3(base *agentcore.BaseAgent, opts CreateSessionOptions) bool {
+	if base == nil {
+		return false
+	}
+	if len(base.Variables) > 0 || opts.ClientReference != "" || opts.MaxDuration != nil || opts.Labels != nil {
+		return true
+	}
+	for _, module := range []map[string]interface{}{base.STT, base.LLM, base.TTS, base.MLLM} {
+		if containsSecretReference(module) {
+			return true
+		}
+	}
+	return false
+}
+
+func containsSecretReference(value any) bool {
+	switch item := value.(type) {
+	case string:
+		return strings.HasPrefix(strings.TrimSpace(item), "$secrets.")
+	case map[string]interface{}:
+		for _, child := range item {
+			if containsSecretReference(child) {
+				return true
+			}
+		}
+	case []interface{}:
+		for _, child := range item {
+			if containsSecretReference(child) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func WithVariable(name string, def VariableDefinition) AgentOption {
 	if err := validateVariable(name, def); err != nil {
 		panic(err)
@@ -242,6 +277,22 @@ func (d *SavedAgent) Update(ctx context.Context, config *Agent) (*SavedAgent, er
 	}
 	return config.Save(ctx, SaveOptions{Name: d.Name, AgentID: d.ID})
 }
+
+// CreateSession builds a v3 session that starts this saved agent. V3 session
+// objects have their own lifecycle; legacy actions such as Say are unsupported.
+func (d *SavedAgent) CreateSession(opts CreateSessionOptions) *AgentSession {
+	if d == nil || d.client == nil || d.ID == "" {
+		return &AgentSession{
+			backend:  sessionBackendV3Saved,
+			status:   StatusIdle,
+			handlers: make(map[string][]EventHandler),
+			initErr:  errors.New("agentkit: saved agent with ID and client is required"),
+		}
+	}
+	session := newV3AgentSession(NewAgent(d.client), d.client, opts, d.ID)
+	return session
+}
+
 func (d *SavedAgent) Delete(ctx context.Context) error {
 	_, err := d.Raw.Delete(ctx, d.ID)
 	return err

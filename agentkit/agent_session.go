@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/AgoraIO/agora-agents-go/v2/agents"
 	"github.com/AgoraIO/agora-agents-go/v2/core"
 	"github.com/AgoraIO/agora-agents-go/v2/option"
+	"github.com/AgoraIO/agora-agents-go/v2/v3"
 )
 
 // AgentSessionLifecycle is the local client lifecycle state for AgentSession.
@@ -48,6 +50,18 @@ const (
 
 type EventHandler func(data interface{})
 
+type sessionBackend uint8
+
+const (
+	sessionBackendV2 sessionBackend = iota
+	sessionBackendV3Saved
+	sessionBackendV3Ephemeral
+)
+
+// ErrUnsupportedSessionOperation identifies lifecycle actions that the
+// current v3 session contract does not expose.
+var ErrUnsupportedSessionOperation = errors.New("agentkit: operation is not supported for v3 sessions")
+
 type AgentSession struct {
 	client          *agents.Client
 	agentManagement *agentmanagement.Client
@@ -57,11 +71,14 @@ type AgentSession struct {
 	appID           string
 	appCertificate  string
 	name            string
+	clientReference string
 	channel         string
 	token           string
 	agentUID        string
 	remoteUIDs      []string
 	idleTimeout     *int
+	maxDuration     *int
+	labels          map[string]string
 	enableStringUID *bool
 	expiresIn       int  // Token lifetime in seconds (0 = use DefaultExpirySeconds)
 	useAppCredsREST bool // When true, generate ConvoAI token per request for REST API auth
@@ -69,6 +86,10 @@ type AgentSession struct {
 	pipelineID      string
 	debug           bool
 	warn            func(string)
+	backend         sessionBackend
+	v3Sessions      *v3.SessionsClient
+	savedAgentID    string
+	initErr         error
 
 	agentID  string
 	status   AgentSessionLifecycle
@@ -86,11 +107,14 @@ type AgentSessionOptions struct {
 	// Name is the agent instance identifier sent as the top-level /join "name" field.
 	// When empty, NewAgentSession generates agent-<unix_timestamp>.
 	Name            string
+	ClientReference string
 	Channel         string
 	Token           string
 	AgentUID        string
 	RemoteUIDs      []string
 	IdleTimeout     *int
+	MaxDuration     *int
+	Labels          map[string]string
 	EnableStringUID *bool
 	// ExpiresIn is the token lifetime in seconds (default: 86400 = 24 hours, Agora maximum).
 	// Only applies when the SDK auto-generates a token. Valid range: 1–86400.
@@ -121,12 +145,15 @@ func NewAgentSession(opts AgentSessionOptions) *AgentSession {
 		appID:           opts.AppID,
 		appCertificate:  opts.AppCertificate,
 		name:            name,
+		clientReference: opts.ClientReference,
 		channel:         opts.Channel,
 		token:           opts.Token,
 		agentUID:        opts.AgentUID,
-		remoteUIDs:      opts.RemoteUIDs,
-		idleTimeout:     opts.IdleTimeout,
-		enableStringUID: opts.EnableStringUID,
+		remoteUIDs:      append([]string(nil), opts.RemoteUIDs...),
+		idleTimeout:     cloneIntPointer(opts.IdleTimeout),
+		maxDuration:     cloneIntPointer(opts.MaxDuration),
+		labels:          cloneStringMap(opts.Labels),
+		enableStringUID: cloneBoolPointer(opts.EnableStringUID),
 		expiresIn:       opts.ExpiresIn,
 		useAppCredsREST: opts.UseAppCredentialsForREST,
 		preset:          append([]string(nil), opts.Preset...),
@@ -136,6 +163,226 @@ func NewAgentSession(opts AgentSessionOptions) *AgentSession {
 		status:          StatusIdle,
 		handlers:        make(map[string][]EventHandler),
 	}
+}
+
+func newV3AgentSession(agent agentcore.AgentRuntime, client *AgoraClient, opts CreateSessionOptions, savedAgentID string) *AgentSession {
+	if agent == nil {
+		agent = NewAgent(client)
+	}
+	session := newLegacyAgentSession(agent, opts)
+	session.backend = sessionBackendV3Ephemeral
+	if savedAgentID != "" {
+		session.backend = sessionBackendV3Saved
+	}
+	session.savedAgentID = savedAgentID
+	if client == nil || client.V3 == nil || client.V3.Sessions == nil {
+		session.initErr = errors.New("agentkit: v3 sessions client is required")
+		return session
+	}
+	if client.Area == option.AreaCN {
+		session.initErr = errors.New("agentkit: v3 sessions in CN are pending backend confirmation")
+		return session
+	}
+	session.v3Sessions = client.V3.Sessions
+	if opts.ClientReference != "" && opts.Name != "" && opts.ClientReference != opts.Name {
+		session.initErr = errors.New("agentkit: set either Name or ClientReference for a v3 session, not both")
+		return session
+	}
+	session.clientReference = opts.ClientReference
+	if session.clientReference == "" {
+		session.clientReference = opts.Name
+	}
+	if session.clientReference == "" {
+		session.clientReference = session.name
+	}
+	return session
+}
+
+func cloneStringMap(source map[string]string) map[string]string {
+	if source == nil {
+		return nil
+	}
+	cloned := make(map[string]string, len(source))
+	for key, value := range source {
+		cloned[key] = value
+	}
+	return cloned
+}
+
+func cloneIntPointer(source *int) *int {
+	if source == nil {
+		return nil
+	}
+	cloned := *source
+	return &cloned
+}
+
+func cloneBoolPointer(source *bool) *bool {
+	if source == nil {
+		return nil
+	}
+	cloned := *source
+	return &cloned
+}
+
+func (s *AgentSession) v3StartRequestParts() (v3.SessionTransport, *v3.SessionLifecycle, error) {
+	if s.backend == sessionBackendV3Ephemeral && len(s.labels) > 0 {
+		return v3.SessionTransport{}, nil, errors.New("agentkit: labels are only supported when starting a saved-agent session")
+	}
+	if s.initErr != nil {
+		return v3.SessionTransport{}, nil, s.initErr
+	}
+	if strings.TrimSpace(s.channel) == "" {
+		return v3.SessionTransport{}, nil, errors.New("agentkit: v3 session channel is required")
+	}
+	if strings.TrimSpace(s.agentUID) == "" {
+		return v3.SessionTransport{}, nil, errors.New("agentkit: v3 session agent UID is required")
+	}
+	if s.token != "" {
+		return v3.SessionTransport{}, nil, errors.New("agentkit: v3 sessions do not accept a legacy RTC token")
+	}
+	if s.enableStringUID != nil {
+		return v3.SessionTransport{}, nil, errors.New("agentkit: v3 sessions do not support EnableStringUID")
+	}
+	if s.expiresIn != 0 {
+		return v3.SessionTransport{}, nil, errors.New("agentkit: v3 sessions do not support ExpiresIn")
+	}
+	if len(s.preset) > 0 {
+		return v3.SessionTransport{}, nil, errors.New("agentkit: v3 sessions do not support presets")
+	}
+	if s.pipelineID != "" {
+		return v3.SessionTransport{}, nil, errors.New("agentkit: v3 sessions do not support PipelineID overrides")
+	}
+	if s.backend == sessionBackendV3Ephemeral && s.labels != nil {
+		return v3.SessionTransport{}, nil, errors.New("agentkit: labels are only supported when starting a saved agent")
+	}
+	transport := v3.SessionTransport{
+		Type:          "rtc",
+		Channel:       s.channel,
+		UID:           s.agentUID,
+		SubscribeUIDs: append([]string(nil), s.remoteUIDs...),
+	}
+	var lifecycle *v3.SessionLifecycle
+	if s.idleTimeout != nil || s.maxDuration != nil {
+		lifecycle = &v3.SessionLifecycle{}
+		const maxInt = int(^uint(0) >> 1)
+		if s.idleTimeout != nil {
+			if *s.idleTimeout < 0 || *s.idleTimeout > maxInt/1000 {
+				return v3.SessionTransport{}, nil, errors.New("agentkit: IdleTimeout must be non-negative seconds within millisecond range")
+			}
+			milliseconds := *s.idleTimeout * 1000
+			lifecycle.IdleTimeoutMS = &milliseconds
+		}
+		if s.maxDuration != nil {
+			if *s.maxDuration < 0 || *s.maxDuration > maxInt/1000 {
+				return v3.SessionTransport{}, nil, errors.New("agentkit: MaxDuration must be non-negative seconds within millisecond range")
+			}
+			milliseconds := *s.maxDuration * 1000
+			lifecycle.MaxDurationMS = &milliseconds
+		}
+	}
+	return transport, lifecycle, nil
+}
+
+func (s *AgentSession) startV3(ctx context.Context) (string, error) {
+	s.mu.Lock()
+	if s.status != StatusIdle && s.status != StatusStopped && s.status != StatusError {
+		s.mu.Unlock()
+		return "", fmt.Errorf("cannot start session in %s state", s.status)
+	}
+	s.status = StatusStarting
+	s.mu.Unlock()
+	transport, lifecycle, err := s.v3StartRequestParts()
+	if err != nil {
+		s.setV3StartFailure(err)
+		return "", err
+	}
+	if s.v3Sessions == nil {
+		err = errors.New("agentkit: v3 sessions client is required")
+		s.setV3StartFailure(err)
+		return "", err
+	}
+	var response *v3.Response[v3.Session]
+	if s.backend == sessionBackendV3Saved {
+		response, err = s.v3Sessions.Start(ctx, v3.SessionStartRequest{
+			AgentID:         s.savedAgentID,
+			ClientReference: s.clientReference,
+			Labels:          cloneStringMap(s.labels),
+			Transport:       transport,
+			Lifecycle:       lifecycle,
+		})
+	} else {
+		config, ok := s.agent.(*Agent)
+		if !ok || config == nil {
+			err = errors.New("agentkit: ephemeral v3 sessions require an Agent config")
+		} else {
+			storedShape, mapErr := config.toV3("")
+			if mapErr != nil {
+				err = mapErr
+			} else {
+				response, err = s.v3Sessions.StartEphemeral(ctx, v3.SessionStartEphemeralRequest{
+					ClientReference: s.clientReference,
+					Labels:          cloneStringMap(s.labels),
+					Agent: v3.EphemeralAgent{
+						Instructions: storedShape.Instructions,
+						Messages:     storedShape.Messages,
+						Greeting:     storedShape.Greeting,
+						Variables:    storedShape.Variables,
+						Pipeline:     storedShape.Pipeline,
+						FillerWords:  storedShape.FillerWords,
+					},
+					Transport: transport,
+					Lifecycle: lifecycle,
+				})
+			}
+		}
+	}
+	if err != nil {
+		s.setV3StartFailure(err)
+		return "", err
+	}
+	if response == nil || response.Body.AgentSessionID == "" {
+		err = errors.New("agentkit: v3 session response has no agent_session_id")
+		s.setV3StartFailure(err)
+		return "", err
+	}
+	s.mu.Lock()
+	s.agentID = response.Body.AgentSessionID
+	s.status = lifecycleStatus(response.Body.Status, StatusRunning)
+	s.mu.Unlock()
+	s.emit("started", map[string]string{"agent_session_id": s.agentID})
+	return s.agentID, nil
+}
+
+func (s *AgentSession) setV3StartFailure(err error) {
+	s.mu.Lock()
+	s.status = StatusError
+	s.mu.Unlock()
+	s.emit("error", err)
+}
+
+func lifecycleStatus(status string, fallback AgentSessionLifecycle) AgentSessionLifecycle {
+	switch strings.ToLower(status) {
+	case "starting":
+		return StatusStarting
+	case "running":
+		return StatusRunning
+	case "stopping":
+		return StatusStopping
+	case "stopped":
+		return StatusStopped
+	case "failed", "error":
+		return StatusError
+	default:
+		return fallback
+	}
+}
+
+func (s *AgentSession) requireV2Operation(name string) error {
+	if s.backend != sessionBackendV2 {
+		return fmt.Errorf("%w: %s", ErrUnsupportedSessionOperation, name)
+	}
+	return nil
 }
 
 // convoAIRequestOpts returns per-request options with ConvoAI token when using app credentials.
@@ -186,10 +433,16 @@ func (s *AgentSession) AppID() string {
 }
 
 func (s *AgentSession) Raw() *agents.Client {
+	if s.backend != sessionBackendV2 {
+		return nil
+	}
 	return s.client
 }
 
 func (s *AgentSession) RawAgentManagement() *agentmanagement.Client {
+	if s.backend != sessionBackendV2 {
+		return nil
+	}
 	return s.agentManagement
 }
 
@@ -238,6 +491,9 @@ func (s *AgentSession) validateAvatarConfig() error {
 }
 
 func (s *AgentSession) Start(ctx context.Context) (string, error) {
+	if s.backend != sessionBackendV2 {
+		return s.startV3(ctx)
+	}
 	s.mu.Lock()
 	if s.status != StatusIdle && s.status != StatusStopped && s.status != StatusError {
 		s.mu.Unlock()
@@ -442,6 +698,9 @@ func categorySetToSlice(values map[string]bool) []string {
 }
 
 func (s *AgentSession) Stop(ctx context.Context) error {
+	if s.backend != sessionBackendV2 {
+		return s.stopV3(ctx)
+	}
 	s.mu.Lock()
 	if s.status != StatusRunning {
 		s.mu.Unlock()
@@ -490,6 +749,41 @@ func (s *AgentSession) Stop(ctx context.Context) error {
 	return nil
 }
 
+func (s *AgentSession) stopV3(ctx context.Context) error {
+	s.mu.Lock()
+	if s.status != StatusRunning {
+		s.mu.Unlock()
+		return fmt.Errorf("cannot stop session in %s state", s.status)
+	}
+	if s.agentID == "" {
+		s.mu.Unlock()
+		return errors.New("no agent_session_id available")
+	}
+	s.status = StatusStopping
+	id := s.agentID
+	s.mu.Unlock()
+	if s.v3Sessions == nil {
+		err := errors.New("agentkit: v3 sessions client is required")
+		s.mu.Lock()
+		s.status = StatusError
+		s.mu.Unlock()
+		return err
+	}
+	_, err := s.v3Sessions.Stop(ctx, id)
+	if err != nil {
+		s.mu.Lock()
+		s.status = StatusError
+		s.mu.Unlock()
+		s.emit("error", err)
+		return err
+	}
+	s.mu.Lock()
+	s.status = StatusStopped
+	s.mu.Unlock()
+	s.emit("stopped", map[string]string{"agent_session_id": id})
+	return nil
+}
+
 func (s *AgentSession) Say(ctx context.Context, text string, priority *Agora.SpeakAgentsRequestPriority, interruptable *bool) error {
 	return s.SayWithOptions(ctx, text, &SayOptions{
 		Priority:      priority,
@@ -503,6 +797,9 @@ type SayOptions struct {
 }
 
 func (s *AgentSession) SayWithOptions(ctx context.Context, text string, opts *SayOptions) error {
+	if err := s.requireV2Operation("Say"); err != nil {
+		return err
+	}
 	s.mu.RLock()
 	if s.status != StatusRunning {
 		s.mu.RUnlock()
@@ -533,6 +830,9 @@ func (s *AgentSession) SayWithOptions(ctx context.Context, text string, opts *Sa
 }
 
 func (s *AgentSession) Interrupt(ctx context.Context) error {
+	if err := s.requireV2Operation("Interrupt"); err != nil {
+		return err
+	}
 	s.mu.RLock()
 	if s.status != StatusRunning {
 		s.mu.RUnlock()
@@ -586,6 +886,9 @@ func (s *AgentSession) ThinkWithOptions(
 	text string,
 	opts *ThinkOptions,
 ) (*Agora.AgentThinkAgentManagementResponse, error) {
+	if err := s.requireV2Operation("Think"); err != nil {
+		return nil, err
+	}
 	s.mu.RLock()
 	if s.status != StatusRunning {
 		s.mu.RUnlock()
@@ -620,6 +923,9 @@ func (s *AgentSession) ThinkWithOptions(
 }
 
 func (s *AgentSession) Update(ctx context.Context, properties *Agora.UpdateAgentsRequestProperties) error {
+	if err := s.requireV2Operation("Update"); err != nil {
+		return err
+	}
 	s.mu.RLock()
 	if s.status != StatusRunning {
 		s.mu.RUnlock()
@@ -644,6 +950,9 @@ func (s *AgentSession) Update(ctx context.Context, properties *Agora.UpdateAgent
 }
 
 func (s *AgentSession) GetHistory(ctx context.Context) (*Agora.GetHistoryAgentsResponse, error) {
+	if err := s.requireV2Operation("GetHistory"); err != nil {
+		return nil, err
+	}
 	s.mu.RLock()
 	if s.agentID == "" {
 		s.mu.RUnlock()
@@ -662,6 +971,30 @@ func (s *AgentSession) GetHistory(ctx context.Context) (*Agora.GetHistoryAgentsR
 }
 
 func (s *AgentSession) GetInfo(ctx context.Context) (*Agora.GetAgentsResponse, error) {
+	if s.backend != sessionBackendV2 {
+		s.mu.RLock()
+		id := s.agentID
+		s.mu.RUnlock()
+		if id == "" {
+			return nil, errors.New("no agent_session_id available")
+		}
+		if s.v3Sessions == nil {
+			return nil, errors.New("agentkit: v3 sessions client is required")
+		}
+		response, err := s.v3Sessions.Get(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		encoded, err := json.Marshal(response.Body)
+		if err != nil {
+			return nil, err
+		}
+		body := &Agora.GetAgentsResponse{}
+		if err := json.Unmarshal(encoded, body); err != nil {
+			return nil, err
+		}
+		return body, nil
+	}
 	s.mu.RLock()
 	if s.agentID == "" {
 		s.mu.RUnlock()
@@ -689,6 +1022,9 @@ type GetAllTurnsOptions struct {
 }
 
 func (s *AgentSession) GetTurns(ctx context.Context, opts ...GetTurnsOptions) (*Agora.GetTurnsAgentsResponse, error) {
+	if err := s.requireV2Operation("GetTurns"); err != nil {
+		return nil, err
+	}
 	s.mu.RLock()
 	if s.agentID == "" {
 		s.mu.RUnlock()

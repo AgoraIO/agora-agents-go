@@ -491,3 +491,89 @@ func (c *SessionsClient) Get(ctx context.Context, id string) (*Response[Session]
 	}
 	return response(r, out), nil
 }
+
+// Start creates a running session from a saved agent configuration.
+func (c *SessionsClient) Start(ctx context.Context, body SessionStartRequest) (*Response[Session], error) {
+	if strings.TrimSpace(body.AgentID) == "" {
+		return nil, errors.New("v3: agentID is required")
+	}
+	if err := validateSessionTransport(body.Transport); err != nil {
+		return nil, err
+	}
+	if err := validateSessionLifecycle(body.Lifecycle); err != nil {
+		return nil, err
+	}
+	p, err := c.t.path("sessions")
+	if err != nil {
+		return nil, err
+	}
+	var out Session
+	r, err := c.t.call(ctx, http.MethodPost, p, nil, body, &out, nil, 0)
+	if err != nil {
+		return nil, err
+	}
+	return response(r, out), nil
+}
+
+// StartEphemeral creates a running session from an inline, unsaved agent.
+func (c *SessionsClient) StartEphemeral(ctx context.Context, body SessionStartEphemeralRequest) (*Response[Session], error) {
+	if body.Labels != nil {
+		return nil, errors.New("v3: labels are only supported when starting a saved agent")
+	}
+	if err := validateSessionTransport(body.Transport); err != nil {
+		return nil, err
+	}
+	if err := validateSessionLifecycle(body.Lifecycle); err != nil {
+		return nil, err
+	}
+	p, err := c.t.path("sessions", "ephemeral")
+	if err != nil {
+		return nil, err
+	}
+	var out Session
+	r, err := c.t.call(ctx, http.MethodPost, p, nil, body, &out, nil, 0)
+	if err != nil {
+		return nil, err
+	}
+	return response(r, out), nil
+}
+
+// Stop stops a running session. The endpoint has no request body.
+func (c *SessionsClient) Stop(ctx context.Context, id string) (*Response[map[string]any], error) {
+	p, err := c.t.path("sessions", id, "stop")
+	if err != nil {
+		return nil, err
+	}
+	var out map[string]any
+	r, err := c.t.call(ctx, http.MethodPost, p, nil, nil, &out, nil, 0)
+	if err != nil {
+		return nil, err
+	}
+	return response(r, out), nil
+}
+
+func validateSessionTransport(t SessionTransport) error {
+	if t.Type != "rtc" {
+		return errors.New("v3: session transport type must be rtc")
+	}
+	if strings.TrimSpace(t.Channel) == "" {
+		return errors.New("v3: session transport channel is required")
+	}
+	if strings.TrimSpace(t.UID) == "" {
+		return errors.New("v3: session transport uid is required")
+	}
+	return nil
+}
+
+func validateSessionLifecycle(lifecycle *SessionLifecycle) error {
+	if lifecycle == nil {
+		return nil
+	}
+	if lifecycle.IdleTimeoutMS != nil && *lifecycle.IdleTimeoutMS < 0 {
+		return errors.New("v3: idle_timeout_ms must be non-negative")
+	}
+	if lifecycle.MaxDurationMS != nil && *lifecycle.MaxDurationMS < 0 {
+		return errors.New("v3: max_duration_ms must be non-negative")
+	}
+	return nil
+}

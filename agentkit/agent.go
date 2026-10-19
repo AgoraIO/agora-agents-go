@@ -359,12 +359,20 @@ func (a *Agent) FillerWords() *FillerWordsConfig      { return a.base.FillerWord
 type CreateSessionOptions struct {
 	// Name is the agent instance identifier sent as the top-level /join "name" field.
 	// When empty, CreateSession generates agent-<unix_timestamp>.
-	Name            string
+	Name string
+	// ClientReference is the caller's identifier for v3 sessions. When empty,
+	// Name is used for backwards-compatible session naming.
+	ClientReference string
 	Channel         string
 	Token           string
 	AgentUID        string
 	RemoteUIDs      []string
 	IdleTimeout     *int
+	// MaxDuration is the optional maximum session duration in seconds.
+	// V3 lifecycle requests convert this value to milliseconds.
+	MaxDuration *int
+	// Labels are attached to v3 sessions. They are not sent by the v2 join API.
+	Labels          map[string]string
 	EnableStringUID *bool
 	ExpiresIn       int
 	Preset          []string
@@ -381,6 +389,15 @@ func (a *Agent) CreateSession(opts CreateSessionOptions) *AgentSession {
 
 // NewSession creates an AgentSession from any AgentRuntime implementation.
 func NewSession(agent agentcore.AgentRuntime, opts CreateSessionOptions) *AgentSession {
+	if config, ok := agent.(*Agent); ok && config != nil && config.base != nil {
+		if client, ok := config.base.Client.(*AgoraClient); ok && shouldStartEphemeralV3(config.base, opts) {
+			return newV3AgentSession(config, client, opts, "")
+		}
+	}
+	return newLegacyAgentSession(agent, opts)
+}
+
+func newLegacyAgentSession(agent agentcore.AgentRuntime, opts CreateSessionOptions) *AgentSession {
 	clientProvider, ok := agent.(interface {
 		Client() agentcore.ClientRuntime
 	})
@@ -406,11 +423,14 @@ func NewSession(agent agentcore.AgentRuntime, opts CreateSessionOptions) *AgentS
 		AppID:                    client.AppID(),
 		AppCertificate:           client.AppCertificate(),
 		Name:                     name,
+		ClientReference:          opts.ClientReference,
 		Channel:                  opts.Channel,
 		Token:                    opts.Token,
 		AgentUID:                 opts.AgentUID,
 		RemoteUIDs:               opts.RemoteUIDs,
 		IdleTimeout:              opts.IdleTimeout,
+		MaxDuration:              opts.MaxDuration,
+		Labels:                   opts.Labels,
 		EnableStringUID:          opts.EnableStringUID,
 		ExpiresIn:                opts.ExpiresIn,
 		UseAppCredentialsForREST: client.IsAppCredentialsMode(),

@@ -194,13 +194,58 @@ type SessionAnalysis struct {
 	Error      *string        `json:"error"`
 }
 type Session struct {
-	AgentSessionID string           `json:"agent_session_id"`
-	StartTS        int64            `json:"start_ts"`
-	StopTS         *int64           `json:"stop_ts"`
-	Status         string           `json:"status"`
-	AgentName      string           `json:"agent_name"`
-	Message        *string          `json:"message"`
-	Analysis       *SessionAnalysis `json:"analysis"`
+	AgentSessionID string `json:"agent_session_id"`
+	// CreatedAt preserves the API's timestamp representation without assuming
+	// whether the backend emits a string or numeric value.
+	CreatedAt json.RawMessage  `json:"created_at,omitempty"`
+	StartTS   int64            `json:"start_ts"`
+	StopTS    *int64           `json:"stop_ts"`
+	Status    string           `json:"status"`
+	AgentName string           `json:"agent_name"`
+	Message   *string          `json:"message"`
+	Analysis  *SessionAnalysis `json:"analysis"`
+}
+
+// SessionTransport describes the RTC connection associated with a session.
+type SessionTransport struct {
+	Type          string   `json:"type"`
+	Channel       string   `json:"channel"`
+	UID           string   `json:"uid"`
+	SubscribeUIDs []string `json:"subscribe_uids,omitempty"`
+}
+
+// SessionLifecycle contains optional session timeouts in milliseconds.
+type SessionLifecycle struct {
+	IdleTimeoutMS *int `json:"idle_timeout_ms,omitempty"`
+	MaxDurationMS *int `json:"max_duration_ms,omitempty"`
+}
+
+// SessionStartRequest starts a session from an existing saved agent.
+type SessionStartRequest struct {
+	AgentID         string            `json:"agent_id"`
+	ClientReference string            `json:"client_reference,omitempty"`
+	Labels          map[string]string `json:"labels,omitempty"`
+	Transport       SessionTransport  `json:"transport"`
+	Lifecycle       *SessionLifecycle `json:"lifecycle,omitempty"`
+}
+
+// EphemeralAgent is an inline agent configuration that is not saved.
+type EphemeralAgent struct {
+	Instructions *string                       `json:"instructions,omitempty"`
+	Messages     []Message                     `json:"messages,omitempty"`
+	Greeting     any                           `json:"greeting,omitempty"`
+	Variables    map[string]VariableDefinition `json:"variables,omitempty"`
+	Pipeline     *Pipeline                     `json:"pipeline,omitempty"`
+	FillerWords  any                           `json:"filler_words,omitempty"`
+}
+
+// SessionStartEphemeralRequest starts a session from an unsaved agent config.
+type SessionStartEphemeralRequest struct {
+	ClientReference string            `json:"client_reference,omitempty"`
+	Labels          map[string]string `json:"labels,omitempty"`
+	Agent           EphemeralAgent    `json:"agent"`
+	Transport       SessionTransport  `json:"transport"`
+	Lifecycle       *SessionLifecycle `json:"lifecycle,omitempty"`
 }
 type SessionListOptions struct {
 	ListOptions

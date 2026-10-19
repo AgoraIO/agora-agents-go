@@ -550,3 +550,192 @@ func TestInlineConfigCanStartSessionAndSaveWithoutMutation(t *testing.T) {
 		t.Fatalf("session/save/update mutated the source config: %#v", mllm)
 	}
 }
+
+func TestSavedAgentCreateSessionUsesV3SessionLifecycle(t *testing.T) {
+	calls := 0
+	httpClient := v3HTTPFunc(func(r *http.Request) (*http.Response, error) {
+		calls++
+		switch calls {
+		case 1:
+			if r.Method != http.MethodPost || !strings.HasSuffix(r.URL.Path, "/sessions") {
+				t.Fatalf("start request: %s %s", r.Method, r.URL.Path)
+			}
+			var body map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Fatal(err)
+			}
+			if body["agent_id"] != "saved1" || body["client_reference"] != "client-ref" || body["labels"].(map[string]any)["team"] != "support" {
+				t.Fatalf("start body: %#v", body)
+			}
+			transport := body["transport"].(map[string]any)
+			if transport["type"] != "rtc" || transport["uid"] != "1001" || transport["channel"] != "support" {
+				t.Fatalf("transport: %#v", transport)
+			}
+			lifecycle := body["lifecycle"].(map[string]any)
+			if lifecycle["idle_timeout_ms"] != float64(60000) || lifecycle["max_duration_ms"] != float64(120000) {
+				t.Fatalf("lifecycle unit conversion: %#v", lifecycle)
+			}
+			return v3Reply(201, `{"agent_session_id":"sess1","status":"running","created_at":"2026-10-19T00:00:00Z"}`, ""), nil
+		case 2:
+			if r.Method != http.MethodGet || !strings.HasSuffix(r.URL.Path, "/sessions/sess1") {
+				t.Fatalf("get session request: %s %s", r.Method, r.URL.Path)
+			}
+			return v3Reply(200, `{"agent_session_id":"sess1","status":"RUNNING","created_at":"2026-10-19T00:00:00Z"}`, ""), nil
+		case 3:
+			if r.Method != http.MethodPost || !strings.HasSuffix(r.URL.Path, "/sessions/sess1/stop") {
+				t.Fatalf("stop request: %s %s", r.Method, r.URL.Path)
+			}
+			if r.Body != nil {
+				body, _ := io.ReadAll(r.Body)
+				if len(body) != 0 {
+					t.Fatalf("stop body must be empty: %s", body)
+				}
+			}
+			return v3Reply(200, `{}`, ""), nil
+		default:
+			t.Fatalf("unexpected request %d", calls)
+			return nil, nil
+		}
+	})
+	c := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token", HTTPClient: httpClient, V3: &V3Options{BaseURL: "https://stage.example"}})
+	idle, max := 60, 120
+	session := (&SavedAgent{ID: "saved1", Name: "Support", client: c}).CreateSession(CreateSessionOptions{
+		ClientReference: "client-ref",
+		Channel:         "support",
+		AgentUID:        "1001",
+		RemoteUIDs:      []string{"1002"},
+		IdleTimeout:     &idle,
+		MaxDuration:     &max,
+		Labels:          map[string]string{"team": "support"},
+	})
+	id, err := session.Start(context.Background())
+	if err != nil || id != "sess1" || session.ID() != "sess1" || session.Status() != StatusRunning {
+		t.Fatalf("session start: id=%q status=%q err=%v", id, session.Status(), err)
+	}
+	info, err := session.GetInfo(context.Background())
+	if err != nil || info.GetAgentSessionID() == nil || *info.GetAgentSessionID() != "sess1" || info.GetAgentID() != nil || info.GetStatus() == nil || string(*info.GetStatus()) != "RUNNING" {
+		t.Fatalf("session info: %#v err=%v", info, err)
+	}
+	if err := session.Stop(context.Background()); err != nil || session.Status() != StatusStopped || calls != 3 {
+		t.Fatalf("session stop: status=%q err=%v calls=%d", session.Status(), err, calls)
+	}
+}
+
+func TestAgentConfigWithSecretRefStartsEphemeralV3Session(t *testing.T) {
+	calls := 0
+	c := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token", V3: &V3Options{BaseURL: "https://stage.example"}, HTTPClient: v3HTTPFunc(func(r *http.Request) (*http.Response, error) {
+		calls++
+		if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/sessions/ephemeral1") {
+			return v3Reply(200, `{"agent_session_id":"ephemeral1","status":"RUNNING"}`, ""), nil
+		}
+		if r.Method != http.MethodPost || !strings.HasSuffix(r.URL.Path, "/sessions/ephemeral") {
+			t.Fatalf("ephemeral request: %s %s", r.Method, r.URL.Path)
+		}
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		agent := body["agent"].(map[string]any)
+		pipeline := agent["pipeline"].(map[string]any)
+		mllm := pipeline["mllm"].(map[string]any)
+		credential := mllm["credential"].(map[string]any)
+		if credential["api_key"] != "$secrets.prod.openai" {
+			t.Fatalf("secret reference lost: %#v", mllm)
+		}
+		if len(agent["variables"].(map[string]any)) != 1 {
+			t.Fatalf("variable missing from ephemeral agent: %#v", agent)
+		}
+		return v3Reply(201, `{"agent_session_id":"ephemeral1","status":"running","created_at":1781827200}`, ""), nil
+	})})
+	config := NewAgent(c).
+		WithMllm(vendors.NewOpenAIRealtime(vendors.OpenAIRealtimeOptions{APIKey: SecretRef("prod", "openai")})).
+		WithVariable("priority", VariableDefinition{Type: "str", Description: "Main priority"})
+	session := config.CreateSession(CreateSessionOptions{
+		Channel: "support", AgentUID: "1001", RemoteUIDs: []string{"1002"},
+	})
+	id, err := session.Start(context.Background())
+	if err != nil || id != "ephemeral1" || calls != 1 {
+		t.Fatalf("ephemeral start: id=%q err=%v calls=%d", id, err, calls)
+	}
+	if err := session.Say(context.Background(), "hello", nil, nil); !errors.Is(err, ErrUnsupportedSessionOperation) {
+		t.Fatalf("Say should be rejected locally for v3 session: %v", err)
+	}
+	info, err := session.GetInfo(context.Background())
+	if err != nil || info.GetAgentSessionID() == nil || *info.GetAgentSessionID() != "ephemeral1" {
+		t.Fatalf("GetInfo should retain the unified session interface: %#v %v", info, err)
+	}
+	if calls != 2 {
+		t.Fatalf("expected only start and info requests: %d", calls)
+	}
+}
+
+func boolPtrTest(v bool) *bool { return &v }
+
+func TestV3SessionSnapshotsOptionsAndRejectsCN(t *testing.T) {
+	calls := 0
+	c := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token", V3: &V3Options{BaseURL: "https://stage.example"}, HTTPClient: v3HTTPFunc(func(r *http.Request) (*http.Response, error) {
+		calls++
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		transport := body["transport"].(map[string]any)
+		if transport["subscribe_uids"].([]any)[0] != "original" {
+			t.Fatalf("remote UIDs were not snapshotted: %#v", transport)
+		}
+		lifecycle := body["lifecycle"].(map[string]any)
+		if lifecycle["idle_timeout_ms"] != float64(5000) {
+			t.Fatalf("timeout was not snapshotted: %#v", lifecycle)
+		}
+		return v3Reply(201, `{"agent_session_id":"snapshot","status":"RUNNING"}`, ""), nil
+	})})
+	idle := 5
+	remoteUIDs := []string{"original"}
+	session := (&SavedAgent{ID: "saved", client: c}).CreateSession(CreateSessionOptions{Channel: "room", AgentUID: "10", RemoteUIDs: remoteUIDs, IdleTimeout: &idle})
+	remoteUIDs[0] = "mutated"
+	idle = 100
+	if _, err := session.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if session.Raw() != nil || session.RawAgentManagement() != nil {
+		t.Fatal("v3 session exposed legacy raw clients")
+	}
+
+	cnCalls := 0
+	cn := NewAgoraClient(AgoraClientOptions{Area: option.AreaCN, AppID: "app", Token: "token", V3: &V3Options{BaseURL: "https://stage.example"}, HTTPClient: v3HTTPFunc(func(*http.Request) (*http.Response, error) { cnCalls++; return nil, errors.New("unexpected request") })})
+	blocked := (&SavedAgent{ID: "saved", client: cn}).CreateSession(CreateSessionOptions{Channel: "room", AgentUID: "10"})
+	if _, err := blocked.Start(context.Background()); err == nil || cnCalls != 0 {
+		t.Fatalf("CN v3 session was not blocked locally: err=%v calls=%d", err, cnCalls)
+	}
+}
+
+func TestV3SessionRejectsLegacyAndUndocumentedOptionsLocally(t *testing.T) {
+	calls := 0
+	c := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token", V3: &V3Options{BaseURL: "https://stage.example"}, HTTPClient: v3HTTPFunc(func(*http.Request) (*http.Response, error) {
+		calls++
+		return nil, errors.New("unexpected request")
+	})})
+	saved := &SavedAgent{ID: "saved1", Name: "Support", client: c}
+	cases := []struct {
+		name string
+		opts CreateSessionOptions
+	}{
+		{"token", CreateSessionOptions{Channel: "c", AgentUID: "1", Token: "rtc-token"}},
+		{"string uid", CreateSessionOptions{Channel: "c", AgentUID: "1", EnableStringUID: boolPtrTest(true)}},
+		{"expires in", CreateSessionOptions{Channel: "c", AgentUID: "1", ExpiresIn: 60}},
+		{"preset", CreateSessionOptions{Channel: "c", AgentUID: "1", Preset: []string{"llm.openai.gpt-4o-mini"}}},
+		{"pipeline override", CreateSessionOptions{Channel: "c", AgentUID: "1", PipelineID: "pipeline"}},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.opts.AgentUID = "1"
+			session := saved.CreateSession(tt.opts)
+			if _, err := session.Start(context.Background()); err == nil {
+				t.Fatal("expected local unsupported-option error")
+			}
+		})
+	}
+	if calls != 0 {
+		t.Fatalf("unsupported options reached transport: %d", calls)
+	}
+}
