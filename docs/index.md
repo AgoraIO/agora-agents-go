@@ -29,6 +29,7 @@ Source: [github.com/AgoraIO/agora-agents-go](https://github.com/AgoraIO/agora-ag
 |---|---|---|
 | **AgentKit** | `agentkit`, `agentkit/vendors`, `agentkit/cn`, `agentkit/cn/vendors` | Global/default and CN facades, shared session lifecycle, and typed vendors |
 | **Generated REST clients** | `client`, `option`, `agents`, `telephony`, `phonenumbers` | Typed access to REST APIs not covered by AgentKit |
+| **v3 preview REST client** | `v3` | Handwritten stored agents, secrets, numbers, and read-only sessions |
 
 ## Installation
 
@@ -59,8 +60,10 @@ Requires Go 1.21 or later.
 | [Pagination](./guides/pagination.md) | Iterate over paginated list endpoints |
 | [Advanced](./guides/advanced.md) | Headers, retries, timeouts, raw response, custom HTTP client |
 | [Low-Level API](./guides/low-level-api.md) | Generated REST APIs |
+| [Conversational AI v3 preview](./guides/v3-preview.md) | Staging setup, AgentKit deploy, all 20 v3 operations, and limits |
 | [Preview Endpoint](./guides/preview-endpoint.md) | Session-scoped preview routing for providers under development |
 | [Client Reference](./reference/client.md) | Constructor options, public methods |
+| [v3 Preview Reference](./reference/v3.md) | v3 resource types and operation index |
 | [Agent Reference](./reference/agent.md) | Full builder API |
 | [Session Reference](./reference/session.md) | All methods and payload types |
 | [Vendor Reference](./reference/vendors.md) | Constructor options for every vendor class |

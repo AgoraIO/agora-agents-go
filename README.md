@@ -269,6 +269,7 @@ See the [Avatar Integration guide](./docs/guides/avatars.md) for sample-rate req
 - [Regional Routing](./docs/guides/regional-routing.md)
 - [MLLM Flow](./docs/guides/mllm-flow.md)
 - [Low-Level API](./docs/guides/low-level-api.md)
+- [Conversational AI v3 preview](./docs/guides/v3-preview.md)
 
 ## Reference
 

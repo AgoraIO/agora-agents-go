@@ -2,6 +2,7 @@ package agentkit
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -13,6 +14,46 @@ import (
 type AssignNumberOptions struct {
 	MaxCallDurationSeconds *int
 	MaxSilenceDurationMs   *int
+}
+
+// ListNumbers scans this project's number pages for inbound assignments to d.ID.
+// The v3 list endpoint has no agent filter, so the scan cost grows with the
+// project's total number count. It does not make per-number GET requests.
+func (d *DeployedAgent) ListNumbers(ctx context.Context) ([]v3.Number, error) {
+	if d == nil || d.client == nil || d.ID == "" {
+		return nil, errors.New("agentkit: deployed agent with ID and client is required")
+	}
+	out := []v3.Number{}
+	cursor := ""
+	seen := map[string]bool{}
+	for {
+		page, err := d.client.V3.Numbers.List(ctx, v3.ListOptions{Limit: 100, Cursor: cursor})
+		if err != nil {
+			return nil, err
+		}
+		for _, number := range page.Body.Data.List {
+			if len(number.Inbound) == 0 || string(number.Inbound) == "null" {
+				continue
+			}
+			var inbound struct {
+				Agent *string `json:"agent"`
+			}
+			if err := json.Unmarshal(number.Inbound, &inbound); err != nil {
+				return nil, fmt.Errorf("agentkit: invalid inbound value for number %s: %w", number.NumberID, err)
+			}
+			if inbound.Agent != nil && *inbound.Agent == d.ID {
+				out = append(out, number)
+			}
+		}
+		if !page.Body.HasMore {
+			return out, nil
+		}
+		if page.Body.NextCursor == nil || *page.Body.NextCursor == "" || seen[*page.Body.NextCursor] {
+			return nil, errors.New("agentkit: number pagination ended without a usable next cursor")
+		}
+		cursor = *page.Body.NextCursor
+		seen[cursor] = true
+	}
 }
 
 // AssignNumber resolves either a number ID or its E.164 value in this project,

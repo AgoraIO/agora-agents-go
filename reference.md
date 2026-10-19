@@ -1,4 +1,6 @@
 # Reference
+
+The generated reference below covers the v2 REST clients. The handwritten v3 preview's 20 operations, response types, and conditional headers are documented in the [Conversational AI v3 preview guide](docs/guides/v3-preview.md#low-level-reference-all-20-staging-operations).
 ## Agents
 <details><summary><code>client.Agents.Start(Appid, request) -> *Agora.StartAgentsResponse</code></summary>
 <dl>

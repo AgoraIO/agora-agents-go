@@ -127,3 +127,36 @@ func TestAssignUnassignNumberRetriesOneConflict(t *testing.T) {
 		t.Fatalf("requests: %d", calls)
 	}
 }
+
+func TestListNumbersScansPagesWithoutDetailGets(t *testing.T) {
+	calls := 0
+	httpClient := v3HTTPFunc(func(r *http.Request) (*http.Response, error) {
+		calls++
+		if r.Method != "GET" || !strings.HasSuffix(r.URL.Path, "/numbers") {
+			t.Fatalf("unexpected detail request: %s %s", r.Method, r.URL.Path)
+		}
+		if calls == 1 {
+			if r.URL.Query().Get("cursor") != "" {
+				t.Fatal("first cursor")
+			}
+			return v3Reply(200, `{"data":{"count":3,"list":[{"number_id":"n1","number":"+111","create_ts":1,"inbound":{"agent":"a1"}},{"number_id":"n2","number":"+222","create_ts":1,"inbound":{"agent":"other"}},{"number_id":"n3","number":"+333","create_ts":1,"inbound":null}]},"has_more":true,"next_cursor":"page2"}`, ""), nil
+		}
+		if calls == 2 {
+			if r.URL.Query().Get("cursor") != "page2" {
+				t.Fatal("second cursor")
+			}
+			return v3Reply(200, `{"data":{"count":1,"list":[{"number_id":"n4","number":"+444","create_ts":1,"inbound":{"agent":"a1"}}]},"has_more":false,"next_cursor":null}`, ""), nil
+		}
+		t.Fatal("unexpected third page")
+		return nil, nil
+	})
+	c := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token", HTTPClient: httpClient, V3: &V3Options{BaseURL: "https://stage.example"}})
+	d := &DeployedAgent{ID: "a1", Raw: c.V3.Agents, client: c}
+	numbers, err := d.ListNumbers(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 2 || len(numbers) != 2 || numbers[0].NumberID != "n1" || numbers[1].NumberID != "n4" {
+		t.Fatalf("scan: calls=%d numbers=%#v", calls, numbers)
+	}
+}
