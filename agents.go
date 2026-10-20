@@ -2468,12 +2468,15 @@ func (b *BytedanceTtsParams) String() string {
 
 // Cartesia Text-to-Speech configuration (Beta).
 var (
-	cartesiaTtsFieldParams       = big.NewInt(1 << 0)
-	cartesiaTtsFieldSkipPatterns = big.NewInt(1 << 1)
+	cartesiaTtsFieldCredentialMode = big.NewInt(1 << 0)
+	cartesiaTtsFieldParams         = big.NewInt(1 << 1)
+	cartesiaTtsFieldSkipPatterns   = big.NewInt(1 << 2)
 )
 
 type CartesiaTts struct {
-	Params *CartesiaTtsParams `json:"params" url:"params"`
+	// Credential mode. When provided, must be "managed" (Agora managed mode) or "byok" (BYOK mode).
+	CredentialMode *CartesiaTtsCredentialMode `json:"credential_mode,omitempty" url:"credential_mode,omitempty"`
+	Params         *CartesiaTtsParams         `json:"params" url:"params"`
 	// Controls whether the TTS module skips bracketed content when reading LLM response text.
 	SkipPatterns []int `json:"skip_patterns,omitempty" url:"skip_patterns,omitempty"`
 
@@ -2482,6 +2485,13 @@ type CartesiaTts struct {
 
 	extraProperties map[string]interface{}
 	rawJSON         json.RawMessage
+}
+
+func (c *CartesiaTts) GetCredentialMode() *CartesiaTtsCredentialMode {
+	if c == nil {
+		return nil
+	}
+	return c.CredentialMode
 }
 
 func (c *CartesiaTts) GetParams() *CartesiaTtsParams {
@@ -2507,6 +2517,13 @@ func (c *CartesiaTts) require(field *big.Int) {
 		c.explicitFields = big.NewInt(0)
 	}
 	c.explicitFields.Or(c.explicitFields, field)
+}
+
+// SetCredentialMode sets the CredentialMode field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (c *CartesiaTts) SetCredentialMode(credentialMode *CartesiaTtsCredentialMode) {
+	c.CredentialMode = credentialMode
+	c.require(cartesiaTtsFieldCredentialMode)
 }
 
 // SetParams sets the Params field and marks it as non-optional;
@@ -2560,6 +2577,29 @@ func (c *CartesiaTts) String() string {
 		return value
 	}
 	return fmt.Sprintf("%#v", c)
+}
+
+// Credential mode. When provided, must be "managed" (Agora managed mode) or "byok" (BYOK mode).
+type CartesiaTtsCredentialMode string
+
+const (
+	CartesiaTtsCredentialModeManaged CartesiaTtsCredentialMode = "managed"
+	CartesiaTtsCredentialModeByok    CartesiaTtsCredentialMode = "byok"
+)
+
+func NewCartesiaTtsCredentialModeFromString(s string) (CartesiaTtsCredentialMode, error) {
+	switch s {
+	case "managed":
+		return CartesiaTtsCredentialModeManaged, nil
+	case "byok":
+		return CartesiaTtsCredentialModeByok, nil
+	}
+	var t CartesiaTtsCredentialMode
+	return "", fmt.Errorf("%s is not a valid %T", s, t)
+}
+
+func (c CartesiaTtsCredentialMode) Ptr() *CartesiaTtsCredentialMode {
+	return &c
 }
 
 // Cartesia audio output format configuration.
@@ -2676,7 +2716,7 @@ var (
 
 type CartesiaTtsParams struct {
 	// Cartesia API key
-	APIKey string `json:"api_key" url:"api_key"`
+	APIKey *string `json:"api_key,omitempty" url:"api_key,omitempty"`
 	// Model ID (for example, sonic-2)
 	ModelID string `json:"model_id" url:"model_id"`
 	// WebSocket URL for the Cartesia streaming API
@@ -2694,9 +2734,9 @@ type CartesiaTtsParams struct {
 	rawJSON json.RawMessage
 }
 
-func (c *CartesiaTtsParams) GetAPIKey() string {
+func (c *CartesiaTtsParams) GetAPIKey() *string {
 	if c == nil {
-		return ""
+		return nil
 	}
 	return c.APIKey
 }
@@ -2749,7 +2789,7 @@ func (c *CartesiaTtsParams) require(field *big.Int) {
 
 // SetAPIKey sets the APIKey field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (c *CartesiaTtsParams) SetAPIKey(apiKey string) {
+func (c *CartesiaTtsParams) SetAPIKey(apiKey *string) {
 	c.APIKey = apiKey
 	c.require(cartesiaTtsParamsFieldAPIKey)
 }
@@ -4120,12 +4160,15 @@ type FengmingAsrParams = map[string]interface{}
 
 // Fish Audio Text-to-Speech configuration (Beta).
 var (
-	fishAudioTtsFieldParams       = big.NewInt(1 << 0)
-	fishAudioTtsFieldSkipPatterns = big.NewInt(1 << 1)
+	fishAudioTtsFieldCredentialMode = big.NewInt(1 << 0)
+	fishAudioTtsFieldParams         = big.NewInt(1 << 1)
+	fishAudioTtsFieldSkipPatterns   = big.NewInt(1 << 2)
 )
 
 type FishAudioTts struct {
-	Params *FishAudioTtsParams `json:"params" url:"params"`
+	// Credential mode. When provided, must be "managed" (Agora managed mode) or "byok" (BYOK mode).
+	CredentialMode *FishAudioTtsCredentialMode `json:"credential_mode,omitempty" url:"credential_mode,omitempty"`
+	Params         *FishAudioTtsParams         `json:"params" url:"params"`
 	// Controls whether the TTS module skips bracketed content when reading LLM response text.
 	SkipPatterns []int `json:"skip_patterns,omitempty" url:"skip_patterns,omitempty"`
 
@@ -4134,6 +4177,13 @@ type FishAudioTts struct {
 
 	extraProperties map[string]interface{}
 	rawJSON         json.RawMessage
+}
+
+func (f *FishAudioTts) GetCredentialMode() *FishAudioTtsCredentialMode {
+	if f == nil {
+		return nil
+	}
+	return f.CredentialMode
 }
 
 func (f *FishAudioTts) GetParams() *FishAudioTtsParams {
@@ -4159,6 +4209,13 @@ func (f *FishAudioTts) require(field *big.Int) {
 		f.explicitFields = big.NewInt(0)
 	}
 	f.explicitFields.Or(f.explicitFields, field)
+}
+
+// SetCredentialMode sets the CredentialMode field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (f *FishAudioTts) SetCredentialMode(credentialMode *FishAudioTtsCredentialMode) {
+	f.CredentialMode = credentialMode
+	f.require(fishAudioTtsFieldCredentialMode)
 }
 
 // SetParams sets the Params field and marks it as non-optional;
@@ -4214,6 +4271,29 @@ func (f *FishAudioTts) String() string {
 	return fmt.Sprintf("%#v", f)
 }
 
+// Credential mode. When provided, must be "managed" (Agora managed mode) or "byok" (BYOK mode).
+type FishAudioTtsCredentialMode string
+
+const (
+	FishAudioTtsCredentialModeManaged FishAudioTtsCredentialMode = "managed"
+	FishAudioTtsCredentialModeByok    FishAudioTtsCredentialMode = "byok"
+)
+
+func NewFishAudioTtsCredentialModeFromString(s string) (FishAudioTtsCredentialMode, error) {
+	switch s {
+	case "managed":
+		return FishAudioTtsCredentialModeManaged, nil
+	case "byok":
+		return FishAudioTtsCredentialModeByok, nil
+	}
+	var t FishAudioTtsCredentialMode
+	return "", fmt.Errorf("%s is not a valid %T", s, t)
+}
+
+func (f FishAudioTtsCredentialMode) Ptr() *FishAudioTtsCredentialMode {
+	return &f
+}
+
 // Fish Audio TTS configuration parameters.
 var (
 	fishAudioTtsParamsFieldAPIKey      = big.NewInt(1 << 0)
@@ -4223,7 +4303,7 @@ var (
 
 type FishAudioTtsParams struct {
 	// Fish Audio API key
-	APIKey string `json:"api_key" url:"api_key"`
+	APIKey *string `json:"api_key,omitempty" url:"api_key,omitempty"`
 	// Fish Audio reference ID
 	ReferenceID string `json:"reference_id" url:"reference_id"`
 	// Backend model version to use
@@ -4237,9 +4317,9 @@ type FishAudioTtsParams struct {
 	rawJSON json.RawMessage
 }
 
-func (f *FishAudioTtsParams) GetAPIKey() string {
+func (f *FishAudioTtsParams) GetAPIKey() *string {
 	if f == nil {
-		return ""
+		return nil
 	}
 	return f.APIKey
 }
@@ -4271,7 +4351,7 @@ func (f *FishAudioTtsParams) require(field *big.Int) {
 
 // SetAPIKey sets the APIKey field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (f *FishAudioTtsParams) SetAPIKey(apiKey string) {
+func (f *FishAudioTtsParams) SetAPIKey(apiKey *string) {
 	f.APIKey = apiKey
 	f.require(fishAudioTtsParamsFieldAPIKey)
 }
