@@ -219,8 +219,27 @@ func (s *AgentSession) validateAvatarConfig() error {
 		return err
 	}
 
-	if baseAgent.TTSSampleRate != nil {
-		if err := agentcore.ValidateTtsSampleRate(vendor, int(*baseAgent.TTSSampleRate)); err != nil {
+	sampleRate := baseAgent.TTSSampleRate
+	if sampleRate == nil {
+		// Custom TTS vendors may expose the rate only in their wire parameters.
+		var rates struct {
+			SampleRate       *int `json:"sample_rate"`
+			SpeechSampleRate *int `json:"speech_sample_rate"`
+		}
+		if err := agentcore.MapToStruct(agentcore.AsMap(baseAgent.TTS["params"]), &rates); err != nil {
+			return err
+		}
+		rate := rates.SampleRate
+		if rate == nil {
+			rate = rates.SpeechSampleRate
+		}
+		if rate != nil {
+			resolved := agentcore.SampleRate(*rate)
+			sampleRate = &resolved
+		}
+	}
+	if sampleRate != nil {
+		if err := agentcore.ValidateTtsSampleRate(vendor, int(*sampleRate)); err != nil {
 			return err
 		}
 		return nil

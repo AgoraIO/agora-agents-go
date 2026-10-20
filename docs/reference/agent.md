@@ -143,7 +143,16 @@ Enables or disables MCP and inline REST tool invocation by setting `AdvancedFeat
 func WithParameters(params *SessionParams) AgentOption
 ```
 
-Sets additional session parameters.
+Sets additional session parameters, including `parameters.speak.batch`. Set `Batch` to `false` to skip sentence segmentation for speak requests; omit it or use `true` to preserve segmentation.
+
+<!-- snippet: fragment -->
+```go
+agent := agentkit.NewAgent(client, agentkit.WithParameters(&agentkit.SessionParams{
+    Speak: &agentkit.SpeakConfig{Batch: Agora.Bool(false)},
+}))
+```
+
+The immutable `agent.WithParameters(...)` method accepts the same configuration. `SpeakConfig` and its `ParametersSpeak` alias are also available in `agentkit/cn`.
 
 ### WithSessionOptOut
 
@@ -508,6 +517,8 @@ type TurnDetectionConfig = Agora.StartAgentsRequestPropertiesTurnDetection
 type SalConfig = Agora.StartAgentsRequestPropertiesSal
 type AdvancedFeatures = Agora.StartAgentsRequestPropertiesAdvancedFeatures
 type SessionParams = Agora.StartAgentsRequestPropertiesParameters
+type SpeakConfig = Agora.StartAgentsRequestPropertiesParametersSpeak
+type ParametersSpeak = SpeakConfig
 type GeofenceConfig = Agora.StartAgentsRequestPropertiesGeofence
 type RtcConfig = Agora.StartAgentsRequestPropertiesRtc
 type FillerWordsConfig = Agora.StartAgentsRequestPropertiesFillerWords
@@ -517,6 +528,8 @@ type FillerWordsContentGeneratedLlmProvider = Agora.StartAgentsRequestProperties
 type LlmConfig = Agora.Llm
 type MllmConfig = Agora.Mllm
 type AsrConfig = Agora.Asr
+type RtzrAsr = Agora.RtzrAsr
+type RtzrAsrParams = Agora.RtzrAsrParams
 type TtsConfig = Agora.Tts
 type AvatarConfig = Agora.StartAgentsRequestPropertiesAvatar
 type SttConfig = AsrConfig

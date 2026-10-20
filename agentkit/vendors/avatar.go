@@ -116,8 +116,14 @@ func (a *AkoolAvatar) ToConfig() map[string]interface{} {
 }
 
 type AnamAvatarOptions struct {
-	APIKey           string
-	AvatarID         string
+	APIKey   string
+	AvatarID string
+	// AvatarModel selects the Anam avatar model, such as "cara_mk4" for Cara 4 portrait mode.
+	AvatarModel string
+	// VideoWidth and VideoHeight set the output resolution. Set both together;
+	// omit both to use the model's default resolution.
+	VideoWidth       *int
+	VideoHeight      *int
 	Enable           *bool
 	AdditionalParams map[string]interface{}
 }
@@ -129,6 +135,9 @@ type AnamAvatar struct {
 func NewAnamAvatar(opts AnamAvatarOptions) *AnamAvatar {
 	if opts.APIKey == "" {
 		panic("AnamAvatar requires APIKey")
+	}
+	if anamVideoDimensionsIncomplete(opts.VideoWidth, opts.VideoHeight, opts.AdditionalParams) {
+		panic("AnamAvatar requires VideoWidth and VideoHeight together")
 	}
 	return &AnamAvatar{options: opts}
 }
@@ -146,6 +155,18 @@ func (a *AnamAvatar) ToConfig() map[string]interface{} {
 	if a.options.AvatarID != "" {
 		params["avatar_id"] = a.options.AvatarID
 	}
+	if a.options.AvatarModel != "" {
+		params["avatar_model"] = a.options.AvatarModel
+	}
+	if a.options.VideoWidth != nil {
+		params["video_width"] = *a.options.VideoWidth
+	}
+	if a.options.VideoHeight != nil {
+		params["video_height"] = *a.options.VideoHeight
+	}
+	if anamVideoDimensionsIncomplete(a.options.VideoWidth, a.options.VideoHeight, params) {
+		panic("AnamAvatar requires VideoWidth and VideoHeight together")
+	}
 	enable := true
 	if a.options.Enable != nil {
 		enable = *a.options.Enable
@@ -155,6 +176,20 @@ func (a *AnamAvatar) ToConfig() map[string]interface{} {
 		"vendor": "anam",
 		"params": params,
 	}
+}
+
+func anamVideoDimensionsIncomplete(videoWidth, videoHeight *int, params map[string]interface{}) bool {
+	widthSet := videoWidth != nil
+	if !widthSet {
+		width, exists := params["video_width"]
+		widthSet = exists && width != nil
+	}
+	heightSet := videoHeight != nil
+	if !heightSet {
+		height, exists := params["video_height"]
+		heightSet = exists && height != nil
+	}
+	return widthSet != heightSet
 }
 
 type GenericAvatarOptions struct {

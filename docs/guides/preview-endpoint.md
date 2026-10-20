@@ -12,7 +12,7 @@ Everything in this guide is temporary by design. When a preview provider goes GA
 
 ## Using a preview provider
 
-OpenAI GPT Live, Gemini ASR, and all Gemini Live MLLM model IDs use the production endpoint. Historical Gemini Live preview exports remain available for source compatibility. Gemini TTS is a separate preview provider and selects the `gemini-live` gate.
+OpenAI GPT Live, Gemini ASR, all Gemini Live MLLM model IDs, and Gemini TTS use the production endpoint. Historical preview exports remain available for source compatibility and do not enable preview routing.
 
 ```go
 agent := agentkit.NewAgent(client).WithMllm(
@@ -45,11 +45,10 @@ agora-feature: <feature-name>
 | `PreviewFeatureLiveModels` | `live-models`   |
 | `PreviewFeatureGeminiLive` | `gemini-live`  |
 
-`PreviewFeatureGeminiLive` gates Gemini TTS requests. `GeminiLivePreviewURL`
-is an alias retained for callers that imported the old symbol. Gemini Live
-MLLM requests use the production host, `greeting_message`, and no gate header.
-`PreviewFeatureLiveModels` remains exported for compatibility; GPT Live also
-uses production routing.
+`PreviewFeatureGeminiLive`, `PreviewFeatureLiveModels`, and `GeminiLivePreviewURL`
+remain exported for source compatibility. Gemini ASR, Live, and TTS, as well as
+GPT Live, use the configured regional production endpoint without an automatic
+gate header. Gemini Live keeps the production `greeting_message` field.
 
 The SDK derives the feature list from the resolved session body; callers do not select it manually.
 
@@ -112,7 +111,7 @@ Routing state is stored on the `AgentSession`, not `AgoraClient`. One client can
 
 ## Preview vendors
 
-Gemini Live and GPT Live are production-routed. The preview registry is reserved
+Gemini ASR, Live, TTS, and GPT Live are production-routed. The preview registry is reserved
 for provider families that have not reached the production gateway yet.
 
 ## The vendor type is not the whole wire shape
@@ -177,20 +176,22 @@ Empty strings are left visible on purpose: `""` is the signature of an unset env
 - [Regional Routing](./regional-routing.md) — the production domain pool preview sessions bypass
 - [Error Handling](./error-handling.md) — API error handling
 
-## Gemini 3.8 Flash TTS preview
+## Gemini 3.8 Flash TTS production migration
 
 `GeminiTTS` emits `tts.vendor = "gemini"` with `api_key`, `model`, `voice`,
 and optional `style` inside `tts.params`. It defaults to `gemini-3.8-flash-tts`
-and `Puck`. Model names are sent unchanged; there is no automatic fallback
-or model rewriting.
-Model strings remain open for preview rollout changes. Blank keys are rejected.
+and `Puck`. Model names are sent unchanged; there is no automatic fallback or
+model rewriting.
+Model strings remain open for future model IDs. Blank keys are rejected.
 
-AgentSession detects the TTS vendor from the resolved request body, including
-handwritten configs, and uses the existing preview host with
-`agora-feature: gemini-live` throughout the session lifecycle. Use the retained
-session for stop/say/interrupt; the shared client remains on its normal route.
-Gemini ASR alone still uses the production route. No sample-rate or avatar
-compatibility is assumed by this preview provider.
+Existing v2.11.0 calls now use the client's configured regional production
+endpoint for start, say, interrupt, think, update, reads, and stop. Handwritten
+Gemini TTS configs follow the same route, and no preview feature header is added.
+`NewGeminiTTS`, `GeminiTTSOptions`, and `GeminiTTSModelFlash38` remain available
+from `agentkit/vendors` with the same options and wire fields. `AdditionalParams`
+is merged into `tts.params`, with named options taking precedence. `SkipPatterns`
+maps to the generated top-level `tts.skip_patterns` field. The implementation
+now lives in `gemini_tts.go`. The provider does not expose a configurable sample rate.
 
 ```go
 agent.WithTts(vendors.NewGeminiTTS(vendors.GeminiTTSOptions{
