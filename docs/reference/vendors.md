@@ -321,13 +321,16 @@ Available in both `github.com/AgoraIO/agora-agents-go/v2/agentkit/vendors` and `
 func NewCartesiaTTS(opts CartesiaTTSOptions) *CartesiaTTS
 ```
 
-Panics if `APIKey`, `VoiceID`, or `ModelID` is empty.
+Panics if `VoiceID` or `ModelID` is empty, if the credential mode is invalid, or if `APIKey` is empty in BYOK mode.
+Set `CredentialMode: agentkit.CredentialModeManaged` to use Agora-managed credentials without an API key.
+Omitting `CredentialMode` retains BYOK behavior. An explicit mode is serialized as top-level `tts.credential_mode`; an empty API key is omitted from `tts.params`.
 
 #### CartesiaTTSOptions
 
 | Field          | Type          | Required | Description                                          |
 | -------------- | ------------- | -------- | ---------------------------------------------------- |
-| `APIKey`       | `string`      | Yes      | Cartesia API key                                     |
+| `CredentialMode` | `CredentialMode` | No | `managed` or `byok`; defaults to BYOK when omitted |
+| `APIKey`       | `string`      | BYOK only | Cartesia API key; optional in managed mode          |
 | `VoiceID`      | `string`      | Yes      | Voice identifier (serialized as `{"mode":"id","id":"..."}`) |
 | `ModelID`      | `string`      | Yes      | Model identifier                                     |
 | `BaseURL`      | `string`      | No       | WebSocket URL for the Cartesia streaming API         |
@@ -468,13 +471,16 @@ When `CredentialMode` is `managed`, panics if `BaseURL` or `ModelID` is empty. W
 func NewFishAudioTTS(opts FishAudioTTSOptions) *FishAudioTTS
 ```
 
-Panics if `Key`, `ReferenceID`, or `Backend` is empty.
+Panics if `ReferenceID` or `Backend` is empty, if the credential mode is invalid, or if `Key` is empty in BYOK mode.
+Set `CredentialMode: agentkit.CredentialModeManaged` to use Agora-managed credentials without an API key.
+Omitting `CredentialMode` retains BYOK behavior. An explicit mode is serialized as top-level `tts.credential_mode`; an empty API key is omitted from `tts.params`.
 
 #### FishAudioTTSOptions
 
 | Field          | Type     | Required | Description        |
 | -------------- | -------- | -------- | ------------------ |
-| `Key`          | `string` | Yes      | FishAudio API key  |
+| `CredentialMode` | `CredentialMode` | No | `managed` or `byok`; defaults to BYOK when omitted |
+| `Key`          | `string` | BYOK only | FishAudio API key; optional in managed mode |
 | `ReferenceID`  | `string` | Yes      | Reference audio ID |
 | `Backend`      | `string` | Yes      | Backend model version |
 | `SkipPatterns` | `[]int`  | No       | Patterns to skip   |

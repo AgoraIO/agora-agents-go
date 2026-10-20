@@ -347,13 +347,15 @@ func (x *XaiTTS) ToConfig() map[string]interface{} {
 }
 
 type CartesiaTTSOptions struct {
-	APIKey       string
-	VoiceID      string
-	ModelID      string
-	BaseURL      string
-	Language     string
-	SampleRate   *SampleRate
-	SkipPatterns []int
+	// CredentialMode defaults to BYOK when omitted; managed mode makes APIKey optional.
+	CredentialMode CredentialMode
+	APIKey         string
+	VoiceID        string
+	ModelID        string
+	BaseURL        string
+	Language       string
+	SampleRate     *SampleRate
+	SkipPatterns   []int
 }
 
 type CartesiaTTS struct {
@@ -361,8 +363,14 @@ type CartesiaTTS struct {
 }
 
 func NewCartesiaTTS(opts CartesiaTTSOptions) *CartesiaTTS {
-	if opts.APIKey == "" {
-		panic("CartesiaTTS requires APIKey")
+	switch opts.CredentialMode {
+	case credentialModeManaged:
+	case "", credentialModeBYOK:
+		if opts.APIKey == "" {
+			panic("CartesiaTTS requires APIKey")
+		}
+	default:
+		panic("CartesiaTTS CredentialMode must be one of: managed, byok")
 	}
 	if opts.VoiceID == "" {
 		panic("CartesiaTTS requires VoiceID")
@@ -379,9 +387,11 @@ func (c *CartesiaTTS) GetSampleRate() *SampleRate {
 
 func (c *CartesiaTTS) ToConfig() map[string]interface{} {
 	params := map[string]interface{}{
-		"api_key":  c.options.APIKey,
 		"model_id": c.options.ModelID,
 		"voice":    map[string]interface{}{"mode": "id", "id": c.options.VoiceID},
+	}
+	if c.options.APIKey != "" {
+		params["api_key"] = c.options.APIKey
 	}
 	if c.options.BaseURL != "" {
 		params["base_url"] = c.options.BaseURL
@@ -396,6 +406,9 @@ func (c *CartesiaTTS) ToConfig() map[string]interface{} {
 	config := map[string]interface{}{
 		"vendor": "cartesia",
 		"params": params,
+	}
+	if c.options.CredentialMode != "" {
+		config["credential_mode"] = string(c.options.CredentialMode)
 	}
 	if c.options.SkipPatterns != nil {
 		config["skip_patterns"] = c.options.SkipPatterns
@@ -689,10 +702,12 @@ func (r *RimeTTS) ToConfig() map[string]interface{} {
 }
 
 type FishAudioTTSOptions struct {
-	Key          string
-	ReferenceID  string
-	Backend      string
-	SkipPatterns []int
+	// CredentialMode defaults to BYOK when omitted; managed mode makes Key optional.
+	CredentialMode CredentialMode
+	Key            string
+	ReferenceID    string
+	Backend        string
+	SkipPatterns   []int
 }
 
 type FishAudioTTS struct {
@@ -700,8 +715,14 @@ type FishAudioTTS struct {
 }
 
 func NewFishAudioTTS(opts FishAudioTTSOptions) *FishAudioTTS {
-	if opts.Key == "" {
-		panic("FishAudioTTS requires Key")
+	switch opts.CredentialMode {
+	case credentialModeManaged:
+	case "", credentialModeBYOK:
+		if opts.Key == "" {
+			panic("FishAudioTTS requires Key")
+		}
+	default:
+		panic("FishAudioTTS CredentialMode must be one of: managed, byok")
 	}
 	if opts.ReferenceID == "" {
 		panic("FishAudioTTS requires ReferenceID")
@@ -718,8 +739,10 @@ func (f *FishAudioTTS) GetSampleRate() *SampleRate {
 
 func (f *FishAudioTTS) ToConfig() map[string]interface{} {
 	params := map[string]interface{}{
-		"api_key":      f.options.Key,
 		"reference_id": f.options.ReferenceID,
+	}
+	if f.options.Key != "" {
+		params["api_key"] = f.options.Key
 	}
 	if f.options.Backend != "" {
 		params["backend"] = f.options.Backend
@@ -728,6 +751,9 @@ func (f *FishAudioTTS) ToConfig() map[string]interface{} {
 	config := map[string]interface{}{
 		"vendor": "fishaudio",
 		"params": params,
+	}
+	if f.options.CredentialMode != "" {
+		config["credential_mode"] = string(f.options.CredentialMode)
 	}
 	if f.options.SkipPatterns != nil {
 		config["skip_patterns"] = f.options.SkipPatterns
