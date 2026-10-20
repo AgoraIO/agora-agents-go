@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	Agora "github.com/AgoraIO/agora-agents-go/v2"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var _ func(...AresSTTOptions) *AresSTT = NewAresSTT
@@ -486,6 +488,93 @@ func TestAresSTTRejectsMultipleOptions(t *testing.T) {
 		}
 	}()
 	NewAresSTT(AresSTTOptions{}, AresSTTOptions{})
+}
+
+func TestRTZRSTTMatchesGeneratedSchema(t *testing.T) {
+	t.Parallel()
+	additional := map[string]any{
+		"client_id": "ignored", "client_secret": "ignored", "model_name": "ignored",
+		"use_disfluency_filter": true, "custom_option": "value",
+	}
+	config := NewRTZRSTT(RTZRSTTOptions{
+		ClientID: "client-id", ClientSecret: "client-secret",
+		APIBase: "https://rtzr.example.com", ModelName: "general", Language: "ko",
+		SampleRate: Agora.Int(16000), Encoding: "pcm_s16le", UseITN: Agora.Bool(true),
+		UseDisfluencyFilter: Agora.Bool(false), UseProfanityFilter: Agora.Bool(true),
+		UsePunctuation: Agora.Bool(true), Keywords: []string{"Agora"}, AdditionalParams: additional,
+	}).ToConfig()
+	expected := `{
+		"vendor":"rtzr",
+		"params":{
+			"client_id":"client-id","client_secret":"client-secret",
+			"api_base":"https://rtzr.example.com","model_name":"general","language":"ko",
+			"sample_rate":16000,"encoding":"pcm_s16le","use_itn":true,
+			"use_disfluency_filter":false,"use_profanity_filter":true,"use_punctuation":true,
+			"keywords":["Agora"],"custom_option":"value"
+		}
+	}`
+	payload, err := json.Marshal(config)
+	require.NoError(t, err)
+	assert.JSONEq(t, expected, string(payload))
+	assert.Equal(t, "ignored", additional["client_id"])
+
+	var generated Agora.Asr
+	require.NoError(t, json.Unmarshal(payload, &generated))
+	require.NotNil(t, generated.Rtzr)
+	require.NotNil(t, generated.Rtzr.Params)
+	assert.Equal(t, "client-id", generated.Rtzr.Params.ClientID)
+	assert.Equal(t, Agora.Bool(false), generated.Rtzr.Params.UseDisfluencyFilter)
+	payload, err = json.Marshal(generated)
+	require.NoError(t, err)
+	assert.JSONEq(t, expected, string(payload))
+}
+
+func TestRTZRSTTOptionalValues(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		keywords []string
+		useITN   *bool
+		expected string
+	}{
+		{
+			name:     "service defaults",
+			expected: `{"vendor":"rtzr","params":{"client_id":"id","client_secret":"secret"}}`,
+		},
+		{
+			name:     "explicit empty keywords and false",
+			keywords: []string{}, useITN: Agora.Bool(false),
+			expected: `{"vendor":"rtzr","params":{
+				"client_id":"id","client_secret":"secret","keywords":[],"use_itn":false}}`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := NewRTZRSTT(RTZRSTTOptions{
+				ClientID: "id", ClientSecret: "secret", Keywords: tt.keywords, UseITN: tt.useITN,
+			}).ToConfig()
+			payload, err := json.Marshal(config)
+			require.NoError(t, err)
+			assert.JSONEq(t, tt.expected, string(payload))
+		})
+	}
+}
+
+func TestNewRTZRSTTRequiresCredentials(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		opts     RTZRSTTOptions
+		expected string
+	}{
+		{name: "missing client id", opts: RTZRSTTOptions{ClientSecret: "secret"}, expected: "RTZRSTT requires ClientID"},
+		{name: "missing client secret", opts: RTZRSTTOptions{ClientID: "id"}, expected: "RTZRSTT requires ClientSecret"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.PanicsWithValue(t, tt.expected, func() { NewRTZRSTT(tt.opts) })
+		})
+	}
 }
 
 func TestSmallestAISTTConfig(t *testing.T) {

@@ -38,6 +38,8 @@ type (
 	AdvancedFeatures                    = agentcore.AdvancedFeatures
 	SessionParams                       = agentcore.SessionParams
 	SessionParamsInput                  = agentcore.SessionParamsInput
+	SpeakConfig                         = agentcore.SpeakConfig
+	ParametersSpeak                     = agentcore.ParametersSpeak
 	GeofenceConfig                      = agentcore.GeofenceConfig
 	GeofenceArea                        = agentcore.GeofenceArea
 	GeofenceExcludeArea                 = agentcore.GeofenceExcludeArea

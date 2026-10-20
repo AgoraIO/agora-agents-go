@@ -73,6 +73,7 @@ agent := agentkit.NewAgent(client).WithLlm(llm)
 | `NewOpenAITTS` | `OpenAITTSOptions` | `Voice` for Agora-managed `tts-1`; `APIKey`, `Model`, `BaseURL`, `Voice` for BYOK |
 | `NewCartesiaTTS` | `CartesiaTTSOptions` | `APIKey`, `VoiceID`, `ModelID` |
 | `NewGoogleTTS` | `GoogleTTSOptions` | `Key`, `VoiceName` |
+| `NewGeminiTTS` | `GeminiTTSOptions` | `APIKey`; model defaults to `gemini-3.8-flash-tts`, voice to `Puck` |
 | `NewAmazonTTS` | `AmazonTTSOptions` | `AccessKey`, `SecretKey`, `Region`, `VoiceID`, `Engine` |
 | `NewHumeAITTS` | `HumeAITTSOptions` | `Key`, `VoiceID`, `Provider` |
 | `NewRimeTTS` | `RimeTTSOptions` | `BaseURL`, `ModelID` for managed credentials; `Key`, `Speaker`, `ModelID` for BYOK or omitted `CredentialMode` |
@@ -80,7 +81,7 @@ agent := agentkit.NewAgent(client).WithLlm(llm)
 | `NewMiniMaxTTS` | `MiniMaxTTSOptions` | `Model` for supported Agora-managed global/default MiniMax models; `Key`, `GroupID`, `Model`, `VoiceID`, `URL` for BYOK |
 | `NewDeepgramTTS` | `DeepgramTTSOptions` | `APIKey`, `Model` |
 | `NewGenericTTS` | `GenericTTSOptions` | `URL` |
-| `NewSarvamTTS` | `SarvamTTSOptions` | `APIKey` |
+| `NewSarvamTTS` | `SarvamTTSOptions` | `Key`, `Speaker`, `TargetLanguageCode` |
 | `NewMurfTTS` | `MurfTTSOptions` | `Key` |
 | `NewXaiTTS` | `XaiTTSOptions` | `APIKey`, `Language` |
 | `NewGradiumTTS` | `GradiumTTSOptions` | `APIKey` |
@@ -133,6 +134,7 @@ Use `TurnDetectionConfig.Language` for Agora interaction language; it defaults t
 | `NewAssemblyAISTT` | `AssemblyAISTTOptions` | `APIKey`, `Language` |
 | `NewAresSTT` | `AresSTTOptions` | None; optional `Keywords` and `AdditionalParams` |
 | `NewSarvamSTT` | `SarvamSTTOptions` | `APIKey`, `Language` |
+| `NewRTZRSTT` | `RTZRSTTOptions` | `ClientID`, `ClientSecret`; optional model, language, audio, filters, punctuation, and keywords |
 | `NewXaiSTT` | `XaiSTTOptions` | `APIKey` |
 | `NewSmallestAISTT` | `SmallestAISTTOptions` | `APIKey` |
 

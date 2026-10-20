@@ -117,7 +117,7 @@ func TestSTTVendorParamsMatchDocumentedShapes(t *testing.T) {
 	})
 
 	assert.Equal(t, map[string]interface{}{
-		"key":      "dg-key",
+		"api_key":  "dg-key",
 		"language": "en",
 	}, vendors.NewDeepgramSTT(vendors.DeepgramSTTOptions{APIKey: "dg-key", Language: "en"}).ToConfig()["params"])
 

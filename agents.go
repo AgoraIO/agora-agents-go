@@ -1469,9 +1469,6 @@ type AsrVisitor interface {
 	VisitXfyun(*XfyunAsr) error
 	VisitXfyunBigmodel(*XfyunBigmodelAsr) error
 	VisitXfyunDialect(*XfyunDialectAsr) error
-}
-
-type SmallestAiAsrVisitor interface {
 	VisitSmallestai(*SmallestAiAsr) error
 }
 
@@ -1528,11 +1525,7 @@ func (a *Asr) Accept(visitor AsrVisitor) error {
 		return visitor.VisitXfyunDialect(a.XfyunDialect)
 	}
 	if a.Smallestai != nil {
-		smallestaiVisitor, ok := visitor.(SmallestAiAsrVisitor)
-		if !ok {
-			return fmt.Errorf("visitor %T does not support smallestai ASR", visitor)
-		}
-		return smallestaiVisitor.VisitSmallestai(a.Smallestai)
+		return visitor.VisitSmallestai(a.Smallestai)
 	}
 	return fmt.Errorf("type %T does not define a non-empty union type", a)
 }
@@ -2468,12 +2461,15 @@ func (b *BytedanceTtsParams) String() string {
 
 // Cartesia Text-to-Speech configuration (Beta).
 var (
-	cartesiaTtsFieldParams       = big.NewInt(1 << 0)
-	cartesiaTtsFieldSkipPatterns = big.NewInt(1 << 1)
+	cartesiaTtsFieldCredentialMode = big.NewInt(1 << 0)
+	cartesiaTtsFieldParams         = big.NewInt(1 << 1)
+	cartesiaTtsFieldSkipPatterns   = big.NewInt(1 << 2)
 )
 
 type CartesiaTts struct {
-	Params *CartesiaTtsParams `json:"params" url:"params"`
+	// Credential mode. When provided, must be "managed" (Agora managed mode) or "byok" (BYOK mode).
+	CredentialMode *CartesiaTtsCredentialMode `json:"credential_mode,omitempty" url:"credential_mode,omitempty"`
+	Params         *CartesiaTtsParams         `json:"params" url:"params"`
 	// Controls whether the TTS module skips bracketed content when reading LLM response text.
 	SkipPatterns []int `json:"skip_patterns,omitempty" url:"skip_patterns,omitempty"`
 
@@ -2482,6 +2478,13 @@ type CartesiaTts struct {
 
 	extraProperties map[string]interface{}
 	rawJSON         json.RawMessage
+}
+
+func (c *CartesiaTts) GetCredentialMode() *CartesiaTtsCredentialMode {
+	if c == nil {
+		return nil
+	}
+	return c.CredentialMode
 }
 
 func (c *CartesiaTts) GetParams() *CartesiaTtsParams {
@@ -2507,6 +2510,13 @@ func (c *CartesiaTts) require(field *big.Int) {
 		c.explicitFields = big.NewInt(0)
 	}
 	c.explicitFields.Or(c.explicitFields, field)
+}
+
+// SetCredentialMode sets the CredentialMode field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (c *CartesiaTts) SetCredentialMode(credentialMode *CartesiaTtsCredentialMode) {
+	c.CredentialMode = credentialMode
+	c.require(cartesiaTtsFieldCredentialMode)
 }
 
 // SetParams sets the Params field and marks it as non-optional;
@@ -2560,6 +2570,29 @@ func (c *CartesiaTts) String() string {
 		return value
 	}
 	return fmt.Sprintf("%#v", c)
+}
+
+// Credential mode. When provided, must be "managed" (Agora managed mode) or "byok" (BYOK mode).
+type CartesiaTtsCredentialMode string
+
+const (
+	CartesiaTtsCredentialModeManaged CartesiaTtsCredentialMode = "managed"
+	CartesiaTtsCredentialModeByok    CartesiaTtsCredentialMode = "byok"
+)
+
+func NewCartesiaTtsCredentialModeFromString(s string) (CartesiaTtsCredentialMode, error) {
+	switch s {
+	case "managed":
+		return CartesiaTtsCredentialModeManaged, nil
+	case "byok":
+		return CartesiaTtsCredentialModeByok, nil
+	}
+	var t CartesiaTtsCredentialMode
+	return "", fmt.Errorf("%s is not a valid %T", s, t)
+}
+
+func (c CartesiaTtsCredentialMode) Ptr() *CartesiaTtsCredentialMode {
+	return &c
 }
 
 // Cartesia audio output format configuration.
@@ -2676,7 +2709,7 @@ var (
 
 type CartesiaTtsParams struct {
 	// Cartesia API key
-	APIKey string `json:"api_key" url:"api_key"`
+	APIKey *string `json:"api_key,omitempty" url:"api_key,omitempty"`
 	// Model ID (for example, sonic-2)
 	ModelID string `json:"model_id" url:"model_id"`
 	// WebSocket URL for the Cartesia streaming API
@@ -2694,9 +2727,9 @@ type CartesiaTtsParams struct {
 	rawJSON json.RawMessage
 }
 
-func (c *CartesiaTtsParams) GetAPIKey() string {
+func (c *CartesiaTtsParams) GetAPIKey() *string {
 	if c == nil {
-		return ""
+		return nil
 	}
 	return c.APIKey
 }
@@ -2749,7 +2782,7 @@ func (c *CartesiaTtsParams) require(field *big.Int) {
 
 // SetAPIKey sets the APIKey field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (c *CartesiaTtsParams) SetAPIKey(apiKey string) {
+func (c *CartesiaTtsParams) SetAPIKey(apiKey *string) {
 	c.APIKey = apiKey
 	c.require(cartesiaTtsParamsFieldAPIKey)
 }
@@ -4120,12 +4153,15 @@ type FengmingAsrParams = map[string]interface{}
 
 // Fish Audio Text-to-Speech configuration (Beta).
 var (
-	fishAudioTtsFieldParams       = big.NewInt(1 << 0)
-	fishAudioTtsFieldSkipPatterns = big.NewInt(1 << 1)
+	fishAudioTtsFieldCredentialMode = big.NewInt(1 << 0)
+	fishAudioTtsFieldParams         = big.NewInt(1 << 1)
+	fishAudioTtsFieldSkipPatterns   = big.NewInt(1 << 2)
 )
 
 type FishAudioTts struct {
-	Params *FishAudioTtsParams `json:"params" url:"params"`
+	// Credential mode. When provided, must be "managed" (Agora managed mode) or "byok" (BYOK mode).
+	CredentialMode *FishAudioTtsCredentialMode `json:"credential_mode,omitempty" url:"credential_mode,omitempty"`
+	Params         *FishAudioTtsParams         `json:"params" url:"params"`
 	// Controls whether the TTS module skips bracketed content when reading LLM response text.
 	SkipPatterns []int `json:"skip_patterns,omitempty" url:"skip_patterns,omitempty"`
 
@@ -4134,6 +4170,13 @@ type FishAudioTts struct {
 
 	extraProperties map[string]interface{}
 	rawJSON         json.RawMessage
+}
+
+func (f *FishAudioTts) GetCredentialMode() *FishAudioTtsCredentialMode {
+	if f == nil {
+		return nil
+	}
+	return f.CredentialMode
 }
 
 func (f *FishAudioTts) GetParams() *FishAudioTtsParams {
@@ -4159,6 +4202,13 @@ func (f *FishAudioTts) require(field *big.Int) {
 		f.explicitFields = big.NewInt(0)
 	}
 	f.explicitFields.Or(f.explicitFields, field)
+}
+
+// SetCredentialMode sets the CredentialMode field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (f *FishAudioTts) SetCredentialMode(credentialMode *FishAudioTtsCredentialMode) {
+	f.CredentialMode = credentialMode
+	f.require(fishAudioTtsFieldCredentialMode)
 }
 
 // SetParams sets the Params field and marks it as non-optional;
@@ -4214,6 +4264,29 @@ func (f *FishAudioTts) String() string {
 	return fmt.Sprintf("%#v", f)
 }
 
+// Credential mode. When provided, must be "managed" (Agora managed mode) or "byok" (BYOK mode).
+type FishAudioTtsCredentialMode string
+
+const (
+	FishAudioTtsCredentialModeManaged FishAudioTtsCredentialMode = "managed"
+	FishAudioTtsCredentialModeByok    FishAudioTtsCredentialMode = "byok"
+)
+
+func NewFishAudioTtsCredentialModeFromString(s string) (FishAudioTtsCredentialMode, error) {
+	switch s {
+	case "managed":
+		return FishAudioTtsCredentialModeManaged, nil
+	case "byok":
+		return FishAudioTtsCredentialModeByok, nil
+	}
+	var t FishAudioTtsCredentialMode
+	return "", fmt.Errorf("%s is not a valid %T", s, t)
+}
+
+func (f FishAudioTtsCredentialMode) Ptr() *FishAudioTtsCredentialMode {
+	return &f
+}
+
 // Fish Audio TTS configuration parameters.
 var (
 	fishAudioTtsParamsFieldAPIKey      = big.NewInt(1 << 0)
@@ -4223,7 +4296,7 @@ var (
 
 type FishAudioTtsParams struct {
 	// Fish Audio API key
-	APIKey string `json:"api_key" url:"api_key"`
+	APIKey *string `json:"api_key,omitempty" url:"api_key,omitempty"`
 	// Fish Audio reference ID
 	ReferenceID string `json:"reference_id" url:"reference_id"`
 	// Backend model version to use
@@ -4237,9 +4310,9 @@ type FishAudioTtsParams struct {
 	rawJSON json.RawMessage
 }
 
-func (f *FishAudioTtsParams) GetAPIKey() string {
+func (f *FishAudioTtsParams) GetAPIKey() *string {
 	if f == nil {
-		return ""
+		return nil
 	}
 	return f.APIKey
 }
@@ -4271,7 +4344,7 @@ func (f *FishAudioTtsParams) require(field *big.Int) {
 
 // SetAPIKey sets the APIKey field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (f *FishAudioTtsParams) SetAPIKey(apiKey string) {
+func (f *FishAudioTtsParams) SetAPIKey(apiKey *string) {
 	f.APIKey = apiKey
 	f.require(fishAudioTtsParamsFieldAPIKey)
 }
@@ -4675,6 +4748,238 @@ func NewGeminiAsrParamsModeFromString(s string) (GeminiAsrParamsMode, error) {
 
 func (g GeminiAsrParamsMode) Ptr() *GeminiAsrParamsMode {
 	return &g
+}
+
+// Gemini Text-to-Speech configuration.
+var (
+	geminiTtsFieldParams       = big.NewInt(1 << 0)
+	geminiTtsFieldSkipPatterns = big.NewInt(1 << 1)
+)
+
+type GeminiTts struct {
+	Params *GeminiTtsParams `json:"params" url:"params"`
+	// Controls whether the TTS module skips bracketed content when reading LLM response text.
+	SkipPatterns []int `json:"skip_patterns,omitempty" url:"skip_patterns,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	extraProperties map[string]interface{}
+	rawJSON         json.RawMessage
+}
+
+func (g *GeminiTts) GetParams() *GeminiTtsParams {
+	if g == nil {
+		return nil
+	}
+	return g.Params
+}
+
+func (g *GeminiTts) GetSkipPatterns() []int {
+	if g == nil {
+		return nil
+	}
+	return g.SkipPatterns
+}
+
+func (g *GeminiTts) GetExtraProperties() map[string]interface{} {
+	return g.extraProperties
+}
+
+func (g *GeminiTts) require(field *big.Int) {
+	if g.explicitFields == nil {
+		g.explicitFields = big.NewInt(0)
+	}
+	g.explicitFields.Or(g.explicitFields, field)
+}
+
+// SetParams sets the Params field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiTts) SetParams(params *GeminiTtsParams) {
+	g.Params = params
+	g.require(geminiTtsFieldParams)
+}
+
+// SetSkipPatterns sets the SkipPatterns field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiTts) SetSkipPatterns(skipPatterns []int) {
+	g.SkipPatterns = skipPatterns
+	g.require(geminiTtsFieldSkipPatterns)
+}
+
+func (g *GeminiTts) UnmarshalJSON(data []byte) error {
+	type unmarshaler GeminiTts
+	var value unmarshaler
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	*g = GeminiTts(value)
+	extraProperties, err := internal.ExtractExtraProperties(data, *g)
+	if err != nil {
+		return err
+	}
+	g.extraProperties = extraProperties
+	g.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (g *GeminiTts) MarshalJSON() ([]byte, error) {
+	type embed GeminiTts
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*g),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, g.explicitFields)
+	return json.Marshal(explicitMarshaler)
+}
+
+func (g *GeminiTts) String() string {
+	if len(g.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(g.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(g); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", g)
+}
+
+// Gemini TTS configuration parameters.
+var (
+	geminiTtsParamsFieldAPIKey = big.NewInt(1 << 0)
+	geminiTtsParamsFieldModel  = big.NewInt(1 << 1)
+	geminiTtsParamsFieldVoice  = big.NewInt(1 << 2)
+	geminiTtsParamsFieldStyle  = big.NewInt(1 << 3)
+)
+
+type GeminiTtsParams struct {
+	// Gemini API key.
+	APIKey string `json:"api_key" url:"api_key"`
+	// Gemini TTS model name.
+	Model string `json:"model" url:"model"`
+	// Gemini voice name.
+	Voice string `json:"voice" url:"voice"`
+	// Style instruction for the generated speech.
+	Style *string `json:"style,omitempty" url:"style,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (g *GeminiTtsParams) GetAPIKey() string {
+	if g == nil {
+		return ""
+	}
+	return g.APIKey
+}
+
+func (g *GeminiTtsParams) GetModel() string {
+	if g == nil {
+		return ""
+	}
+	return g.Model
+}
+
+func (g *GeminiTtsParams) GetVoice() string {
+	if g == nil {
+		return ""
+	}
+	return g.Voice
+}
+
+func (g *GeminiTtsParams) GetStyle() *string {
+	if g == nil {
+		return nil
+	}
+	return g.Style
+}
+
+func (g *GeminiTtsParams) GetExtraProperties() map[string]interface{} {
+	return g.ExtraProperties
+}
+
+func (g *GeminiTtsParams) require(field *big.Int) {
+	if g.explicitFields == nil {
+		g.explicitFields = big.NewInt(0)
+	}
+	g.explicitFields.Or(g.explicitFields, field)
+}
+
+// SetAPIKey sets the APIKey field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiTtsParams) SetAPIKey(apiKey string) {
+	g.APIKey = apiKey
+	g.require(geminiTtsParamsFieldAPIKey)
+}
+
+// SetModel sets the Model field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiTtsParams) SetModel(model string) {
+	g.Model = model
+	g.require(geminiTtsParamsFieldModel)
+}
+
+// SetVoice sets the Voice field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiTtsParams) SetVoice(voice string) {
+	g.Voice = voice
+	g.require(geminiTtsParamsFieldVoice)
+}
+
+// SetStyle sets the Style field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GeminiTtsParams) SetStyle(style *string) {
+	g.Style = style
+	g.require(geminiTtsParamsFieldStyle)
+}
+
+func (g *GeminiTtsParams) UnmarshalJSON(data []byte) error {
+	type embed GeminiTtsParams
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*g),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*g = GeminiTtsParams(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *g)
+	if err != nil {
+		return err
+	}
+	g.ExtraProperties = extraProperties
+	g.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (g *GeminiTtsParams) MarshalJSON() ([]byte, error) {
+	type embed GeminiTtsParams
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*g),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, g.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, g.ExtraProperties)
+}
+
+func (g *GeminiTtsParams) String() string {
+	if len(g.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(g.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(g); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", g)
 }
 
 // Generic OpenAI-compatible Text-to-Speech configuration.
@@ -7062,7 +7367,7 @@ var (
 
 type LlmToolExecution struct {
 	// Execution mode. Phase 1a only accepts `sync`.
-	Mode *LlmToolExecutionMode `json:"mode,omitempty" url:"mode,omitempty"`
+	Mode *string `json:"mode,omitempty" url:"mode,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
 	explicitFields *big.Int `json:"-" url:"-"`
@@ -7085,20 +7390,9 @@ func (l *LlmToolExecution) require(field *big.Int) {
 
 // SetMode sets the Mode field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (l *LlmToolExecution) SetMode(mode *LlmToolExecutionMode) {
+func (l *LlmToolExecution) SetMode(mode *string) {
 	l.Mode = mode
 	l.require(llmToolExecutionFieldMode)
-}
-
-// LlmToolExecutionMode controls how an inline REST tool is executed.
-type LlmToolExecutionMode string
-
-const (
-	LlmToolExecutionModeSync LlmToolExecutionMode = "sync"
-)
-
-func (l LlmToolExecutionMode) Ptr() *LlmToolExecutionMode {
-	return &l
 }
 
 func (l *LlmToolExecution) UnmarshalJSON(data []byte) error {
@@ -13776,16 +14070,14 @@ func (s *SpeechmaticsAsr) String() string {
 
 // Speechmatics ASR configuration parameters.
 var (
-	speechmaticsAsrParamsFieldKey      = big.NewInt(1 << 0)
+	speechmaticsAsrParamsFieldAPIKey   = big.NewInt(1 << 0)
 	speechmaticsAsrParamsFieldLanguage = big.NewInt(1 << 1)
 	speechmaticsAsrParamsFieldURI      = big.NewInt(1 << 2)
 )
 
 type SpeechmaticsAsrParams struct {
 	// Speechmatics API key
-	Key string `json:"key" url:"key"`
-	// Deprecated: Use Key instead. APIKey is normalized to Key during serialization.
-	APIKey string `json:"-" url:"-"`
+	APIKey string `json:"api_key" url:"api_key"`
 	// Language code to use for transcription
 	Language string `json:"language" url:"language"`
 	// WebSocket URL for the Speechmatics streaming API
@@ -13799,19 +14091,11 @@ type SpeechmaticsAsrParams struct {
 	rawJSON json.RawMessage
 }
 
-func (s *SpeechmaticsAsrParams) GetKey() string {
+func (s *SpeechmaticsAsrParams) GetAPIKey() string {
 	if s == nil {
 		return ""
 	}
-	if s.Key != "" {
-		return s.Key
-	}
 	return s.APIKey
-}
-
-// Deprecated: Use GetKey instead.
-func (s *SpeechmaticsAsrParams) GetAPIKey() string {
-	return s.GetKey()
 }
 
 func (s *SpeechmaticsAsrParams) GetLanguage() string {
@@ -13839,19 +14123,11 @@ func (s *SpeechmaticsAsrParams) require(field *big.Int) {
 	s.explicitFields.Or(s.explicitFields, field)
 }
 
-// SetKey sets the Key field and marks it as non-optional;
+// SetAPIKey sets the APIKey field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (s *SpeechmaticsAsrParams) SetKey(key string) {
-	s.Key = key
-	s.require(speechmaticsAsrParamsFieldKey)
-}
-
-// SetAPIKey sets the deprecated APIKey field and normalizes it to Key.
-// Deprecated: Use SetKey instead.
 func (s *SpeechmaticsAsrParams) SetAPIKey(apiKey string) {
 	s.APIKey = apiKey
-	s.Key = apiKey
-	s.require(speechmaticsAsrParamsFieldKey)
+	s.require(speechmaticsAsrParamsFieldAPIKey)
 }
 
 // SetLanguage sets the Language field and marks it as non-optional;
@@ -13884,37 +14160,19 @@ func (s *SpeechmaticsAsrParams) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	s.ExtraProperties = extraProperties
-	if legacyKey, ok := s.ExtraProperties["api_key"].(string); ok {
-		if s.Key == "" {
-			s.Key = legacyKey
-		}
-		delete(s.ExtraProperties, "api_key")
-	}
-	s.APIKey = s.Key
 	s.rawJSON = json.RawMessage(data)
 	return nil
 }
 
 func (s *SpeechmaticsAsrParams) MarshalJSON() ([]byte, error) {
 	type embed SpeechmaticsAsrParams
-	normalized := *s
-	if normalized.Key == "" {
-		normalized.Key = normalized.APIKey
-	}
-	normalized.APIKey = ""
 	var marshaler = struct {
 		embed
 	}{
-		embed: embed(normalized),
+		embed: embed(*s),
 	}
 	explicitMarshaler := internal.HandleExplicitFields(marshaler, s.explicitFields)
-	extraProperties := make(map[string]interface{}, len(s.ExtraProperties))
-	for key, value := range s.ExtraProperties {
-		if key != "api_key" {
-			extraProperties[key] = value
-		}
-	}
-	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, extraProperties)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, s.ExtraProperties)
 }
 
 func (s *SpeechmaticsAsrParams) String() string {
@@ -14711,6 +14969,7 @@ type Tts struct {
 	Rime            *RimeTts
 	Fishaudio       *FishAudioTts
 	Google          *GoogleTts
+	Gemini          *GeminiTts
 	Amazon          *AmazonTts
 	Sarvam          *SarvamTts
 	GenericHTTP     *GenericHTTPTts
@@ -14814,6 +15073,13 @@ func (t *Tts) GetGoogle() *GoogleTts {
 		return nil
 	}
 	return t.Google
+}
+
+func (t *Tts) GetGemini() *GeminiTts {
+	if t == nil {
+		return nil
+	}
+	return t.Gemini
 }
 
 func (t *Tts) GetAmazon() *AmazonTts {
@@ -14984,6 +15250,12 @@ func (t *Tts) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		t.Google = value
+	case "gemini":
+		value := new(GeminiTts)
+		if err := json.Unmarshal(data, &value); err != nil {
+			return err
+		}
+		t.Gemini = value
 	case "amazon":
 		value := new(AmazonTts)
 		if err := json.Unmarshal(data, &value); err != nil {
@@ -15100,6 +15372,9 @@ func (t Tts) MarshalJSON() ([]byte, error) {
 	if t.Google != nil {
 		return internal.MarshalJSONWithExtraProperty(t.Google, "vendor", "google")
 	}
+	if t.Gemini != nil {
+		return internal.MarshalJSONWithExtraProperty(t.Gemini, "vendor", "gemini")
+	}
 	if t.Amazon != nil {
 		return internal.MarshalJSONWithExtraProperty(t.Amazon, "vendor", "amazon")
 	}
@@ -15152,6 +15427,7 @@ type TtsVisitor interface {
 	VisitRime(*RimeTts) error
 	VisitFishaudio(*FishAudioTts) error
 	VisitGoogle(*GoogleTts) error
+	VisitGemini(*GeminiTts) error
 	VisitAmazon(*AmazonTts) error
 	VisitSarvam(*SarvamTts) error
 	VisitGenericHTTP(*GenericHTTPTts) error
@@ -15163,9 +15439,6 @@ type TtsVisitor interface {
 	VisitGradium(*GradiumTts) error
 	VisitMistral(*MistralTts) error
 	VisitTypecast(*TypecastTts) error
-}
-
-type SmallestAiTtsVisitor interface {
 	VisitSmallestai(*SmallestAiTts) error
 }
 
@@ -15206,6 +15479,9 @@ func (t *Tts) Accept(visitor TtsVisitor) error {
 	if t.Google != nil {
 		return visitor.VisitGoogle(t.Google)
 	}
+	if t.Gemini != nil {
+		return visitor.VisitGemini(t.Gemini)
+	}
 	if t.Amazon != nil {
 		return visitor.VisitAmazon(t.Amazon)
 	}
@@ -15240,11 +15516,7 @@ func (t *Tts) Accept(visitor TtsVisitor) error {
 		return visitor.VisitTypecast(t.Typecast)
 	}
 	if t.Smallestai != nil {
-		smallestaiVisitor, ok := visitor.(SmallestAiTtsVisitor)
-		if !ok {
-			return fmt.Errorf("visitor %T does not support smallestai TTS", visitor)
-		}
-		return smallestaiVisitor.VisitSmallestai(t.Smallestai)
+		return visitor.VisitSmallestai(t.Smallestai)
 	}
 	return fmt.Errorf("type %T does not define a non-empty union type", t)
 }
@@ -15289,6 +15561,9 @@ func (t *Tts) validate() error {
 	}
 	if t.Google != nil {
 		fields = append(fields, "google")
+	}
+	if t.Gemini != nil {
+		fields = append(fields, "gemini")
 	}
 	if t.Amazon != nil {
 		fields = append(fields, "amazon")
@@ -19644,7 +19919,7 @@ type StartAgentsRequestPropertiesAdvancedFeatures struct {
 	EnableRtm *bool `json:"enable_rtm,omitempty" url:"enable_rtm,omitempty"`
 	// Enable Selective Attention Locking (SAL). When enabled, configure the `sal` field to set up speaker recognition or locking modes.
 	EnableSal *bool `json:"enable_sal,omitempty" url:"enable_sal,omitempty"`
-	// Enable invocation for MCP servers and inline REST tools.
+	// Enable tool invocation. When enabled, the agent can invoke tools provided by the MCP server to implement advanced functionality.
 	EnableTools *bool `json:"enable_tools,omitempty" url:"enable_tools,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
@@ -20177,7 +20452,7 @@ type StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig struct {
 	// System prompt used to generate a short filler phrase based on recent conversation context. The generated text should be conversational and must not answer the user's question.
 	Prompt *string `json:"prompt,omitempty" url:"prompt,omitempty"`
 	// Fallback strategy when generated filler text is not ready, fails, or returns empty text. Phase 1 only supports `static`.
-	FallbackStrategy *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy `json:"fallback_strategy,omitempty" url:"fallback_strategy,omitempty"`
+	FallbackStrategy *string `json:"fallback_strategy,omitempty" url:"fallback_strategy,omitempty"`
 	// Maximum number of recent conversation messages used to generate a filler word.
 	ContextMessageLimit *int `json:"context_message_limit,omitempty" url:"context_message_limit,omitempty"`
 	// Maximum number of characters from conversation history used to generate a filler word.
@@ -20245,20 +20520,9 @@ func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetPromp
 
 // SetFallbackStrategy sets the FallbackStrategy field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetFallbackStrategy(fallbackStrategy *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy) {
+func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetFallbackStrategy(fallbackStrategy *string) {
 	s.FallbackStrategy = fallbackStrategy
 	s.require(startAgentsRequestPropertiesFillerWordsContentGeneratedConfigFieldFallbackStrategy)
-}
-
-// StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy controls fallback behavior for generated filler words.
-type StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy string
-
-const (
-	StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategyStatic StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy = "static"
-)
-
-func (s StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy) Ptr() *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy {
-	return &s
 }
 
 // SetContextMessageLimit sets the ContextMessageLimit field and marks it as non-optional;

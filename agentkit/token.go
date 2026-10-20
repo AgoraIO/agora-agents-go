@@ -5,6 +5,7 @@ import (
 	"log"
 	"strconv"
 
+	"github.com/AgoraIO-Community/go-tokenbuilder/convoaitokenbuilder"
 	"github.com/AgoraIO-Community/go-tokenbuilder/rtctokenbuilder2"
 )
 
@@ -174,13 +175,18 @@ func GenerateConvoAIToken(opts GenerateConvoAITokenOptions) (string, error) {
 		privExpire = opts.TokenExpire
 	}
 
-	return rtctokenbuilder2.BuildTokenWithRtm(
+	return convoaitokenbuilder.BuildToken(
 		opts.AppID,
 		opts.AppCertificate,
 		opts.ChannelName,
 		account,
 		rtctokenbuilder2.RolePublisher,
 		uint32(opts.TokenExpire),
+		uint32(privExpire),
+		uint32(privExpire),
+		uint32(privExpire),
+		uint32(privExpire),
+		account,
 		uint32(privExpire),
 	)
 }

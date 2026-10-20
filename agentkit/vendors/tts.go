@@ -3,6 +3,8 @@ package vendors
 import (
 	"net/url"
 	"strings"
+
+	Agora "github.com/AgoraIO/agora-agents-go/v2"
 )
 
 type ElevenLabsTTSOptions struct {
@@ -803,21 +805,49 @@ func (m *MiniMaxTTS) ToConfig() map[string]interface{} {
 	return config
 }
 
+// SarvamTTSLanguage is a target language supported by Sarvam TTS.
+type SarvamTTSLanguage = Agora.SarvamTtsParamsTargetLanguageCode
+
+const (
+	SarvamTTSLanguageEnIN = Agora.SarvamTtsParamsTargetLanguageCodeEnIn
+	SarvamTTSLanguageHiIN = Agora.SarvamTtsParamsTargetLanguageCodeHiIn
+	SarvamTTSLanguageBnIN = Agora.SarvamTtsParamsTargetLanguageCodeBnIn
+	SarvamTTSLanguageTaIN = Agora.SarvamTtsParamsTargetLanguageCodeTaIn
+	SarvamTTSLanguageTeIN = Agora.SarvamTtsParamsTargetLanguageCodeTeIn
+	SarvamTTSLanguageKnIN = Agora.SarvamTtsParamsTargetLanguageCodeKnIn
+	SarvamTTSLanguageMlIN = Agora.SarvamTtsParamsTargetLanguageCodeMlIn
+	SarvamTTSLanguageMrIN = Agora.SarvamTtsParamsTargetLanguageCodeMrIn
+	SarvamTTSLanguageGuIN = Agora.SarvamTtsParamsTargetLanguageCodeGuIn
+	SarvamTTSLanguagePaIN = Agora.SarvamTtsParamsTargetLanguageCodePaIn
+	SarvamTTSLanguageOrIN = Agora.SarvamTtsParamsTargetLanguageCodeOrIn
+)
+
+// SarvamTTSOptions configures Sarvam speech synthesis.
 type SarvamTTSOptions struct {
 	Key                string
 	Speaker            string
-	TargetLanguageCode string
+	TargetLanguageCode SarvamTTSLanguage
 	Pitch              *float64
 	Pace               *float64
 	Loudness           *float64
-	SampleRate         *int
-	SkipPatterns       []int
+	// SpeechSampleRate is the output sample rate in Hz; the service defaults to 24000.
+	SpeechSampleRate *int
+	// Deprecated: Use SpeechSampleRate instead. SpeechSampleRate takes precedence.
+	SampleRate *int
+	// EnablePreprocessing normalizes English words and numeric entities.
+	EnablePreprocessing *bool
+	// Model is the Sarvam TTS model; the service defaults to bulbul:v3.
+	Model string
+	// AdditionalParams are flattened into params. Explicit options take precedence.
+	AdditionalParams map[string]interface{}
+	SkipPatterns     []int
 }
 
 type SarvamTTS struct {
 	options SarvamTTSOptions
 }
 
+// NewSarvamTTS creates a Sarvam configuration and requires a key, speaker, and language.
 func NewSarvamTTS(opts SarvamTTSOptions) *SarvamTTS {
 	if opts.Key == "" {
 		panic("SarvamTTS requires Key")
@@ -831,16 +861,29 @@ func NewSarvamTTS(opts SarvamTTSOptions) *SarvamTTS {
 	return &SarvamTTS{options: opts}
 }
 
+// GetSampleRate returns the configured speech sample rate, falling back to the legacy alias.
+// It returns nil when neither sample-rate option is set.
 func (s *SarvamTTS) GetSampleRate() *SampleRate {
-	return nil
+	sampleRate := s.options.SpeechSampleRate
+	if sampleRate == nil {
+		sampleRate = s.options.SampleRate
+	}
+	if sampleRate == nil {
+		return nil
+	}
+	rate := SampleRate(*sampleRate)
+	return &rate
 }
 
+// ToConfig returns Sarvam parameters with explicit options overriding additional parameters.
 func (s *SarvamTTS) ToConfig() map[string]interface{} {
-	params := map[string]interface{}{
-		"api_subscription_key": s.options.Key,
-		"speaker":              s.options.Speaker,
-		"target_language_code": s.options.TargetLanguageCode,
+	params := map[string]interface{}{}
+	for key, value := range s.options.AdditionalParams {
+		params[key] = value
 	}
+	params["api_subscription_key"] = s.options.Key
+	params["speaker"] = s.options.Speaker
+	params["target_language_code"] = string(s.options.TargetLanguageCode)
 	if s.options.Pitch != nil {
 		params["pitch"] = *s.options.Pitch
 	}
@@ -850,8 +893,14 @@ func (s *SarvamTTS) ToConfig() map[string]interface{} {
 	if s.options.Loudness != nil {
 		params["loudness"] = *s.options.Loudness
 	}
-	if s.options.SampleRate != nil {
-		params["sample_rate"] = *s.options.SampleRate
+	if sampleRate := s.GetSampleRate(); sampleRate != nil {
+		params["speech_sample_rate"] = int(*sampleRate)
+	}
+	if s.options.EnablePreprocessing != nil {
+		params["enable_preprocessing"] = *s.options.EnablePreprocessing
+	}
+	if s.options.Model != "" {
+		params["model"] = s.options.Model
 	}
 
 	config := map[string]interface{}{
