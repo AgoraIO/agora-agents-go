@@ -18146,16 +18146,19 @@ func (g *GetTurnsAgentsResponseTurnsItemEnd) String() string {
 
 // Additional context about the turn end event. Included fields depend on the value of the `type` field.
 var (
-	getTurnsAgentsResponseTurnsItemEndMetadataFieldPlaybackDurationMs = big.NewInt(1 << 0)
-	getTurnsAgentsResponseTurnsItemEndMetadataFieldCausedBy           = big.NewInt(1 << 1)
-	getTurnsAgentsResponseTurnsItemEndMetadataFieldTransport          = big.NewInt(1 << 2)
-	getTurnsAgentsResponseTurnsItemEndMetadataFieldReason             = big.NewInt(1 << 3)
-	getTurnsAgentsResponseTurnsItemEndMetadataFieldDetails            = big.NewInt(1 << 4)
+	getTurnsAgentsResponseTurnsItemEndMetadataFieldPlaybackDurationMs         = big.NewInt(1 << 0)
+	getTurnsAgentsResponseTurnsItemEndMetadataFieldIntendedPlaybackDurationMs = big.NewInt(1 << 1)
+	getTurnsAgentsResponseTurnsItemEndMetadataFieldCausedBy                   = big.NewInt(1 << 2)
+	getTurnsAgentsResponseTurnsItemEndMetadataFieldTransport                  = big.NewInt(1 << 3)
+	getTurnsAgentsResponseTurnsItemEndMetadataFieldReason                     = big.NewInt(1 << 4)
+	getTurnsAgentsResponseTurnsItemEndMetadataFieldDetails                    = big.NewInt(1 << 5)
 )
 
 type GetTurnsAgentsResponseTurnsItemEndMetadata struct {
-	// The audio playback duration in milliseconds. Included only when `type` is `ok`.
+	// The actual audio playback duration in milliseconds. Included when `type` is `ok` or `interrupted`.
 	PlaybackDurationMs *int `json:"playback_duration_ms,omitempty" url:"playback_duration_ms,omitempty"`
+	// The intended audio playback duration in milliseconds. Included only when `type` is `interrupted`.
+	IntendedPlaybackDurationMs *int `json:"intended_playback_duration_ms,omitempty" url:"intended_playback_duration_ms,omitempty"`
 	// The cause of the turn ending.
 	//
 	// When `type` is `interrupted`, possible values are:
@@ -18192,6 +18195,13 @@ func (g *GetTurnsAgentsResponseTurnsItemEndMetadata) GetPlaybackDurationMs() *in
 		return nil
 	}
 	return g.PlaybackDurationMs
+}
+
+func (g *GetTurnsAgentsResponseTurnsItemEndMetadata) GetIntendedPlaybackDurationMs() *int {
+	if g == nil {
+		return nil
+	}
+	return g.IntendedPlaybackDurationMs
 }
 
 func (g *GetTurnsAgentsResponseTurnsItemEndMetadata) GetCausedBy() *string {
@@ -18238,6 +18248,13 @@ func (g *GetTurnsAgentsResponseTurnsItemEndMetadata) require(field *big.Int) {
 func (g *GetTurnsAgentsResponseTurnsItemEndMetadata) SetPlaybackDurationMs(playbackDurationMs *int) {
 	g.PlaybackDurationMs = playbackDurationMs
 	g.require(getTurnsAgentsResponseTurnsItemEndMetadataFieldPlaybackDurationMs)
+}
+
+// SetIntendedPlaybackDurationMs sets the IntendedPlaybackDurationMs field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (g *GetTurnsAgentsResponseTurnsItemEndMetadata) SetIntendedPlaybackDurationMs(intendedPlaybackDurationMs *int) {
+	g.IntendedPlaybackDurationMs = intendedPlaybackDurationMs
+	g.require(getTurnsAgentsResponseTurnsItemEndMetadataFieldIntendedPlaybackDurationMs)
 }
 
 // SetCausedBy sets the CausedBy field and marks it as non-optional;

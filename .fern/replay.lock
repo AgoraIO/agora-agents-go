@@ -84,14 +84,20 @@ generations:
     cli_version: unknown
     generator_versions:
       fernapi/fern-go-sdk: 1.16.5
-current_generation: 622c102cef3b1a2c81486a1e93b36eb6c2f15961
+  - commit_sha: a0fd34b8a5d3a40fd9f29adc8802a6c972e9da08
+    tree_hash: b0364d33b91ada20058796ffaa5ca12c14ae4eb0
+    timestamp: 2026-10-23T09:03:50.833Z
+    cli_version: unknown
+    generator_versions:
+      fernapi/fern-go-sdk: 1.16.5
+current_generation: a0fd34b8a5d3a40fd9f29adc8802a6c972e9da08
 patches:
   - id: patch-69644e80
     content_hash: sha256:47e5dc31d5823a159b4c7abafc86d8b4ade17fd80b73df7b3e4d44bf17204f55
     original_commit: 69644e80506fa1c57bdb6b9a5dc5767a78f333ad
     original_message: "feat(core): add tests for Pool and RequestOptions with fixed base URL handling"
     original_author: seymourtang <tangxianmeng@live.com>
-    base_generation: 622c102cef3b1a2c81486a1e93b36eb6c2f15961
+    base_generation: a0fd34b8a5d3a40fd9f29adc8802a6c972e9da08
     files:
       - core/request_option_custom_test.go
     patch_content: |
@@ -379,7 +385,7 @@ patches:
     original_commit: eb09f0ee6aec94edb1cf24a833a35d98a9a35580
     original_message: "refactor(core): rename internal API base URL to configured base URL"
     original_author: seymourtang <tangxianmeng@live.com>
-    base_generation: 622c102cef3b1a2c81486a1e93b36eb6c2f15961
+    base_generation: a0fd34b8a5d3a40fd9f29adc8802a6c972e9da08
     files:
       - core/request_option_custom_test.go
     patch_content: |
@@ -663,16 +669,16 @@ patches:
         }
     user_owned: true
   - id: patch-dda5517e
-    content_hash: sha256:39283afeb5e521ee3ab9cb2274361128524cc3b6b23e8c0a7342ee14d72f7582
+    content_hash: sha256:95de41ebd5074b71d2c003a9a6914359553f359eda1246216304194d61160c40
     original_commit: dda5517eb2c926b0de9b1fafac5763798586527d
     original_message: "fix(vendors): send Speechmatics STT key instead of api_key"
     original_author: digitallysavvy <hermes.frangoudis@gmail.com>
-    base_generation: 622c102cef3b1a2c81486a1e93b36eb6c2f15961
+    base_generation: a0fd34b8a5d3a40fd9f29adc8802a6c972e9da08
     files:
       - agents.go
     patch_content: |
       diff --git a/agents.go b/agents.go
-      index c209f52..f637504 100644
+      index 37ceaa1..b16cf5d 100644
       --- a/agents.go
       +++ b/agents.go
       @@ -1469,6 +1469,9 @@ type AsrVisitor interface {
@@ -858,7 +864,7 @@ patches:
        	}
        	return fmt.Errorf("type %T does not define a non-empty union type", t)
        }
-      @@ -19919,7 +19980,7 @@ type StartAgentsRequestPropertiesAdvancedFeatures struct {
+      @@ -19936,7 +19997,7 @@ type StartAgentsRequestPropertiesAdvancedFeatures struct {
        	EnableRtm *bool `json:"enable_rtm,omitempty" url:"enable_rtm,omitempty"`
        	// Enable Selective Attention Locking (SAL). When enabled, configure the `sal` field to set up speaker recognition or locking modes.
        	EnableSal *bool `json:"enable_sal,omitempty" url:"enable_sal,omitempty"`
@@ -867,7 +873,7 @@ patches:
        	EnableTools *bool `json:"enable_tools,omitempty" url:"enable_tools,omitempty"`
        
        	// Private bitmask of fields set to an explicit value and therefore not to be omitted
-      @@ -20452,7 +20513,7 @@ type StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig struct {
+      @@ -20469,7 +20530,7 @@ type StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig struct {
        	// System prompt used to generate a short filler phrase based on recent conversation context. The generated text should be conversational and must not answer the user's question.
        	Prompt *string `json:"prompt,omitempty" url:"prompt,omitempty"`
        	// Fallback strategy when generated filler text is not ready, fails, or returns empty text. Phase 1 only supports `static`.
@@ -876,7 +882,7 @@ patches:
        	// Maximum number of recent conversation messages used to generate a filler word.
        	ContextMessageLimit *int `json:"context_message_limit,omitempty" url:"context_message_limit,omitempty"`
        	// Maximum number of characters from conversation history used to generate a filler word.
-      @@ -20520,11 +20581,22 @@ func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetPromp
+      @@ -20537,11 +20598,22 @@ func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetPromp
        
        // SetFallbackStrategy sets the FallbackStrategy field and marks it as non-optional;
        // this prevents an empty or null value for this field from being omitted during serialization.
@@ -19050,16 +19056,19 @@ patches:
 
         // Additional context about the turn end event. Included fields depend on the value of the `type` field.
         var (
-        	getTurnsAgentsResponseTurnsItemEndMetadataFieldPlaybackDurationMs = big.NewInt(1 << 0)
-        	getTurnsAgentsResponseTurnsItemEndMetadataFieldCausedBy           = big.NewInt(1 << 1)
-        	getTurnsAgentsResponseTurnsItemEndMetadataFieldTransport          = big.NewInt(1 << 2)
-        	getTurnsAgentsResponseTurnsItemEndMetadataFieldReason             = big.NewInt(1 << 3)
-        	getTurnsAgentsResponseTurnsItemEndMetadataFieldDetails            = big.NewInt(1 << 4)
+        	getTurnsAgentsResponseTurnsItemEndMetadataFieldPlaybackDurationMs         = big.NewInt(1 << 0)
+        	getTurnsAgentsResponseTurnsItemEndMetadataFieldIntendedPlaybackDurationMs = big.NewInt(1 << 1)
+        	getTurnsAgentsResponseTurnsItemEndMetadataFieldCausedBy                   = big.NewInt(1 << 2)
+        	getTurnsAgentsResponseTurnsItemEndMetadataFieldTransport                  = big.NewInt(1 << 3)
+        	getTurnsAgentsResponseTurnsItemEndMetadataFieldReason                     = big.NewInt(1 << 4)
+        	getTurnsAgentsResponseTurnsItemEndMetadataFieldDetails                    = big.NewInt(1 << 5)
         )
 
         type GetTurnsAgentsResponseTurnsItemEndMetadata struct {
-        	// The audio playback duration in milliseconds. Included only when `type` is `ok`.
+        	// The actual audio playback duration in milliseconds. Included when `type` is `ok` or `interrupted`.
         	PlaybackDurationMs *int `json:"playback_duration_ms,omitempty" url:"playback_duration_ms,omitempty"`
+        	// The intended audio playback duration in milliseconds. Included only when `type` is `interrupted`.
+        	IntendedPlaybackDurationMs *int `json:"intended_playback_duration_ms,omitempty" url:"intended_playback_duration_ms,omitempty"`
         	// The cause of the turn ending.
         	//
         	// When `type` is `interrupted`, possible values are:
@@ -19096,6 +19105,13 @@ patches:
         		return nil
         	}
         	return g.PlaybackDurationMs
+        }
+
+        func (g *GetTurnsAgentsResponseTurnsItemEndMetadata) GetIntendedPlaybackDurationMs() *int {
+        	if g == nil {
+        		return nil
+        	}
+        	return g.IntendedPlaybackDurationMs
         }
 
         func (g *GetTurnsAgentsResponseTurnsItemEndMetadata) GetCausedBy() *string {
@@ -19142,6 +19158,13 @@ patches:
         func (g *GetTurnsAgentsResponseTurnsItemEndMetadata) SetPlaybackDurationMs(playbackDurationMs *int) {
         	g.PlaybackDurationMs = playbackDurationMs
         	g.require(getTurnsAgentsResponseTurnsItemEndMetadataFieldPlaybackDurationMs)
+        }
+
+        // SetIntendedPlaybackDurationMs sets the IntendedPlaybackDurationMs field and marks it as non-optional;
+        // this prevents an empty or null value for this field from being omitted during serialization.
+        func (g *GetTurnsAgentsResponseTurnsItemEndMetadata) SetIntendedPlaybackDurationMs(intendedPlaybackDurationMs *int) {
+        	g.IntendedPlaybackDurationMs = intendedPlaybackDurationMs
+        	g.require(getTurnsAgentsResponseTurnsItemEndMetadataFieldIntendedPlaybackDurationMs)
         }
 
         // SetCausedBy sets the CausedBy field and marks it as non-optional;
@@ -25322,16 +25345,16 @@ patches:
         }
     user_owned: true
   - id: patch-a6a3c559
-    content_hash: sha256:39283afeb5e521ee3ab9cb2274361128524cc3b6b23e8c0a7342ee14d72f7582
+    content_hash: sha256:95de41ebd5074b71d2c003a9a6914359553f359eda1246216304194d61160c40
     original_commit: a6a3c5591b285bd1fc4a2c7c56cfbd1980c05ad3
     original_message: "fix: address v2.8.0 release review findings"
     original_author: digitallysavvy <hermes.frangoudis@gmail.com>
-    base_generation: 622c102cef3b1a2c81486a1e93b36eb6c2f15961
+    base_generation: a0fd34b8a5d3a40fd9f29adc8802a6c972e9da08
     files:
       - agents.go
     patch_content: |
       diff --git a/agents.go b/agents.go
-      index c209f52..f637504 100644
+      index 37ceaa1..b16cf5d 100644
       --- a/agents.go
       +++ b/agents.go
       @@ -1469,6 +1469,9 @@ type AsrVisitor interface {
@@ -25517,7 +25540,7 @@ patches:
        	}
        	return fmt.Errorf("type %T does not define a non-empty union type", t)
        }
-      @@ -19919,7 +19980,7 @@ type StartAgentsRequestPropertiesAdvancedFeatures struct {
+      @@ -19936,7 +19997,7 @@ type StartAgentsRequestPropertiesAdvancedFeatures struct {
        	EnableRtm *bool `json:"enable_rtm,omitempty" url:"enable_rtm,omitempty"`
        	// Enable Selective Attention Locking (SAL). When enabled, configure the `sal` field to set up speaker recognition or locking modes.
        	EnableSal *bool `json:"enable_sal,omitempty" url:"enable_sal,omitempty"`
@@ -25526,7 +25549,7 @@ patches:
        	EnableTools *bool `json:"enable_tools,omitempty" url:"enable_tools,omitempty"`
        
        	// Private bitmask of fields set to an explicit value and therefore not to be omitted
-      @@ -20452,7 +20513,7 @@ type StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig struct {
+      @@ -20469,7 +20530,7 @@ type StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig struct {
        	// System prompt used to generate a short filler phrase based on recent conversation context. The generated text should be conversational and must not answer the user's question.
        	Prompt *string `json:"prompt,omitempty" url:"prompt,omitempty"`
        	// Fallback strategy when generated filler text is not ready, fails, or returns empty text. Phase 1 only supports `static`.
@@ -25535,7 +25558,7 @@ patches:
        	// Maximum number of recent conversation messages used to generate a filler word.
        	ContextMessageLimit *int `json:"context_message_limit,omitempty" url:"context_message_limit,omitempty"`
        	// Maximum number of characters from conversation history used to generate a filler word.
-      @@ -20520,11 +20581,22 @@ func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetPromp
+      @@ -20537,11 +20598,22 @@ func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetPromp
        
        // SetFallbackStrategy sets the FallbackStrategy field and marks it as non-optional;
        // this prevents an empty or null value for this field from being omitted during serialization.
@@ -43709,16 +43732,19 @@ patches:
 
         // Additional context about the turn end event. Included fields depend on the value of the `type` field.
         var (
-        	getTurnsAgentsResponseTurnsItemEndMetadataFieldPlaybackDurationMs = big.NewInt(1 << 0)
-        	getTurnsAgentsResponseTurnsItemEndMetadataFieldCausedBy           = big.NewInt(1 << 1)
-        	getTurnsAgentsResponseTurnsItemEndMetadataFieldTransport          = big.NewInt(1 << 2)
-        	getTurnsAgentsResponseTurnsItemEndMetadataFieldReason             = big.NewInt(1 << 3)
-        	getTurnsAgentsResponseTurnsItemEndMetadataFieldDetails            = big.NewInt(1 << 4)
+        	getTurnsAgentsResponseTurnsItemEndMetadataFieldPlaybackDurationMs         = big.NewInt(1 << 0)
+        	getTurnsAgentsResponseTurnsItemEndMetadataFieldIntendedPlaybackDurationMs = big.NewInt(1 << 1)
+        	getTurnsAgentsResponseTurnsItemEndMetadataFieldCausedBy                   = big.NewInt(1 << 2)
+        	getTurnsAgentsResponseTurnsItemEndMetadataFieldTransport                  = big.NewInt(1 << 3)
+        	getTurnsAgentsResponseTurnsItemEndMetadataFieldReason                     = big.NewInt(1 << 4)
+        	getTurnsAgentsResponseTurnsItemEndMetadataFieldDetails                    = big.NewInt(1 << 5)
         )
 
         type GetTurnsAgentsResponseTurnsItemEndMetadata struct {
-        	// The audio playback duration in milliseconds. Included only when `type` is `ok`.
+        	// The actual audio playback duration in milliseconds. Included when `type` is `ok` or `interrupted`.
         	PlaybackDurationMs *int `json:"playback_duration_ms,omitempty" url:"playback_duration_ms,omitempty"`
+        	// The intended audio playback duration in milliseconds. Included only when `type` is `interrupted`.
+        	IntendedPlaybackDurationMs *int `json:"intended_playback_duration_ms,omitempty" url:"intended_playback_duration_ms,omitempty"`
         	// The cause of the turn ending.
         	//
         	// When `type` is `interrupted`, possible values are:
@@ -43755,6 +43781,13 @@ patches:
         		return nil
         	}
         	return g.PlaybackDurationMs
+        }
+
+        func (g *GetTurnsAgentsResponseTurnsItemEndMetadata) GetIntendedPlaybackDurationMs() *int {
+        	if g == nil {
+        		return nil
+        	}
+        	return g.IntendedPlaybackDurationMs
         }
 
         func (g *GetTurnsAgentsResponseTurnsItemEndMetadata) GetCausedBy() *string {
@@ -43801,6 +43834,13 @@ patches:
         func (g *GetTurnsAgentsResponseTurnsItemEndMetadata) SetPlaybackDurationMs(playbackDurationMs *int) {
         	g.PlaybackDurationMs = playbackDurationMs
         	g.require(getTurnsAgentsResponseTurnsItemEndMetadataFieldPlaybackDurationMs)
+        }
+
+        // SetIntendedPlaybackDurationMs sets the IntendedPlaybackDurationMs field and marks it as non-optional;
+        // this prevents an empty or null value for this field from being omitted during serialization.
+        func (g *GetTurnsAgentsResponseTurnsItemEndMetadata) SetIntendedPlaybackDurationMs(intendedPlaybackDurationMs *int) {
+        	g.IntendedPlaybackDurationMs = intendedPlaybackDurationMs
+        	g.require(getTurnsAgentsResponseTurnsItemEndMetadataFieldIntendedPlaybackDurationMs)
         }
 
         // SetCausedBy sets the CausedBy field and marks it as non-optional;
@@ -49979,17 +50019,18 @@ patches:
         	u.Properties = properties
         	u.require(updateAgentsRequestFieldProperties)
         }
+    user_owned: true
   - id: patch-5541e488
-    content_hash: sha256:39283afeb5e521ee3ab9cb2274361128524cc3b6b23e8c0a7342ee14d72f7582
+    content_hash: sha256:95de41ebd5074b71d2c003a9a6914359553f359eda1246216304194d61160c40
     original_commit: 5541e48887db3917fd470c2d0c89197135184d52
     original_message: "chore: resolve Fern replay conflicts"
     original_author: txm <tangxianmeng@MAGIT04734.local>
-    base_generation: 622c102cef3b1a2c81486a1e93b36eb6c2f15961
+    base_generation: a0fd34b8a5d3a40fd9f29adc8802a6c972e9da08
     files:
       - agents.go
     patch_content: |
       diff --git a/agents.go b/agents.go
-      index c209f52..f637504 100644
+      index 37ceaa1..b16cf5d 100644
       --- a/agents.go
       +++ b/agents.go
       @@ -1469,6 +1469,9 @@ type AsrVisitor interface {
@@ -50175,7 +50216,7 @@ patches:
        	}
        	return fmt.Errorf("type %T does not define a non-empty union type", t)
        }
-      @@ -19919,7 +19980,7 @@ type StartAgentsRequestPropertiesAdvancedFeatures struct {
+      @@ -19936,7 +19997,7 @@ type StartAgentsRequestPropertiesAdvancedFeatures struct {
        	EnableRtm *bool `json:"enable_rtm,omitempty" url:"enable_rtm,omitempty"`
        	// Enable Selective Attention Locking (SAL). When enabled, configure the `sal` field to set up speaker recognition or locking modes.
        	EnableSal *bool `json:"enable_sal,omitempty" url:"enable_sal,omitempty"`
@@ -50184,7 +50225,7 @@ patches:
        	EnableTools *bool `json:"enable_tools,omitempty" url:"enable_tools,omitempty"`
        
        	// Private bitmask of fields set to an explicit value and therefore not to be omitted
-      @@ -20452,7 +20513,7 @@ type StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig struct {
+      @@ -20469,7 +20530,7 @@ type StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig struct {
        	// System prompt used to generate a short filler phrase based on recent conversation context. The generated text should be conversational and must not answer the user's question.
        	Prompt *string `json:"prompt,omitempty" url:"prompt,omitempty"`
        	// Fallback strategy when generated filler text is not ready, fails, or returns empty text. Phase 1 only supports `static`.
@@ -50193,7 +50234,7 @@ patches:
        	// Maximum number of recent conversation messages used to generate a filler word.
        	ContextMessageLimit *int `json:"context_message_limit,omitempty" url:"context_message_limit,omitempty"`
        	// Maximum number of characters from conversation history used to generate a filler word.
-      @@ -20520,11 +20581,22 @@ func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetPromp
+      @@ -20537,11 +20598,22 @@ func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetPromp
        
        // SetFallbackStrategy sets the FallbackStrategy field and marks it as non-optional;
        // this prevents an empty or null value for this field from being omitted during serialization.
@@ -68367,16 +68408,19 @@ patches:
 
         // Additional context about the turn end event. Included fields depend on the value of the `type` field.
         var (
-        	getTurnsAgentsResponseTurnsItemEndMetadataFieldPlaybackDurationMs = big.NewInt(1 << 0)
-        	getTurnsAgentsResponseTurnsItemEndMetadataFieldCausedBy           = big.NewInt(1 << 1)
-        	getTurnsAgentsResponseTurnsItemEndMetadataFieldTransport          = big.NewInt(1 << 2)
-        	getTurnsAgentsResponseTurnsItemEndMetadataFieldReason             = big.NewInt(1 << 3)
-        	getTurnsAgentsResponseTurnsItemEndMetadataFieldDetails            = big.NewInt(1 << 4)
+        	getTurnsAgentsResponseTurnsItemEndMetadataFieldPlaybackDurationMs         = big.NewInt(1 << 0)
+        	getTurnsAgentsResponseTurnsItemEndMetadataFieldIntendedPlaybackDurationMs = big.NewInt(1 << 1)
+        	getTurnsAgentsResponseTurnsItemEndMetadataFieldCausedBy                   = big.NewInt(1 << 2)
+        	getTurnsAgentsResponseTurnsItemEndMetadataFieldTransport                  = big.NewInt(1 << 3)
+        	getTurnsAgentsResponseTurnsItemEndMetadataFieldReason                     = big.NewInt(1 << 4)
+        	getTurnsAgentsResponseTurnsItemEndMetadataFieldDetails                    = big.NewInt(1 << 5)
         )
 
         type GetTurnsAgentsResponseTurnsItemEndMetadata struct {
-        	// The audio playback duration in milliseconds. Included only when `type` is `ok`.
+        	// The actual audio playback duration in milliseconds. Included when `type` is `ok` or `interrupted`.
         	PlaybackDurationMs *int `json:"playback_duration_ms,omitempty" url:"playback_duration_ms,omitempty"`
+        	// The intended audio playback duration in milliseconds. Included only when `type` is `interrupted`.
+        	IntendedPlaybackDurationMs *int `json:"intended_playback_duration_ms,omitempty" url:"intended_playback_duration_ms,omitempty"`
         	// The cause of the turn ending.
         	//
         	// When `type` is `interrupted`, possible values are:
@@ -68413,6 +68457,13 @@ patches:
         		return nil
         	}
         	return g.PlaybackDurationMs
+        }
+
+        func (g *GetTurnsAgentsResponseTurnsItemEndMetadata) GetIntendedPlaybackDurationMs() *int {
+        	if g == nil {
+        		return nil
+        	}
+        	return g.IntendedPlaybackDurationMs
         }
 
         func (g *GetTurnsAgentsResponseTurnsItemEndMetadata) GetCausedBy() *string {
@@ -68459,6 +68510,13 @@ patches:
         func (g *GetTurnsAgentsResponseTurnsItemEndMetadata) SetPlaybackDurationMs(playbackDurationMs *int) {
         	g.PlaybackDurationMs = playbackDurationMs
         	g.require(getTurnsAgentsResponseTurnsItemEndMetadataFieldPlaybackDurationMs)
+        }
+
+        // SetIntendedPlaybackDurationMs sets the IntendedPlaybackDurationMs field and marks it as non-optional;
+        // this prevents an empty or null value for this field from being omitted during serialization.
+        func (g *GetTurnsAgentsResponseTurnsItemEndMetadata) SetIntendedPlaybackDurationMs(intendedPlaybackDurationMs *int) {
+        	g.IntendedPlaybackDurationMs = intendedPlaybackDurationMs
+        	g.require(getTurnsAgentsResponseTurnsItemEndMetadataFieldIntendedPlaybackDurationMs)
         }
 
         // SetCausedBy sets the CausedBy field and marks it as non-optional;
