@@ -15,7 +15,6 @@ import (
 
 	agentcore "github.com/AgoraIO/agora-agents-go/v2/agentkit/core"
 	"github.com/AgoraIO/agora-agents-go/v2/core"
-	"github.com/AgoraIO/agora-agents-go/v2/option"
 	"github.com/AgoraIO/agora-agents-go/v2/v3"
 )
 
@@ -27,7 +26,7 @@ var (
 )
 
 var variableNameRE = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
-var secretPartRE = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
+var secretPartRE = regexp.MustCompile(`^[A-Za-z0-9_]{1,64}$`)
 
 // SecretRef returns a reference accepted by v3 provider credentials.
 // Invalid components panic because the returned string has no error channel.
@@ -234,14 +233,14 @@ func (a *Agent) save(ctx context.Context, name, id string) (*SavedAgent, error) 
 	if !ok || c == nil {
 		return nil, errors.New("agentkit: save requires AgoraClient")
 	}
-	if c.Area == option.AreaCN {
-		return nil, errors.New("agentkit: saved agents in CN are pending backend confirmation")
-	}
 	if name == "" {
 		name = fmt.Sprintf("agent-%d", time.Now().Unix())
 	}
 	body, err := a.toV3(name)
 	if err != nil {
+		return nil, err
+	}
+	if err := validateSavedCredentials(body.Pipeline); err != nil {
 		return nil, err
 	}
 	if id == "" {
@@ -264,6 +263,27 @@ func (a *Agent) save(ctx context.Context, name, id string) (*SavedAgent, error) 
 		return nil, translatePrecondition(err)
 	}
 	return &SavedAgent{ID: r.Body.AgentID, ETag: r.ETag, Name: r.Body.AgentName, Raw: c.V3.Agents, client: c}, nil
+}
+
+func validateSavedCredentials(pipeline *v3.Pipeline) error {
+	if pipeline == nil {
+		return nil
+	}
+	for _, module := range []map[string]any{pipeline.ASR, pipeline.LLM, pipeline.TTS, pipeline.MLLM, pipeline.Avatar} {
+		credential, _ := module["credential"].(map[string]any)
+		fields, _ := credential["fields"].(map[string]string)
+		for name, value := range fields {
+			if !strings.HasPrefix(value, "$secrets.") || !validSecretReference(value) {
+				return fmt.Errorf("agentkit: saved-agent credential %s must use SecretRef(set, key); direct credentials are allowed only in ephemeral session configs", name)
+			}
+		}
+	}
+	return nil
+}
+
+func validSecretReference(value string) bool {
+	parts := strings.Split(value, ".")
+	return len(parts) == 3 && parts[0] == "$secrets" && secretPartRE.MatchString(parts[1]) && secretPartRE.MatchString(parts[2])
 }
 
 // GetSavedAgent loads a stored configuration by ID.
@@ -742,6 +762,7 @@ func convertFillerWords(f map[string]interface{}) (map[string]any, []string) {
 }
 
 func convertModule(name string, input map[string]interface{}) (map[string]any, []string) {
+	bedrockStyle := name == "llm" && input["style"] == "bedrock"
 	allowed := map[string]bool{"vendor": true, "params": true, "url": true}
 	for _, key := range map[string][]string{"asr": {"language", "model"}, "llm": {"style", "model", "input_modalities", "output_modalities", "max_history", "failure_message", "mcp_servers", "tools", "headers"}, "tts": {"headers", "skip_patterns"}, "mllm": {"model", "input_modalities", "output_modalities", "mcp_servers", "headers"}}[name] {
 		allowed[key] = true
@@ -750,6 +771,9 @@ func convertModule(name string, input map[string]interface{}) (map[string]any, [
 	out := map[string]any{}
 	bad := []string{}
 	for k, v := range input {
+		if bedrockStyle && (k == "region" || k == "access_key" || k == "secret_key") {
+			continue
+		}
 		if allowed[k] {
 			out[k] = agentcore.CloneValue(v)
 		} else if !consumed[k] && v != nil {
@@ -760,14 +784,42 @@ func convertModule(name string, input map[string]interface{}) (map[string]any, [
 	if params == nil {
 		params = map[string]interface{}{}
 	}
-	key, _ := input["api_key"].(string)
+	vendor, _ := input["vendor"].(string)
+	if bedrockStyle {
+		if vendor == "" {
+			vendor = "amazon"
+		}
+		out["vendor"] = vendor
+		if region, ok := input["region"]; ok {
+			params["region"] = agentcore.CloneValue(region)
+		}
+	}
+	fields := map[string]string{}
+	if bedrockStyle {
+		for _, field := range []string{"access_key", "secret_key"} {
+			if value, ok := input[field].(string); ok && value != "" {
+				fields[field] = value
+			}
+		}
+	}
+	if key, _ := input["api_key"].(string); key != "" {
+		fields[credentialFieldName(name, vendor, "api_key")] = key
+	}
 	for _, k := range []string{"api_key", "key", "api_subscription_key", "app_key", "spatius_api_key"} {
 		if s, ok := params[k].(string); ok && s != "" {
-			if key != "" && key != s {
+			fieldName := credentialFieldName(name, vendor, k)
+			if prior := fields[fieldName]; prior != "" && prior != s {
 				bad = append(bad, name+".params."+k+" (ambiguous credential)")
 			} else {
-				key = s
+				fields[fieldName] = s
 			}
+			delete(params, k)
+		}
+	}
+	for _, k := range []string{"access_key_id", "secret_access_key", "aws_access_key_id", "aws_secret_access_key", "access_key", "secret_key", "adc_credentials_string", "credentials"} {
+		if value, ok := params[k].(string); ok && value != "" {
+			fieldName := credentialFieldName(name, vendor, k)
+			fields[fieldName] = value
 			delete(params, k)
 		}
 	}
@@ -822,13 +874,52 @@ func convertModule(name string, input map[string]interface{}) (map[string]any, [
 	} else {
 		delete(out, "params")
 	}
-	if key != "" {
-		out["credential"] = map[string]any{"mode": "byok", "api_key": key}
+	if len(fields) > 0 {
+		out["credential"] = map[string]any{"mode": "byok", "fields": fields}
 	} else {
 		out["credential"] = map[string]any{"mode": "managed"}
 		delete(out, "url")
 	}
 	return out, bad
+}
+
+func credentialFieldName(module, vendor, field string) string {
+	switch module {
+	case "asr":
+		switch vendor {
+		case "microsoft", "speechmatics":
+			if field == "api_key" {
+				return "key"
+			}
+		case "google":
+			if field == "api_key" {
+				return "adc_credentials_string"
+			}
+		}
+	case "tts":
+		switch vendor {
+		case "elevenlabs", "humeai", "microsoft", "minimax":
+			if field == "api_key" {
+				return "key"
+			}
+		case "google":
+			if field == "api_key" {
+				return "credentials"
+			}
+		case "sarvam":
+			if field == "api_key" {
+				return "api_subscription_key"
+			}
+		case "amazon":
+			if field == "access_key_id" {
+				return "aws_access_key_id"
+			}
+			if field == "secret_access_key" {
+				return "aws_secret_access_key"
+			}
+		}
+	}
+	return field
 }
 
 func convertTurnDetection(td *TurnDetectionConfig, interruption *InterruptionConfig, mode string) (map[string]any, []string) {
@@ -995,8 +1086,10 @@ func clearMissing(old, new map[string]any, path string) map[string]any {
 			continue
 		}
 		if isModule && k == "credential" {
-			continue
-		} // resolved credentials can contain server-owned metadata
+			vendor, _ := old["vendor"].(string)
+			new[k] = credentialMergePatch(new[k], path[strings.LastIndex(path, ".")+1:], vendor)
+			continue // resolved credentials can contain server-owned metadata
+		}
 		if nv, ok := new[k]; !ok {
 			new[k] = nil
 		} else if nm, ok := nv.(map[string]any); ok {
@@ -1005,12 +1098,84 @@ func clearMissing(old, new map[string]any, path string) map[string]any {
 			}
 		}
 	}
-	if path == "pipeline.asr" || path == "pipeline.llm" || path == "pipeline.tts" || path == "pipeline.mllm" || path == "pipeline.avatar" {
-		if credential, ok := new["credential"].(map[string]any); ok && credential["mode"] == "managed" {
-			credential["api_key"] = nil
+	return new
+}
+
+func credentialMergePatch(value any, module, oldVendor string) any {
+	credential, ok := value.(map[string]any)
+	if !ok {
+		return value
+	}
+	if credential["mode"] == "managed" {
+		credential["fields"] = nil
+		return credential
+	}
+	fields, ok := credential["fields"].(map[string]any)
+	if !ok {
+		if typed, typedOK := credential["fields"].(map[string]string); typedOK {
+			fields = make(map[string]any, len(typed))
+			for key, field := range typed {
+				fields[key] = field
+			}
+			credential["fields"] = fields
 		}
 	}
-	return new
+	if fields != nil {
+		// Credential values are write-only in GET responses. Remove stale
+		// provider keys before overlaying the caller's current SecretRefs.
+		for _, key := range knownCredentialFields(module, oldVendor) {
+			if _, exists := fields[key]; !exists {
+				fields[key] = nil
+			}
+		}
+	}
+	return credential
+}
+
+func knownCredentialFields(module, vendor string) []string {
+	switch module {
+	case "asr":
+		switch vendor {
+		case "amazon":
+			return []string{"api_key", "access_key_id", "secret_access_key"}
+		case "assemblyai", "deepgram", "gemini", "openai", "sarvam", "smallestai", "xai":
+			return []string{"api_key"}
+		case "google":
+			return []string{"adc_credentials_string"}
+		case "microsoft", "speechmatics":
+			return []string{"key"}
+		}
+	case "tts":
+		switch vendor {
+		case "amazon":
+			return []string{"aws_access_key_id", "aws_secret_access_key"}
+		case "elevenlabs", "humeai", "microsoft", "minimax":
+			return []string{"key"}
+		case "google":
+			return []string{"credentials"}
+		case "sarvam":
+			return []string{"api_subscription_key"}
+		default:
+			return []string{"api_key"}
+		}
+	case "llm":
+		if vendor == "amazon" {
+			return []string{"api_key", "access_key", "secret_key"}
+		}
+		return []string{"api_key"}
+	case "mllm":
+		return []string{"api_key"}
+	case "avatar":
+		switch vendor {
+		case "sensetime":
+			return []string{"app_key"}
+		case "spatius":
+			return []string{"spatius_api_key"}
+		default:
+			return []string{"api_key"}
+		}
+	}
+	return nil
 }
 func joinPath(a, b string) string {
 	if a == "" {

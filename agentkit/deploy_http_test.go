@@ -196,7 +196,7 @@ func TestDeployPreservesCascadedInteractionLanguage(t *testing.T) {
 			language := Agora.AsrLanguage("fr-FR")
 			a := NewAgent(c).WithTurnDetection(&TurnDetectionConfig{Language: &language})
 			if withVendor {
-				a = a.WithStt(vendors.NewDeepgramSTT(vendors.DeepgramSTTOptions{APIKey: "asr-key", Model: "nova-3"}))
+				a = a.WithStt(vendors.NewDeepgramSTT(vendors.DeepgramSTTOptions{APIKey: SecretRef("prod", "asr"), Model: "nova-3"}))
 			}
 			if _, err := a.Deploy(context.Background(), DeployOptions{Name: "French"}); err != nil {
 				t.Fatal(err)
@@ -280,7 +280,7 @@ func TestDeployNormalizesLegacyGreetingModes(t *testing.T) {
 				}
 				return v3Reply(201, `{"agent_id":"id","agent_name":"Greeting","create_ts":1,"update_ts":1}`, "e1"), nil
 			})})
-			a := NewAgent(c).WithLlm(vendors.NewOpenAI(vendors.OpenAIOptions{APIKey: "key", BaseURL: "https://api.openai.com/v1/chat/completions", Model: "gpt-4o-mini", GreetingMessage: tc.greeting, GreetingConfigs: tc.config}))
+			a := NewAgent(c).WithLlm(vendors.NewOpenAI(vendors.OpenAIOptions{APIKey: SecretRef("prod", "openai"), BaseURL: "https://api.openai.com/v1/chat/completions", Model: "gpt-4o-mini", GreetingMessage: tc.greeting, GreetingConfigs: tc.config}))
 			_, err := a.Deploy(context.Background(), DeployOptions{Name: "Greeting"})
 			if tc.bad {
 				if !errors.Is(err, ErrUnsupportedField) || calls != 0 {
@@ -320,7 +320,7 @@ func TestDeployUnicodeDescriptionsAndEmptyMessages(t *testing.T) {
 				return v3Reply(201, `{"agent_id":"id","agent_name":"Unicode","create_ts":1,"update_ts":1}`, "e1"), nil
 			})})
 			a := NewAgent(c, WithVariable("outcome", VariableDefinition{Type: "str", Extract: true, Description: description})).WithLlm(vendors.NewOpenAI(vendors.OpenAIOptions{
-				APIKey: "key", BaseURL: "https://api.openai.com/v1/chat/completions", Model: "gpt-4o-mini",
+				APIKey: SecretRef("prod", "openai"), BaseURL: "https://api.openai.com/v1/chat/completions", Model: "gpt-4o-mini",
 				SystemMessages: []map[string]interface{}{{"role": "system", "content": ""}, {"role": "user", "content": ""}},
 			}))
 			if _, err := a.Deploy(context.Background(), DeployOptions{Name: "Unicode"}); err != nil {
@@ -345,7 +345,7 @@ func TestDeployRejectsMissingMessageContent(t *testing.T) {
 	for _, message := range []map[string]interface{}{{"role": "user"}, {"role": "user", "content": nil}} {
 		calls := 0
 		c := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token", HTTPClient: v3HTTPFunc(func(r *http.Request) (*http.Response, error) { calls++; return nil, errors.New("unexpected request") })})
-		a := NewAgent(c).WithLlm(vendors.NewOpenAI(vendors.OpenAIOptions{APIKey: "key", BaseURL: "https://api.openai.com/v1/chat/completions", Model: "gpt-4o-mini", SystemMessages: []map[string]interface{}{message}}))
+		a := NewAgent(c).WithLlm(vendors.NewOpenAI(vendors.OpenAIOptions{APIKey: SecretRef("prod", "openai"), BaseURL: "https://api.openai.com/v1/chat/completions", Model: "gpt-4o-mini", SystemMessages: []map[string]interface{}{message}}))
 		_, err := a.Deploy(context.Background(), DeployOptions{Name: "Missing content"})
 		if !errors.Is(err, ErrUnsupportedField) || calls != 0 {
 			t.Fatalf("message=%#v err=%v calls=%d", message, err, calls)
@@ -375,7 +375,7 @@ func TestDeployAudioGreetingSettingsStayAudioOnly(t *testing.T) {
 					}
 					return v3Reply(201, `{"agent_id":"id","agent_name":"Audio","create_ts":1,"update_ts":1}`, "e1"), nil
 				})})
-				config := vendors.OpenAIOptions{APIKey: "key", BaseURL: "https://api.openai.com/v1/chat/completions", Model: "gpt-4o-mini", GreetingMessage: "Hello", GreetingConfigs: map[string]interface{}{field: 1000}}
+				config := vendors.OpenAIOptions{APIKey: SecretRef("prod", "openai"), BaseURL: "https://api.openai.com/v1/chat/completions", Model: "gpt-4o-mini", GreetingMessage: "Hello", GreetingConfigs: map[string]interface{}{field: 1000}}
 				a := NewAgent(c).WithLlm(vendors.NewOpenAI(config))
 				if audio {
 					a = a.WithGreetingAudioURL("https://example.com/hello.wav")
@@ -484,7 +484,7 @@ func TestSavedAgentUpdateRejectsDifferentClient(t *testing.T) {
 func TestInlineConfigCanStartSessionAndSaveWithoutMutation(t *testing.T) {
 	calls := 0
 	inlineKey := "inline-provider-key"
-	storedAgent := `{"agent_id":"saved1","agent_name":"Support","create_ts":1,"update_ts":1,"pipeline":{"mode":"realtime","mllm":{"vendor":"openai","credential":{"mode":"byok","api_key":"inline-provider-key"},"url":"wss://api.openai.com/v1/realtime","model":"gpt-4o-realtime-preview"}}}`
+	storedAgent := `{"agent_id":"saved1","agent_name":"Support","create_ts":1,"update_ts":1,"pipeline":{"mode":"realtime","mllm":{"vendor":"openai","credential":{"mode":"byok"},"url":"wss://api.openai.com/v1/realtime","model":"gpt-4o-realtime-preview"}}}`
 	httpClient := v3HTTPFunc(func(r *http.Request) (*http.Response, error) {
 		calls++
 		switch calls {
@@ -513,8 +513,9 @@ func TestInlineConfigCanStartSessionAndSaveWithoutMutation(t *testing.T) {
 			pipeline := body["pipeline"].(map[string]any)
 			mllm := pipeline["mllm"].(map[string]any)
 			credential := mllm["credential"].(map[string]any)
-			if credential["api_key"] != inlineKey {
-				t.Fatalf("inline key missing from saved config: %#v", mllm)
+			fields := credential["fields"].(map[string]any)
+			if fields["api_key"] != "$secrets.prod.openai" {
+				t.Fatalf("saved config did not use secret reference: %#v", mllm)
 			}
 			return v3Reply(201, storedAgent, "e1"), nil
 		case 3:
@@ -533,8 +534,9 @@ func TestInlineConfigCanStartSessionAndSaveWithoutMutation(t *testing.T) {
 			pipeline := patch["pipeline"].(map[string]any)
 			mllm := pipeline["mllm"].(map[string]any)
 			credential := mllm["credential"].(map[string]any)
-			if credential["api_key"] != inlineKey {
-				t.Fatalf("inline key missing from updated config: %#v", mllm)
+			fields := credential["fields"].(map[string]any)
+			if fields["api_key"] != "$secrets.prod.openai" {
+				t.Fatalf("updated config did not use secret reference: %#v", mllm)
 			}
 			return v3Reply(200, storedAgent, "e2"), nil
 		default:
@@ -551,11 +553,14 @@ func TestInlineConfigCanStartSessionAndSaveWithoutMutation(t *testing.T) {
 	if _, err := session.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	saved, err := config.Save(context.Background(), SaveOptions{Name: "Support"})
+	savedConfig := config.WithMllm(vendors.NewOpenAIRealtime(vendors.OpenAIRealtimeOptions{
+		APIKey: SecretRef("prod", "openai"), Model: "gpt-4o-realtime-preview",
+	}))
+	saved, err := savedConfig.Save(context.Background(), SaveOptions{Name: "Support"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	updated, err := saved.Update(context.Background(), config)
+	updated, err := saved.Update(context.Background(), savedConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -569,6 +574,18 @@ func TestInlineConfigCanStartSessionAndSaveWithoutMutation(t *testing.T) {
 	mllm := properties["mllm"].(map[string]any)
 	if mllm["api_key"] != inlineKey {
 		t.Fatalf("session/save/update mutated the source config: %#v", mllm)
+	}
+}
+
+func TestSaveRejectsInlineProviderSecretsBeforeHTTP(t *testing.T) {
+	calls := 0
+	c := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token", HTTPClient: v3HTTPFunc(func(*http.Request) (*http.Response, error) {
+		calls++
+		return nil, errors.New("unexpected request")
+	}), V3: &V3Options{BaseURL: "https://stage.example"}})
+	config := NewAgent(c).WithMllm(vendors.NewOpenAIRealtime(vendors.OpenAIRealtimeOptions{APIKey: "inline-secret"}))
+	if _, err := config.Save(context.Background(), SaveOptions{Name: "Unsafe"}); err == nil || calls != 0 {
+		t.Fatalf("inline BYOK credential saved: err=%v calls=%d", err, calls)
 	}
 }
 
@@ -650,6 +667,72 @@ func TestSavedAgentCreateSessionUsesV3SessionLifecycle(t *testing.T) {
 	}
 }
 
+func TestAgentSessionUpdateUsesLimitedV3Patch(t *testing.T) {
+	calls := 0
+	c := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token", V3: &V3Options{BaseURL: "https://stage.example"}, HTTPClient: v3HTTPFunc(func(r *http.Request) (*http.Response, error) {
+		calls++
+		if calls == 1 {
+			if r.Method != http.MethodPost || !strings.HasSuffix(r.URL.Path, "/sessions") {
+				t.Fatalf("start: %s %s", r.Method, r.URL.Path)
+			}
+			return v3Reply(200, `{"agent_session_id":"0123456789abcdef0123456789abcdef","status":"RUNNING"}`, ""), nil
+		}
+		if r.Method != http.MethodPatch || !strings.HasSuffix(r.URL.Path, "/sessions/0123456789abcdef0123456789abcdef") {
+			t.Fatalf("update: %s %s", r.Method, r.URL.Path)
+		}
+		var body v3.SessionPatch
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		if body.Transport == nil || body.Transport.Token != "new-token" || body.Agent == nil {
+			t.Fatalf("patch body: %#v", body)
+		}
+		overrides := body.Agent.Overrides
+		if overrides == nil || overrides.Messages == nil || len(*overrides.Messages) != 1 || overrides.Pipeline == nil || overrides.Pipeline.LLM == nil || overrides.Pipeline.LLM.Params["prompt"] != "updated" {
+			t.Fatalf("legacy update fields did not map into the v3 session patch: %#v", overrides)
+		}
+		return v3Reply(200, `{"agent_session_id":"0123456789abcdef0123456789abcdef","create_ts":1,"status":"RUNNING"}`, ""), nil
+	})})
+	session := (&SavedAgent{ID: "agent", client: c}).CreateSession(CreateSessionOptions{Channel: "room", RemoteUIDs: []string{"2"}})
+	if _, err := session.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	token := "new-token"
+	legacyLLM := &Agora.UpdateAgentsRequestPropertiesLlm{}
+	legacyLLM.SetSystemMessages([]map[string]interface{}{{"role": "user", "content": "hello"}})
+	legacyLLM.SetParams(map[string]interface{}{"prompt": "updated"})
+	properties := &Agora.UpdateAgentsRequestProperties{}
+	properties.SetToken(&token)
+	properties.SetLlm(legacyLLM)
+	if err := session.Update(context.Background(), properties); err != nil || calls != 2 {
+		t.Fatalf("update calls=%d err=%v", calls, err)
+	}
+}
+
+func TestV3UpdatePreservesMessagesWithMLLMParams(t *testing.T) {
+	properties := &Agora.UpdateAgentsRequestProperties{}
+	llm := &Agora.UpdateAgentsRequestPropertiesLlm{}
+	llm.SetSystemMessages([]map[string]interface{}{{"role": "system", "content": "new instructions"}})
+	properties.SetLlm(llm)
+	mllm := &Agora.UpdateAgentsRequestPropertiesMllm{}
+	mllm.SetParams(map[string]interface{}{"temperature": 0.2})
+	properties.SetMllm(mllm)
+	patch, err := sessionPatchFromLegacyProperties(properties)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if patch.Agent == nil || patch.Agent.Overrides == nil || patch.Agent.Overrides.Messages == nil || len(*patch.Agent.Overrides.Messages) != 1 || patch.Agent.Overrides.Pipeline == nil || patch.Agent.Overrides.Pipeline.MLLM == nil {
+		t.Fatalf("message update was lost alongside MLLM params: %#v", patch)
+	}
+	bad := &Agora.UpdateAgentsRequestPropertiesLlm{}
+	bad.SetSystemMessages([]map[string]interface{}{{"role": "user", "content": "hi", "name": "unsupported"}})
+	invalid := &Agora.UpdateAgentsRequestProperties{}
+	invalid.SetLlm(bad)
+	if _, err := sessionPatchFromLegacyProperties(invalid); err == nil {
+		t.Fatal("unsupported legacy message fields were silently discarded")
+	}
+}
+
 func TestAgentConfigWithSecretRefStartsEphemeralV3Session(t *testing.T) {
 	calls := 0
 	c := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token", V3: &V3Options{BaseURL: "https://stage.example"}, HTTPClient: v3HTTPFunc(func(r *http.Request) (*http.Response, error) {
@@ -668,7 +751,7 @@ func TestAgentConfigWithSecretRefStartsEphemeralV3Session(t *testing.T) {
 		pipeline := agent["pipeline"].(map[string]any)
 		mllm := pipeline["mllm"].(map[string]any)
 		credential := mllm["credential"].(map[string]any)
-		if credential["api_key"] != "$secrets.prod.openai" {
+		if credential["fields"].(map[string]any)["api_key"] != "$secrets.prod.openai" {
 			t.Fatalf("secret reference lost: %#v", mllm)
 		}
 		if len(agent["variables"].(map[string]any)) != 1 {
@@ -758,12 +841,6 @@ func TestV3SessionSnapshotsOptionsAndRejectsCN(t *testing.T) {
 		t.Fatal("v3 session exposed legacy raw clients")
 	}
 
-	cnCalls := 0
-	cn := NewAgoraClient(AgoraClientOptions{Area: option.AreaCN, AppID: "app", Token: "token", V3: &V3Options{BaseURL: "https://stage.example"}, HTTPClient: v3HTTPFunc(func(*http.Request) (*http.Response, error) { cnCalls++; return nil, errors.New("unexpected request") })})
-	blocked := (&SavedAgent{ID: "saved", client: cn}).CreateSession(CreateSessionOptions{Channel: "room", AgentUID: "10"})
-	if _, err := blocked.Start(context.Background()); err == nil || cnCalls != 0 {
-		t.Fatalf("CN v3 session was not blocked locally: err=%v calls=%d", err, cnCalls)
-	}
 }
 
 func TestV3SessionRejectsLegacyAndUndocumentedOptionsLocally(t *testing.T) {
@@ -808,7 +885,7 @@ func TestAvatarOnlySecretReferenceSelectsEphemeralSession(t *testing.T) {
 				Pipeline struct {
 					Avatar struct {
 						Credential struct {
-							APIKey string `json:"api_key"`
+							Fields map[string]string `json:"fields"`
 						} `json:"credential"`
 					} `json:"avatar"`
 				} `json:"pipeline"`
@@ -817,7 +894,7 @@ func TestAvatarOnlySecretReferenceSelectsEphemeralSession(t *testing.T) {
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Fatal(err)
 		}
-		if body.Agent.Pipeline.Avatar.Credential.APIKey != "$secrets.avatars.anam" {
+		if body.Agent.Pipeline.Avatar.Credential.Fields["api_key"] != "$secrets.avatars.anam" {
 			t.Fatalf("avatar reference lost: %#v", body)
 		}
 		return v3Reply(200, `{"agent_session_id":"avatar-session","status":"RUNNING","create_ts":1}`, ""), nil

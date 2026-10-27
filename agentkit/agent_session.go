@@ -243,10 +243,6 @@ func newV3AgentSession(agent agentcore.AgentRuntime, client *AgoraClient, opts C
 		session.initErr = errors.New("agentkit: v3 sessions client is required")
 		return session
 	}
-	if client.Area == option.AreaCN {
-		session.initErr = errors.New("agentkit: v3 sessions in CN are pending backend confirmation")
-		return session
-	}
 	session.v3Sessions = client.V3.Sessions
 	if opts.ClientReference != "" {
 		session.initErr = errors.New("agentkit: ClientReference was removed from the v3 session contract")
@@ -331,9 +327,6 @@ func (s *AgentSession) v3StartRequestParts() (v3.SessionTransport, *v3.SessionLi
 	}
 	if strings.TrimSpace(s.channel) == "" {
 		return v3.SessionTransport{}, nil, nil, errors.New("agentkit: v3 session channel is required")
-	}
-	if strings.TrimSpace(s.agentUID) == "" {
-		return v3.SessionTransport{}, nil, nil, errors.New("agentkit: v3 session agent UID is required")
 	}
 	if s.expiresIn != 0 {
 		return v3.SessionTransport{}, nil, nil, errors.New("agentkit: v3 sessions do not support ExpiresIn")
@@ -1061,8 +1054,27 @@ func (s *AgentSession) ThinkWithOptions(
 	return s.agentManagement.AgentThink(ctx, req, reqOpts...)
 }
 
+// Update applies a legacy properties update for v2 sessions or a v3.SessionPatch
+// for v3 sessions. V3 patches only support token and message/LLM/MLLM overrides.
 func (s *AgentSession) Update(ctx context.Context, properties *Agora.UpdateAgentsRequestProperties) error {
-	if err := s.requireV2Operation("Update"); err != nil {
+	if s.backend != sessionBackendV2 {
+		if properties == nil {
+			return errors.New("agentkit: session Update properties are required")
+		}
+		patch, err := sessionPatchFromLegacyProperties(properties)
+		if err != nil {
+			return err
+		}
+		s.mu.RLock()
+		id, status := s.agentID, s.status
+		s.mu.RUnlock()
+		if status != StatusRunning || id == "" {
+			return fmt.Errorf("cannot update v3 session in %s state", status)
+		}
+		if s.v3Sessions == nil {
+			return errors.New("agentkit: v3 sessions client is required")
+		}
+		_, err = s.v3Sessions.Update(ctx, id, patch)
 		return err
 	}
 	s.mu.RLock()
@@ -1086,6 +1098,62 @@ func (s *AgentSession) Update(ctx context.Context, properties *Agora.UpdateAgent
 		Properties: properties,
 	}, reqOpts...)
 	return err
+}
+
+func sessionPatchFromLegacyProperties(properties *Agora.UpdateAgentsRequestProperties) (v3.SessionPatch, error) {
+	var patch v3.SessionPatch
+	if len(properties.GetExtraProperties()) > 0 {
+		return patch, fmt.Errorf("agentkit: v3 session Update does not support extra properties")
+	}
+	if token := properties.GetToken(); token != nil {
+		patch.Transport = &v3.SessionTransportPatch{Token: *token}
+	}
+	if llm := properties.GetLlm(); llm != nil {
+		if len(llm.GetExtraProperties()) > 0 {
+			return patch, fmt.Errorf("agentkit: v3 session Update does not support extra LLM properties")
+		}
+		overrides := &v3.SessionAgentOverridesPatch{}
+		if messages := llm.GetSystemMessages(); messages != nil {
+			converted := make([]v3.Message, 0, len(messages))
+			for i, message := range messages {
+				for key := range message {
+					if key != "role" && key != "content" {
+						return patch, fmt.Errorf("agentkit: v3 session Update message %d has unsupported field %q", i, key)
+					}
+				}
+				role, roleOK := message["role"].(string)
+				content, contentOK := message["content"].(string)
+				if !roleOK || !contentOK || (role != "system" && role != "user" && role != "assistant") {
+					return patch, fmt.Errorf("agentkit: v3 session Update message %d requires a supported role and string content", i)
+				}
+				converted = append(converted, v3.Message{Role: role, Content: content})
+			}
+			overrides.Messages = &converted
+		}
+		if params := llm.GetParams(); params != nil {
+			overrides.Pipeline = &v3.SessionPipelinePatch{LLM: &v3.SessionModulePatch{Params: params}}
+		}
+		if overrides.Messages != nil || overrides.Pipeline != nil {
+			patch.Agent = &v3.SessionAgentPatch{Overrides: overrides}
+		}
+	}
+	if mllm := properties.GetMllm(); mllm != nil {
+		if len(mllm.GetExtraProperties()) > 0 {
+			return patch, fmt.Errorf("agentkit: v3 session Update does not support extra MLLM properties")
+		}
+		if patch.Agent != nil && patch.Agent.Overrides != nil && patch.Agent.Overrides.Pipeline != nil {
+			return patch, fmt.Errorf("agentkit: session Update cannot combine LLM and MLLM overrides")
+		}
+		params := mllm.GetParams()
+		if params != nil {
+			overrides := &v3.SessionAgentOverridesPatch{Pipeline: &v3.SessionPipelinePatch{MLLM: &v3.SessionModulePatch{Params: params}}}
+			if patch.Agent != nil && patch.Agent.Overrides != nil {
+				overrides.Messages = patch.Agent.Overrides.Messages
+			}
+			patch.Agent = &v3.SessionAgentPatch{Overrides: overrides}
+		}
+	}
+	return patch, nil
 }
 
 func (s *AgentSession) GetHistory(ctx context.Context) (*Agora.GetHistoryAgentsResponse, error) {

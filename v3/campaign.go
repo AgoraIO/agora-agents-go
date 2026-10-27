@@ -4,19 +4,19 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"strings"
 )
 
 // CampaignCreate contains the supported inline campaign creation contract.
 // Contacts are immutable after creation. Source numbers must belong to the project.
 type CampaignCreate struct {
-	Name      string             `json:"name"`
-	AgentID   string             `json:"agent_id"`
-	Transport CampaignTransport  `json:"transport"`
-	Contacts  []CampaignContact  `json:"contacts"`
-	Schedule  CampaignSchedule   `json:"schedule"`
-	Lifecycle *CampaignLifecycle `json:"lifecycle,omitempty"`
-	Pacing    *CampaignPacing    `json:"pacing,omitempty"`
+	Name       string             `json:"name"`
+	AgentID    string             `json:"agent_id"`
+	Transport  CampaignTransport  `json:"transport"`
+	Contacts   []CampaignContact  `json:"contacts"`
+	Schedule   CampaignSchedule   `json:"schedule"`
+	Lifecycle  *CampaignLifecycle `json:"lifecycle,omitempty"`
+	Pacing     *CampaignPacing    `json:"pacing,omitempty"`
+	DataPolicy *DataPolicy        `json:"data_policy,omitempty"`
 }
 type CampaignContact struct {
 	Phone  string         `json:"phone"`
@@ -45,6 +45,7 @@ type CampaignEndCallPolicy struct {
 	OnUserRequest          bool `json:"on_user_request,omitempty"`
 	OnFax                  bool `json:"on_fax,omitempty"`
 	OnAIAssistant          bool `json:"on_ai_assistant,omitempty"`
+	OnVoicemail            bool `json:"on_voicemail,omitempty"`
 }
 type CampaignTransferPolicy struct {
 	PhoneNumber string `json:"phone_number"`
@@ -56,13 +57,9 @@ type CampaignLifecycle struct {
 	GracefulStop  *GracefulStop `json:"graceful_stop,omitempty"`
 }
 
-// Retry fields exist in the supplied schema but their runtime behavior is open.
-// The SDK implements no campaign retry or dialing algorithm.
 type CampaignPacing struct {
 	MaxConcurrent     *int `json:"max_concurrent,omitempty"`
 	MaxCallsPerSecond *int `json:"max_calls_per_second,omitempty"`
-	MaxAttempts       *int `json:"max_attempts,omitempty"`
-	RetryBackoffMS    *int `json:"retry_backoff_ms,omitempty"`
 }
 
 // Mode is immediate or scheduled. Scheduled requires timezone, start and end.
@@ -133,8 +130,8 @@ func campaignWriteHeaders(opts []CampaignWriteOptions) (http.Header, error) {
 	headers := http.Header{}
 	if len(opts) == 1 && opts[0].IdempotencyKey != "" {
 		key := opts[0].IdempotencyKey
-		if strings.TrimSpace(key) == "" {
-			return nil, errors.New("v3: idempotency key must not be whitespace-only")
+		if err := validateIdempotencyKey(key); err != nil {
+			return nil, err
 		}
 		headers.Set("Idempotency-Key", key)
 	}

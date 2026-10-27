@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/AgoraIO/agora-agents-go/v2/option"
@@ -140,7 +141,7 @@ func TestSessionWriteRejectsWhitespaceOnlyIdempotencyKey(t *testing.T) {
 }
 
 func TestSessionWriteIdempotencyKeyPreservesOpaqueNonblankValue(t *testing.T) {
-	for _, key := range []string{"", "  key  "} {
+	for _, key := range []string{"", "key:Opaque-!"} {
 		headers, err := sessionWriteHeaders([]SessionWriteOptions{{IdempotencyKey: key}})
 		if err != nil {
 			t.Fatalf("sessionWriteHeaders(%q): %v", key, err)
@@ -151,6 +152,76 @@ func TestSessionWriteIdempotencyKeyPreservesOpaqueNonblankValue(t *testing.T) {
 		if key != "" && headers.Get("Idempotency-Key") != key {
 			t.Fatalf("opaque key was changed: got %q want %q", headers.Get("Idempotency-Key"), key)
 		}
+	}
+}
+
+func TestSessionUpdateUsesLimitedPatchWireShape(t *testing.T) {
+	if encoded, err := json.Marshal(SessionModulePatch{}); err != nil || string(encoded) != `{}` {
+		t.Fatalf("omitted params patch: %s %v", encoded, err)
+	}
+	if encoded, err := json.Marshal(SessionModulePatch{Params: map[string]any{}}); err != nil || string(encoded) != `{"params":{}}` {
+		t.Fatalf("empty params replacement: %s %v", encoded, err)
+	}
+	calls := 0
+	c := NewClient("app", option.WithBaseURL("https://stage.example"), option.WithHTTPClient(httpFunc(func(r *http.Request) (*http.Response, error) {
+		calls++
+		if r.Method != http.MethodPatch || r.URL.Path != "/conversational-ai/v1/projects/app/sessions/0123456789abcdef0123456789abcdef" {
+			t.Fatalf("request: %s %s", r.Method, r.URL.Path)
+		}
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		if len(body) != 2 || body["transport"].(map[string]any)["token"] != "rtc-token" {
+			t.Fatalf("patch body: %#v", body)
+		}
+		params := body["agent"].(map[string]any)["overrides"].(map[string]any)["pipeline"].(map[string]any)["mllm"].(map[string]any)["params"].(map[string]any)
+		if len(params) != 1 || params["prompt"] != "updated" {
+			t.Fatalf("params must replace: %#v", params)
+		}
+		return reply(200, `{"agent_session_id":"0123456789abcdef0123456789abcdef","create_ts":1,"status":"RUNNING"}`, http.Header{"ETag": []string{"s2"}}), nil
+	})))
+	_, err := c.Sessions.Update(context.Background(), "0123456789abcdef0123456789abcdef", SessionPatch{
+		Transport: &SessionTransportPatch{Token: "rtc-token"},
+		Agent:     &SessionAgentPatch{Overrides: &SessionAgentOverridesPatch{Pipeline: &SessionPipelinePatch{MLLM: &SessionModulePatch{Params: map[string]any{"prompt": "updated"}}}}},
+	})
+	if err != nil || calls != 1 {
+		t.Fatalf("update: calls=%d err=%v", calls, err)
+	}
+}
+
+func TestSessionUpdateMakesOneAttempt(t *testing.T) {
+	calls := 0
+	c := NewClient("app", option.WithBaseURL("https://stage.example"), option.WithHTTPClient(httpFunc(func(*http.Request) (*http.Response, error) {
+		calls++
+		return reply(503, `{"detail":"unavailable"}`, nil), nil
+	})))
+	_, err := c.Sessions.Update(context.Background(), "0123456789abcdef0123456789abcdef", SessionPatch{Transport: &SessionTransportPatch{Token: "token"}})
+	if err == nil || calls != 1 {
+		t.Fatalf("patch attempts=%d err=%v", calls, err)
+	}
+}
+
+func TestSessionUpdateRejectsEndpointAliasParamsLocally(t *testing.T) {
+	calls := 0
+	c := NewClient("app", option.WithHTTPClient(httpFunc(func(*http.Request) (*http.Response, error) {
+		calls++
+		return nil, io.ErrUnexpectedEOF
+	})))
+	_, err := c.Sessions.Update(context.Background(), "0123456789abcdef0123456789abcdef", SessionPatch{Agent: &SessionAgentPatch{Overrides: &SessionAgentOverridesPatch{Pipeline: &SessionPipelinePatch{LLM: &SessionModulePatch{Params: map[string]any{"api_base_url": "https://elsewhere"}}}}}})
+	if err == nil || calls != 0 {
+		t.Fatalf("endpoint alias was sent: calls=%d err=%v", calls, err)
+	}
+}
+
+func TestRTCUIDMayBeOmittedForServerAssignment(t *testing.T) {
+	transport := SessionTransport{Type: "rtc", Channel: "support", SubscribeUIDs: []string{"100"}}
+	if err := validateSessionTransport(transport); err != nil {
+		t.Fatalf("auto-assigned UID rejected: %v", err)
+	}
+	encoded, err := json.Marshal(transport)
+	if err != nil || strings.Contains(string(encoded), `"uid"`) {
+		t.Fatalf("UID should be omitted: %s %v", encoded, err)
 	}
 }
 

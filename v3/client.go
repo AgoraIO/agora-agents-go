@@ -147,8 +147,8 @@ func (t *transport) call(ctx context.Context, method, path string, query url.Val
 				continue
 			}
 			for _, value := range values {
-				if strings.TrimSpace(value) == "" {
-					return Response[any]{}, errors.New("v3: Idempotency-Key must not be whitespace-only")
+				if err := validateIdempotencyKey(value); err != nil {
+					return Response[any]{}, err
 				}
 			}
 		}
@@ -183,6 +183,18 @@ func (t *transport) call(ctx context.Context, method, path string, query url.Val
 		return Response[any]{}, err
 	}
 	return Response[any]{Body: output, Header: raw.Header.Clone(), ETag: raw.Header.Get("ETag"), RequestID: raw.Header.Get("Agora-Request-Id"), StatusCode: raw.StatusCode}, nil
+}
+
+func validateIdempotencyKey(value string) error {
+	if len(value) < 1 || len(value) > 256 {
+		return errors.New("v3: Idempotency-Key must contain 1-256 printable ASCII characters")
+	}
+	for _, char := range value {
+		if char < 0x21 || char > 0x7e {
+			return errors.New("v3: Idempotency-Key must contain 1-256 printable ASCII characters")
+		}
+	}
+	return nil
 }
 
 func hasHeader(headers http.Header, target string) bool {
@@ -232,7 +244,7 @@ func (c *AgentsClient) Create(ctx context.Context, body AgentCreate) (*Response[
 		return nil, e
 	}
 	var out Agent
-	// The staging API does not honor Idempotency-Key for agents.
+	// Agent create does not declare Idempotency-Key in the public contract.
 	r, e := c.t.call(ctx, http.MethodPost, p, nil, body, &out, nil, 1)
 	if e != nil {
 		return nil, e
@@ -299,9 +311,68 @@ func (c *AgentsClient) Delete(ctx context.Context, id string) (*Response[Deleted
 
 type SecretsClient struct{ t *transport }
 
+func validateSecretName(value string) error {
+	if len(value) < 1 || len(value) > 64 {
+		return errors.New("v3: secret set/key names must be 1-64 ASCII letters, digits, or underscores")
+	}
+	for _, char := range value {
+		if !((char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9') || char == '_') {
+			return errors.New("v3: secret set/key names must be 1-64 ASCII letters, digits, or underscores")
+		}
+	}
+	return nil
+}
+
+func validateSecretMap(values map[string]string) error {
+	if len(values) == 0 {
+		return errors.New("v3: secret map must contain at least one key")
+	}
+	return validateSecretMapKeys(values)
+}
+
+func validateSecretMapKeys[T any](values map[string]T) error {
+	for key := range values {
+		if err := validateSecretName(key); err != nil {
+			return fmt.Errorf("v3: invalid secret key %q: %w", key, err)
+		}
+	}
+	return nil
+}
+
+func validateSecretUpdateKeys(values map[string]*string) error {
+	for key, value := range values {
+		if err := validateSecretName(key); err == nil {
+			continue
+		}
+		if value == nil && validLegacySecretKey(key) {
+			continue
+		}
+		return fmt.Errorf("v3: secret update key %q must use ASCII letters, digits, or underscores; legacy hyphenated keys may only be deleted with null", key)
+	}
+	return nil
+}
+
+func validLegacySecretKey(value string) bool {
+	if len(value) < 1 || len(value) > 64 || !strings.Contains(value, "-") {
+		return false
+	}
+	for _, char := range value {
+		if !((char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9') || char == '_' || char == '-') {
+			return false
+		}
+	}
+	return true
+}
+
 func (c *SecretsClient) Create(ctx context.Context, body SecretCreate, idempotencyKey string) (*Response[SecretSet], error) {
 	if idempotencyKey != "" {
 		return nil, errors.New("v3: idempotency keys are not supported for secret creation")
+	}
+	if err := validateSecretName(body.Name); err != nil {
+		return nil, err
+	}
+	if err := validateSecretMap(body.Secrets); err != nil {
+		return nil, err
 	}
 	p, e := c.t.path("secrets")
 	if e != nil {
@@ -327,6 +398,9 @@ func (c *SecretsClient) List(ctx context.Context, opts ListOptions) (*Response[P
 	return response(r, out), nil
 }
 func (c *SecretsClient) Get(ctx context.Context, name string) (*Response[SecretSet], error) {
+	if e := validateSecretName(name); e != nil {
+		return nil, e
+	}
 	p, e := c.t.path("secrets", name)
 	if e != nil {
 		return nil, e
@@ -339,6 +413,15 @@ func (c *SecretsClient) Get(ctx context.Context, name string) (*Response[SecretS
 	return response(r, out), nil
 }
 func (c *SecretsClient) Update(ctx context.Context, name, ifMatch string, body SecretUpdate) (*Response[SecretSet], error) {
+	if err := validateSecretName(name); err != nil {
+		return nil, err
+	}
+	if len(body.Secrets) == 0 {
+		return nil, errors.New("v3: secret update requires at least one key")
+	}
+	if err := validateSecretUpdateKeys(body.Secrets); err != nil {
+		return nil, err
+	}
 	p, e := c.t.path("secrets", name)
 	if e != nil {
 		return nil, e
@@ -357,6 +440,12 @@ func (c *SecretsClient) Update(ctx context.Context, name, ifMatch string, body S
 	return response(r, out), nil
 }
 func (c *SecretsClient) Replace(ctx context.Context, name, ifMatch string, body SecretReplace) (*Response[SecretSet], error) {
+	if err := validateSecretName(name); err != nil {
+		return nil, err
+	}
+	if err := validateSecretMap(body.Secrets); err != nil {
+		return nil, err
+	}
 	if e := requiredETag(ifMatch); e != nil {
 		return nil, e
 	}
@@ -378,6 +467,9 @@ func (c *SecretsClient) Replace(ctx context.Context, name, ifMatch string, body 
 	return response(r, out), nil
 }
 func (c *SecretsClient) Delete(ctx context.Context, name, ifMatch string) (*Response[Deleted], error) {
+	if err := validateSecretName(name); err != nil {
+		return nil, err
+	}
 	if e := requiredETag(ifMatch); e != nil {
 		return nil, e
 	}
@@ -399,6 +491,15 @@ func (c *SecretsClient) Delete(ctx context.Context, name, ifMatch string) (*Resp
 	return response(r, out), nil
 }
 func (c *SecretsClient) SetKey(ctx context.Context, name, key string, body SecretKeyWrite, opts SecretKeyOptions) (*Response[SecretKey], error) {
+	if err := validateSecretName(name); err != nil {
+		return nil, err
+	}
+	if err := validateSecretName(key); err != nil {
+		return nil, fmt.Errorf("v3: invalid secret key: %w", err)
+	}
+	if body.Value == "" {
+		return nil, errors.New("v3: secret key value must not be empty")
+	}
 	p, e := c.t.path("secrets", name, "keys", key)
 	if e != nil {
 		return nil, e
@@ -421,6 +522,12 @@ func (c *SecretsClient) SetKey(ctx context.Context, name, key string, body Secre
 	return response(r, out), nil
 }
 func (c *SecretsClient) DeleteKey(ctx context.Context, name, key, ifMatch string) (*Response[Deleted], error) {
+	if err := validateSecretName(name); err != nil {
+		return nil, err
+	}
+	if err := validateSecretName(key); err != nil {
+		return nil, fmt.Errorf("v3: invalid secret key: %w", err)
+	}
 	p, e := c.t.path("secrets", name, "keys", key)
 	if e != nil {
 		return nil, e
@@ -558,6 +665,42 @@ func (c *SessionsClient) Get(ctx context.Context, id string) (*Response[Session]
 	return response(r, out), nil
 }
 
+// Update applies the session's limited runtime patch. Params are full
+// replacements when included; credentials and provider selection cannot change.
+func (c *SessionsClient) Update(ctx context.Context, id string, patch SessionPatch) (*Response[Session], error) {
+	if patch.Transport != nil && strings.TrimSpace(patch.Transport.Token) == "" {
+		return nil, errors.New("v3: session update token must be non-empty")
+	}
+	if patch.Agent != nil && patch.Agent.Overrides != nil && patch.Agent.Overrides.Pipeline != nil && patch.Agent.Overrides.Pipeline.LLM != nil && patch.Agent.Overrides.Pipeline.MLLM != nil {
+		return nil, errors.New("v3: session update cannot patch llm and mllm at the same time")
+	}
+	if patch.Agent != nil && patch.Agent.Overrides != nil && patch.Agent.Overrides.Pipeline != nil {
+		pipeline := patch.Agent.Overrides.Pipeline
+		for _, module := range []*SessionModulePatch{pipeline.LLM, pipeline.MLLM} {
+			if module == nil {
+				continue
+			}
+			for key := range module.Params {
+				switch strings.ToLower(key) {
+				case "url", "base_url", "api_base_url", "endpoint":
+					return nil, fmt.Errorf("v3: session update cannot change provider endpoint through params.%s", key)
+				}
+			}
+		}
+	}
+	p, err := c.t.path("sessions", id)
+	if err != nil {
+		return nil, err
+	}
+	var out Session
+	raw, err := c.t.call(ctx, http.MethodPatch, p, nil, patch, &out, nil, 1)
+	if err != nil {
+		return nil, err
+	}
+	normalizeSessionResponse(&out)
+	return response(raw, out), nil
+}
+
 // Start creates a running session from a saved agent configuration.
 func (c *SessionsClient) Start(ctx context.Context, body SessionStartRequest, opts ...SessionWriteOptions) (*Response[Session], error) {
 	if len(opts) > 1 {
@@ -633,8 +776,8 @@ func sessionWriteHeaders(opts []SessionWriteOptions) (http.Header, error) {
 	h := http.Header{}
 	if len(opts) > 0 && opts[0].IdempotencyKey != "" {
 		key := opts[0].IdempotencyKey
-		if strings.TrimSpace(key) == "" {
-			return nil, errors.New("v3: idempotency key must not be whitespace-only")
+		if err := validateIdempotencyKey(key); err != nil {
+			return nil, err
 		}
 		h.Set("Idempotency-Key", key)
 	}
@@ -684,13 +827,13 @@ func validateSessionTransport(t SessionTransport) error {
 	if strings.TrimSpace(t.Channel) == "" {
 		return errors.New("v3: session transport channel is required")
 	}
-	if !validRTCUID(t.UID, true) {
+	if t.UID != "" && !validRTCUID(t.UID, true) {
 		return errors.New("v3: session transport uid must be a numeric UID string or a non-empty string UID")
 	}
 	if len(t.SubscribeUIDs) != 1 || !validRTCUID(t.SubscribeUIDs[0], false) {
 		return errors.New("v3: session transport requires exactly one valid subscribe UID")
 	}
-	if t.UID != "0" && isNumericUID(t.UID) != isNumericUID(t.SubscribeUIDs[0]) {
+	if t.UID != "" && t.UID != "0" && isNumericUID(t.UID) != isNumericUID(t.SubscribeUIDs[0]) {
 		return errors.New("v3: agent and subscriber UIDs must use the same UID type")
 	}
 	if t.AudioScenario != "" && t.AudioScenario != "aiserver" && t.AudioScenario != "chorus" {

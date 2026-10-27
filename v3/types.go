@@ -1,5 +1,7 @@
-// Package v3 exposes the staged Conversational AI v3 resource API. The Go
-// module's /v2 suffix is its semantic major version, not the REST API version.
+// Package v3 exposes the hand-maintained Conversational AI v3 preview resources.
+// Its wire contract is checked against the repository-root openapi.json snapshot;
+// it is not produced by the Fern generator. The module's /v2 suffix is the Go
+// module major version, not the REST API version.
 package v3
 
 import (
@@ -55,7 +57,7 @@ type Greeting struct {
 }
 
 // ProviderModule keeps provider-specific params open while typing the stable
-// credential envelope. Values returned by the API omit write-only api_key.
+// credential envelope. Values returned by the API omit write-only credential fields.
 type ProviderModule struct {
 	Vendor           string            `json:"vendor"`
 	Credential       *Credential       `json:"credential,omitempty"`
@@ -75,8 +77,8 @@ type ProviderModule struct {
 	SkipPatterns     []string          `json:"skip_patterns,omitempty"`
 }
 type Credential struct {
-	Mode   string `json:"mode"`
-	APIKey string `json:"api_key,omitempty"`
+	Mode   string            `json:"mode"`
+	Fields map[string]string `json:"fields,omitempty"`
 }
 
 // Pipeline holds the common union discriminator and provider modules. Extra
@@ -159,11 +161,12 @@ type SipAuth struct {
 	Password string `json:"password"`
 }
 type SipTrunk struct {
-	Name      *string  `json:"name,omitempty"`
-	Hostname  string   `json:"hostname"`
-	Port      *int     `json:"port,omitempty"`
-	Transport string   `json:"transport,omitempty"`
-	Auth      *SipAuth `json:"auth,omitempty"`
+	Name       *string   `json:"name,omitempty"`
+	Hostname   string    `json:"hostname"`
+	Port       *int      `json:"port,omitempty"`
+	Transport  string    `json:"transport,omitempty"`
+	Auth       *SipAuth  `json:"auth,omitempty"`
+	AllowedIPs *[]string `json:"allowed_ips,omitempty"`
 }
 type Inbound struct {
 	Agent      *string        `json:"agent"`
@@ -186,24 +189,48 @@ type Number struct {
 }
 type NumberListItem = Number
 
-type SessionAnalysis struct {
-	Status     string         `json:"status"`
-	Result     map[string]any `json:"result"`
-	SkipReason *string        `json:"skip_reason"`
-	CompleteTS *int64         `json:"complete_ts"`
-	Error      *string        `json:"error"`
-}
 type Session struct {
 	AgentSessionID string `json:"agent_session_id"`
 	CreateTS       int64  `json:"create_ts,omitempty"`
 	// CreatedAt accepts the rollout-era response field. New responses use CreateTS.
-	CreatedAt json.RawMessage  `json:"created_at,omitempty"`
-	StartTS   int64            `json:"start_ts"`
-	StopTS    *int64           `json:"stop_ts"`
-	Status    string           `json:"status"`
-	AgentName string           `json:"agent_name"`
-	Message   *string          `json:"message"`
-	Analysis  *SessionAnalysis `json:"analysis"`
+	CreatedAt json.RawMessage `json:"created_at,omitempty"`
+	StartTS   int64           `json:"start_ts"`
+	StopTS    *int64          `json:"stop_ts"`
+	Status    string          `json:"status"`
+	AgentName string          `json:"agent_name"`
+	Message   *string         `json:"message"`
+}
+
+// SessionPatch updates only a running session's RTC token and supported agent
+// overrides. Pipeline params are complete replacements when supplied.
+type SessionPatch struct {
+	Transport *SessionTransportPatch `json:"transport,omitempty"`
+	Agent     *SessionAgentPatch     `json:"agent,omitempty"`
+}
+type SessionTransportPatch struct {
+	Token string `json:"token"`
+}
+type SessionAgentPatch struct {
+	Overrides *SessionAgentOverridesPatch `json:"overrides,omitempty"`
+}
+type SessionAgentOverridesPatch struct {
+	Messages *[]Message            `json:"messages,omitempty"`
+	Pipeline *SessionPipelinePatch `json:"pipeline,omitempty"`
+}
+type SessionPipelinePatch struct {
+	LLM  *SessionModulePatch `json:"llm,omitempty"`
+	MLLM *SessionModulePatch `json:"mllm,omitempty"`
+}
+type SessionModulePatch struct {
+	Params map[string]any `json:"params"`
+}
+
+func (p SessionModulePatch) MarshalJSON() ([]byte, error) {
+	body := map[string]any{}
+	if p.Params != nil {
+		body["params"] = p.Params
+	}
+	return json.Marshal(body)
 }
 
 // SessionTransport describes the RTC connection associated with a session.

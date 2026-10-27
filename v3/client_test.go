@@ -294,6 +294,65 @@ func TestNumberCreateRejectsIdempotencyKey(t *testing.T) {
 	}
 }
 
+func TestSecretWritesValidateContractIdentifiersLocally(t *testing.T) {
+	calls := 0
+	c := NewClient("app", option.WithHTTPClient(httpFunc(func(*http.Request) (*http.Response, error) {
+		calls++
+		return nil, errors.New("unexpected request")
+	})))
+	checks := []func() error{
+		func() error {
+			_, err := c.Secrets.Create(context.Background(), SecretCreate{Name: "bad-name", Secrets: map[string]string{"key": "v"}}, "")
+			return err
+		},
+		func() error {
+			_, err := c.Secrets.Create(context.Background(), SecretCreate{Name: "ok", Secrets: map[string]string{"bad-key": "v"}}, "")
+			return err
+		},
+		func() error {
+			_, err := c.Secrets.SetKey(context.Background(), "ok", "bad-key", SecretKeyWrite{Value: "v"}, SecretKeyOptions{})
+			return err
+		},
+		func() error {
+			_, err := c.Secrets.SetKey(context.Background(), "ok", "key", SecretKeyWrite{}, SecretKeyOptions{})
+			return err
+		},
+	}
+	for i, check := range checks {
+		if err := check(); err == nil {
+			t.Errorf("case %d was accepted", i)
+		}
+	}
+	if calls != 0 {
+		t.Fatalf("invalid secret inputs reached HTTP: %d requests", calls)
+	}
+	if err := validateSecretUpdateKeys(map[string]*string{"legacy-key": nil}); err != nil {
+		t.Fatalf("legacy null key deletion was rejected: %v", err)
+	}
+	value := "replacement"
+	if err := validateSecretUpdateKeys(map[string]*string{"legacy-key": &value}); err == nil {
+		t.Fatal("legacy hyphenated key write was accepted")
+	}
+}
+
+func TestSIPAllowedIPsSupportsOmitAndExplicitClear(t *testing.T) {
+	plain, err := json.Marshal(NumberCreate{Number: "+12025550123", SipTrunk: SipTrunk{Hostname: "sip.example.com"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(plain), "allowed_ips") {
+		t.Fatalf("omitted field was included: %s", plain)
+	}
+	empty := []string{}
+	cleared, err := json.Marshal(NumberCreate{Number: "+12025550123", SipTrunk: SipTrunk{Hostname: "sip.example.com", AllowedIPs: &empty}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(cleared), `"allowed_ips":[]`) {
+		t.Fatalf("explicit empty list was lost: %s", cleared)
+	}
+}
+
 func TestDotSegmentsNeverReachHTTP(t *testing.T) {
 	for _, id := range []string{".", ".."} {
 		t.Run(id, func(t *testing.T) {

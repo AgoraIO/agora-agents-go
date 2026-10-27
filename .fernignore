@@ -27,6 +27,8 @@ go.sum
 .fern/replay.lock
 .fern/replay.yml
 .gitattributes
+openapi.json
+openapi.yaml
 
 # Public token policy and shared transport corrections are hand-maintained.
 core/request_option.go

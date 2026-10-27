@@ -29,7 +29,7 @@ func TestDeployMappingAndStrictFields(t *testing.T) {
 		t.Fatalf("model missing: %#v", body.Pipeline.LLM)
 	}
 	credential := body.Pipeline.LLM["credential"].(map[string]any)
-	if credential["api_key"] != "$secrets.prod.openai" {
+	if credential["fields"].(map[string]string)["api_key"] != "$secrets.prod.openai" {
 		t.Fatalf("credential missing: %#v", credential)
 	}
 	if _, ok := body.Pipeline.LLM["api_key"]; ok {
@@ -79,7 +79,7 @@ func TestV3AvatarCredentialsLeaveParams(t *testing.T) {
 				t.Fatalf("provider credential remained in params: %#v", params)
 			}
 			credential, _ := converted["credential"].(map[string]any)
-			if credential["api_key"] != secret {
+			if credential["fields"].(map[string]string)[tc.key] != secret {
 				t.Fatalf("provider credential was not extracted: %#v", credential)
 			}
 
@@ -90,7 +90,7 @@ func TestV3AvatarCredentialsLeaveParams(t *testing.T) {
 				t.Fatalf("supported v3 avatar vendor should map: %v", err)
 			}
 			avatar := body.Pipeline.Avatar
-			if avatar["vendor"] != tc.vendor || avatar["credential"].(map[string]any)["api_key"] != secret {
+			if avatar["vendor"] != tc.vendor || avatar["credential"].(map[string]any)["fields"].(map[string]string)[tc.key] != secret {
 				t.Fatalf("avatar credentials were not mapped: %#v", avatar)
 			}
 			if params, _ := avatar["params"].(map[string]any); params != nil {
@@ -99,6 +99,67 @@ func TestV3AvatarCredentialsLeaveParams(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestV3CredentialFieldsUseProviderNames(t *testing.T) {
+	cases := []struct {
+		module, vendor, source, want string
+	}{
+		{"asr", "microsoft", "api_key", "key"},
+		{"asr", "google", "api_key", "adc_credentials_string"},
+		{"tts", "elevenlabs", "api_key", "key"},
+		{"tts", "google", "api_key", "credentials"},
+		{"tts", "sarvam", "api_key", "api_subscription_key"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.module+"/"+tc.vendor, func(t *testing.T) {
+			converted, bad := convertModule(tc.module, map[string]interface{}{"vendor": tc.vendor, "api_key": "provider-secret"})
+			if len(bad) > 0 {
+				t.Fatalf("conversion rejected: %v", bad)
+			}
+			credential := converted["credential"].(map[string]any)
+			fields := credential["fields"].(map[string]string)
+			if fields[tc.want] != "provider-secret" {
+				t.Fatalf("wrong credential field: %#v", fields)
+			}
+			if _, exists := fields[tc.source]; tc.source != tc.want && exists {
+				t.Fatalf("generic key leaked: %#v", fields)
+			}
+		})
+	}
+}
+
+func TestAmazonBedrockV3MappingUsesAmazonCredentialsAndRegionParam(t *testing.T) {
+	config := vendors.NewAmazonBedrock(vendors.AmazonBedrockOptions{AccessKey: "access", SecretKey: "secret", Region: "us-east-1", Model: "foundation-model"})
+	a := NewAgent(NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token"})).WithLlm(config)
+	body, err := a.toV3("Bedrock")
+	if err != nil {
+		t.Fatal(err)
+	}
+	llm := body.Pipeline.LLM
+	if llm["vendor"] != "amazon" || llm["style"] != "bedrock" {
+		t.Fatalf("Bedrock provider mapping: %#v", llm)
+	}
+	fields := llm["credential"].(map[string]any)["fields"].(map[string]string)
+	if fields["access_key"] != "access" || fields["secret_key"] != "secret" {
+		t.Fatalf("Bedrock credentials: %#v", fields)
+	}
+	if llm["params"].(map[string]any)["region"] != "us-east-1" {
+		t.Fatalf("Bedrock region missing: %#v", llm["params"])
+	}
+}
+
+func TestRedeployClearsOnlyOldVendorCredentialFields(t *testing.T) {
+	old := v3.Agent{AgentID: "id", AgentName: "Old", Pipeline: []byte(`{"mode":"cascaded","llm":{"vendor":"openai","credential":{"mode":"byok"}}}`)}
+	next := v3.AgentCreate{AgentName: "New", Pipeline: &v3.Pipeline{Mode: "cascaded", LLM: map[string]any{"vendor": "amazon", "credential": map[string]any{"mode": "byok", "fields": map[string]string{"access_key": "$secrets.prod.access", "secret_key": "$secrets.prod.secret"}}}}}
+	patch, err := deployPatch(old, next)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fields := patch["pipeline"].(map[string]any)["llm"].(map[string]any)["credential"].(map[string]any)["fields"].(map[string]any)
+	if fields["api_key"] != nil || fields["access_key"] != "$secrets.prod.access" || fields["secret_key"] != "$secrets.prod.secret" || len(fields) != 3 {
+		t.Fatalf("credential patch has stale or unnecessary fields: %#v", fields)
 	}
 }
 
@@ -116,7 +177,7 @@ func TestRedeployClearsNestedStaleFieldsAndKeepsMetadataOut(t *testing.T) {
 		t.Fatalf("stale param not cleared: %#v", params)
 	}
 	cred := llm["credential"].(map[string]any)
-	if value, ok := cred["api_key"]; !ok || value != nil {
+	if value, ok := cred["fields"]; !ok || value != nil {
 		t.Fatalf("managed reset absent: %#v", cred)
 	}
 	if _, ok := cred["resolved_key_id"]; ok {

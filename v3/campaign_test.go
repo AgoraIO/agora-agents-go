@@ -193,14 +193,13 @@ func TestCampaignWriteRejectsWhitespaceOnlyIdempotencyKey(t *testing.T) {
 }
 
 func TestCampaignRequiredEmptyAndZeroFieldsMarshal(t *testing.T) {
-	zero := 0
 	off := false
-	body := CampaignCreate{Name: "name", AgentID: "id", Transport: CampaignTransport{Type: "telephony", From: []string{"number"}, CallPolicy: &CampaignCallPolicy{EndCall: &CampaignEndCallPolicy{}, Voicemail: &CampaignVoicemailPolicy{Mode: "continue"}}}, Contacts: []CampaignContact{}, Schedule: CampaignSchedule{Mode: "scheduled", Timezone: "America/New_York", Start: "2027-01-01T09:00", End: "2027-01-02T17:00"}, Pacing: &CampaignPacing{RetryBackoffMS: &zero}, Lifecycle: &CampaignLifecycle{IdleTimeoutMS: &zero, GracefulStop: &GracefulStop{Enabled: off}}}
+	body := CampaignCreate{Name: "name", AgentID: "id", Transport: CampaignTransport{Type: "telephony", From: []string{"number"}, CallPolicy: &CampaignCallPolicy{EndCall: &CampaignEndCallPolicy{OnVoicemail: true}, Voicemail: &CampaignVoicemailPolicy{Mode: "continue"}}}, Contacts: []CampaignContact{}, Schedule: CampaignSchedule{Mode: "scheduled", Timezone: "America/New_York", Start: "2027-01-01T09:00", End: "2027-01-02T17:00"}, DataPolicy: &DataPolicy{Retention: "none"}, Lifecycle: &CampaignLifecycle{GracefulStop: &GracefulStop{Enabled: off}}}
 	encoded, err := json.Marshal(body)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, fragment := range []string{`"contacts":[]`, `"retry_backoff_ms":0`, `"idle_timeout_ms":0`, `"end_call":{}`} {
+	for _, fragment := range []string{`"contacts":[]`, `"data_policy":{"retention":"none"}`, `"on_voicemail":true`, `"end_call":{"on_voicemail":true}`} {
 		if !strings.Contains(string(encoded), fragment) {
 			t.Fatalf("lost field %s in %s", fragment, encoded)
 		}
