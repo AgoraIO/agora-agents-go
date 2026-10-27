@@ -62,7 +62,7 @@ Requires Go 1.21 or later.
 | [Advanced](./guides/advanced.md) | Headers, retries, timeouts, raw response, custom HTTP client |
 | [Low-Level API](./guides/low-level-api.md) | Generated REST APIs |
 | [Agent workflows](./guides/saving-agents.md) | Configure, run with the existing session flow, save/update configurations, secrets, and number assignment |
-| [Conversational AI v3 preview](./guides/v3-preview.md) | Staging setup, transport details, all 23 low-level v3 operations, and limits |
+| [Conversational AI v3 preview](./guides/v3-preview.md) | Staging setup, transport details, all 31 low-level operations, and limits |
 | [Preview Endpoint](./guides/preview-endpoint.md) | Session-scoped preview routing for providers under development |
 | [Client Reference](./reference/client.md) | Constructor options, public methods |
 | [v3 Preview Reference](./reference/v3.md) | v3 resource types and operation index |

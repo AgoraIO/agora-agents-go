@@ -17,19 +17,19 @@ func TestSessionStartEphemeralAndStopContracts(t *testing.T) {
 		calls++
 		switch calls {
 		case 1:
-			if r.Method != http.MethodPost || r.URL.Path != "/conversational-ai/v3/projects/app/sessions" {
+			if r.Method != http.MethodPost || r.URL.Path != "/conversational-ai/v1/projects/app/sessions" {
 				t.Fatalf("start request: %s %s", r.Method, r.URL.Path)
 			}
 			var body map[string]any
 			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 				t.Fatal(err)
 			}
-			if body["agent_id"] != "agent1" || body["client_reference"] != "caller-1" {
+			if body["agent_id"] != "agent1" || body["client_reference"] != nil || r.Header.Get("Idempotency-Key") != "session-key" {
 				t.Fatalf("saved session body: %#v", body)
 			}
-			return reply(201, `{"agent_session_id":"session1","status":"running","created_at":"2026-10-19T00:00:00Z"}`, http.Header{"Location": []string{"/sessions/session1"}}), nil
+			return reply(200, `{"agent_session_id":"session1","status":"starting","created_at":1781827200}`, http.Header{"Location": []string{"/sessions/session1"}}), nil
 		case 2:
-			if r.Method != http.MethodPost || r.URL.Path != "/conversational-ai/v3/projects/app/sessions/ephemeral" {
+			if r.Method != http.MethodPost || r.URL.Path != "/conversational-ai/v1/projects/app/sessions/ephemeral" {
 				t.Fatalf("ephemeral request: %s %s", r.Method, r.URL.Path)
 			}
 			var body map[string]any
@@ -43,9 +43,12 @@ func TestSessionStartEphemeralAndStopContracts(t *testing.T) {
 			if _, has := agent["agent_name"]; has {
 				t.Fatal("ephemeral agent must not include agent_name")
 			}
+			if body["labels"].(map[string]any)["owner"] != "support" {
+				t.Fatalf("ephemeral labels missing: %#v", body["labels"])
+			}
 			return reply(201, `{"agent_session_id":"session2","status":"RUNNING","created_at":1781827200}`, nil), nil
 		case 3:
-			if r.Method != http.MethodPost || r.URL.Path != "/conversational-ai/v3/projects/app/sessions/session1/stop" {
+			if r.Method != http.MethodPost || r.URL.Path != "/conversational-ai/v1/projects/app/sessions/session1/stop" {
 				t.Fatalf("stop request: %s %s", r.Method, r.URL.Path)
 			}
 			if r.Body != nil {
@@ -61,15 +64,16 @@ func TestSessionStartEphemeralAndStopContracts(t *testing.T) {
 		}
 	})))
 	transport := SessionTransport{Type: "rtc", Channel: "room", UID: "1001", SubscribeUIDs: []string{"1002"}}
-	started, err := c.Sessions.Start(ctx, SessionStartRequest{AgentID: "agent1", ClientReference: "caller-1", Transport: transport})
-	if err != nil || started.StatusCode != http.StatusCreated || started.Body.AgentSessionID != "session1" || started.Body.Status != "running" || len(started.Body.CreatedAt) == 0 || started.Header.Get("Location") != "/sessions/session1" {
+	started, err := c.Sessions.Start(ctx, SessionStartRequest{AgentID: "agent1", Labels: map[string]string{"owner": "x"}, Values: map[string]any{"customer": "Ada"}, Transport: transport}, SessionWriteOptions{IdempotencyKey: "session-key"})
+	if err != nil || started.StatusCode != http.StatusOK || started.Body.AgentSessionID != "session1" || started.Body.Status != "STARTING" || started.Body.CreateTS != 1781827200 || len(started.Body.CreatedAt) == 0 || started.Header.Get("Location") != "/sessions/session1" {
 		t.Fatalf("start response: %#v err=%v", started, err)
 	}
 	ephemeral, err := c.Sessions.StartEphemeral(ctx, SessionStartEphemeralRequest{
 		Agent:     EphemeralAgent{Instructions: strPtr("say hello"), Pipeline: &Pipeline{Mode: "realtime"}},
+		Labels:    map[string]string{"owner": "support"},
 		Transport: transport,
 	})
-	if err != nil || ephemeral.Body.AgentSessionID != "session2" || ephemeral.Body.Status != "RUNNING" {
+	if err != nil || ephemeral.Body.AgentSessionID != "session2" || ephemeral.Body.Status != "RUNNING" || ephemeral.Body.CreateTS != 1781827200 {
 		t.Fatalf("ephemeral response: %#v err=%v", ephemeral, err)
 	}
 	stopped, err := c.Sessions.Stop(ctx, "session1")
@@ -85,11 +89,8 @@ func TestSessionWritesRejectUnsupportedInputsBeforeHTTP(t *testing.T) {
 		return reply(201, `{}`, nil), nil
 	})))
 	transport := SessionTransport{Type: "rtc", Channel: "room", UID: "1001"}
-	if _, err := c.Sessions.Start(context.Background(), SessionStartRequest{AgentID: "agent1", Transport: transport, Lifecycle: &SessionLifecycle{IdleTimeoutMS: intPtrTest(-1)}}); err == nil {
+	if _, err := c.Sessions.Start(context.Background(), SessionStartRequest{AgentID: "agent1", Transport: transport, Lifecycle: &SessionLifecycle{MaxDurationMS: intPtrTest(0)}}); err == nil {
 		t.Fatal("expected invalid lifecycle error")
-	}
-	if _, err := c.Sessions.StartEphemeral(context.Background(), SessionStartEphemeralRequest{Agent: EphemeralAgent{Pipeline: &Pipeline{Mode: "realtime"}}, Transport: transport, Labels: map[string]string{"x": "y"}}); err == nil {
-		t.Fatal("expected ephemeral-label error")
 	}
 	if calls != 0 {
 		t.Fatalf("invalid requests reached transport: %d", calls)
@@ -112,11 +113,33 @@ func TestSessionWritesAllowZeroLifecycleTimeout(t *testing.T) {
 	})))
 	zero := 0
 	_, err := c.Sessions.Start(context.Background(), SessionStartRequest{
-		AgentID: "agent1", Transport: SessionTransport{Type: "rtc", Channel: "room", UID: "1"},
+		AgentID: "agent1", Transport: SessionTransport{Type: "rtc", Channel: "room", UID: "1", SubscribeUIDs: []string{"2"}},
 		Lifecycle: &SessionLifecycle{IdleTimeoutMS: &zero},
 	})
 	if err != nil || calls != 1 {
 		t.Fatalf("zero timeout rejected: err=%v calls=%d", err, calls)
+	}
+}
+
+func TestSessionTransportRTCUIDAndTelephonyVariants(t *testing.T) {
+	cases := []struct {
+		name      string
+		transport SessionTransport
+		valid     bool
+	}{
+		{name: "zero selects string UID", transport: SessionTransport{Type: "rtc", Channel: "room", UID: "0", SubscribeUIDs: []string{"agent-user"}}, valid: true},
+		{name: "wildcard subscriber", transport: SessionTransport{Type: "rtc", Channel: "room", UID: "agent-user", SubscribeUIDs: []string{"*"}}},
+		{name: "blank string UID", transport: SessionTransport{Type: "rtc", Channel: "room", UID: " ", SubscribeUIDs: []string{"user"}}},
+		{name: "telephony", transport: SessionTransport{Type: "telephony", From: "number-uuid", To: "+12025550123", CallPolicy: &CampaignCallPolicy{}}, valid: true},
+		{name: "invalid phone", transport: SessionTransport{Type: "telephony", From: "number-uuid", To: "2025550123"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateSessionTransport(tc.transport)
+			if (err == nil) != tc.valid {
+				t.Fatalf("validateSessionTransport(%#v) err=%v, valid=%t", tc.transport, err, tc.valid)
+			}
+		})
 	}
 }
 

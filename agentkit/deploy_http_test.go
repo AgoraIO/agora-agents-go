@@ -12,6 +12,7 @@ import (
 
 	Agora "github.com/AgoraIO/agora-agents-go/v2"
 	"github.com/AgoraIO/agora-agents-go/v2/agentkit/vendors"
+	"github.com/AgoraIO/agora-agents-go/v2/core"
 	"github.com/AgoraIO/agora-agents-go/v2/option"
 	"github.com/AgoraIO/agora-agents-go/v2/v3"
 )
@@ -31,7 +32,7 @@ func TestDeployUpdateUsesFreshETagAndClearsStale(t *testing.T) {
 	calls := 0
 	httpClient := v3HTTPFunc(func(r *http.Request) (*http.Response, error) {
 		calls++
-		if r.URL.Path != "/conversational-ai/v3/projects/app/agents/id" {
+		if r.URL.Path != "/conversational-ai/v1/projects/app/agents/id" {
 			t.Fatalf("path: %s", r.URL.Path)
 		}
 		switch calls {
@@ -59,7 +60,7 @@ func TestDeployUpdateUsesFreshETagAndClearsStale(t *testing.T) {
 			return nil, nil
 		}
 	})
-	c := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token", HTTPClient: httpClient, V3: &V3Options{BaseURL: "https://stage.example", Headers: http.Header{"X-Studio-V2-Gateway-Secret": []string{"gateway"}}}})
+	c := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token", HTTPClient: httpClient, V3: &V3Options{BaseURL: "https://stage.example"}})
 	a := NewAgent(c)
 	d, err := a.Deploy(context.Background(), DeployOptions{Name: "New", AgentID: "id"})
 	if err != nil {
@@ -392,6 +393,26 @@ func TestDeployAudioGreetingSettingsStayAudioOnly(t *testing.T) {
 	}
 }
 
+func TestManagedProviderOmitsURLsButBYOKRetainsThem(t *testing.T) {
+	managed, bad := convertModule("llm", map[string]interface{}{"vendor": "openai", "url": "https://managed.invalid", "params": map[string]interface{}{"base_url": "https://also.invalid", "temperature": 0.3}})
+	if len(bad) > 0 {
+		t.Fatalf("managed module conversion: %v", bad)
+	}
+	if _, ok := managed["url"]; ok {
+		t.Fatalf("managed top-level URL should be omitted: %#v", managed)
+	}
+	if _, ok := managed["params"].(map[string]interface{})["url"]; ok {
+		t.Fatalf("managed params URL should be omitted: %#v", managed)
+	}
+	byok, bad := convertModule("llm", map[string]interface{}{"vendor": "openai", "api_key": "secret", "url": "https://byok.example/v1", "params": map[string]interface{}{"temperature": 0.3}})
+	if len(bad) > 0 {
+		t.Fatalf("BYOK module conversion: %v", bad)
+	}
+	if byok["url"] != "https://byok.example/v1" || byok["credential"].(map[string]any)["mode"] != "byok" {
+		t.Fatalf("BYOK URL/credential lost: %#v", byok)
+	}
+}
+
 func TestSaveSavedAgentUpdateAndProjectResourceAliases(t *testing.T) {
 	calls := 0
 	httpClient := v3HTTPFunc(func(r *http.Request) (*http.Response, error) {
@@ -564,23 +585,29 @@ func TestSavedAgentCreateSessionUsesV3SessionLifecycle(t *testing.T) {
 			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 				t.Fatal(err)
 			}
-			if body["agent_id"] != "saved1" || body["client_reference"] != "client-ref" || body["labels"].(map[string]any)["team"] != "support" {
+			if r.Header.Get("Idempotency-Key") != "session-key" {
+				t.Fatalf("idempotency header: %v", r.Header)
+			}
+			if body["agent_id"] != "saved1" || body["client_reference"] != nil || body["labels"].(map[string]any)["team"] != "support" || body["values"].(map[string]any)["customer"] != "Ada" {
 				t.Fatalf("start body: %#v", body)
 			}
 			transport := body["transport"].(map[string]any)
-			if transport["type"] != "rtc" || transport["uid"] != "1001" || transport["channel"] != "support" {
+			if transport["type"] != "rtc" || transport["uid"] != "1001" || transport["channel"] != "support" || transport["token"] != "rtc-token" || transport["audio_scenario"] != "chorus" || transport["encryption"].(map[string]any)["mode"] != "aes_128_gcm" || transport["geofence"].(map[string]any)["exclude_area"] != "india" {
 				t.Fatalf("transport: %#v", transport)
 			}
 			lifecycle := body["lifecycle"].(map[string]any)
-			if lifecycle["idle_timeout_ms"] != float64(60000) || lifecycle["max_duration_ms"] != float64(120000) {
+			if lifecycle["idle_timeout_ms"] != float64(60000) || lifecycle["max_duration_ms"] != float64(120000) || lifecycle["graceful_stop"].(map[string]any)["timeout_ms"] != float64(5000) {
 				t.Fatalf("lifecycle unit conversion: %#v", lifecycle)
 			}
-			return v3Reply(201, `{"agent_session_id":"sess1","status":"running","created_at":"2026-10-19T00:00:00Z"}`, ""), nil
+			if body["data_policy"].(map[string]any)["retention"] != "none" {
+				t.Fatalf("data policy: %#v", body["data_policy"])
+			}
+			return v3Reply(200, `{"agent_session_id":"sess1","status":"starting","create_ts":1781827200}`, ""), nil
 		case 2:
 			if r.Method != http.MethodGet || !strings.HasSuffix(r.URL.Path, "/sessions/sess1") {
 				t.Fatalf("get session request: %s %s", r.Method, r.URL.Path)
 			}
-			return v3Reply(200, `{"agent_session_id":"sess1","status":"RUNNING","created_at":"2026-10-19T00:00:00Z"}`, ""), nil
+			return v3Reply(200, `{"agent_session_id":"sess1","status":"STOPPING","start_ts":1781827200}`, ""), nil
 		case 3:
 			if r.Method != http.MethodPost || !strings.HasSuffix(r.URL.Path, "/sessions/sess1/stop") {
 				t.Fatalf("stop request: %s %s", r.Method, r.URL.Path)
@@ -600,24 +627,26 @@ func TestSavedAgentCreateSessionUsesV3SessionLifecycle(t *testing.T) {
 	c := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token", HTTPClient: httpClient, V3: &V3Options{BaseURL: "https://stage.example"}})
 	idle, max := 60, 120
 	session := (&SavedAgent{ID: "saved1", Name: "Support", client: c}).CreateSession(CreateSessionOptions{
-		ClientReference: "client-ref",
-		Channel:         "support",
-		AgentUID:        "1001",
-		RemoteUIDs:      []string{"1002"},
-		IdleTimeout:     &idle,
-		MaxDuration:     &max,
-		Labels:          map[string]string{"team": "support"},
+		Channel: "support", Token: "rtc-token", AgentUID: "1001", RemoteUIDs: []string{"1002"},
+		IdleTimeout: &idle, MaxDuration: &max, Labels: map[string]string{"team": "support"},
+		IdempotencyKey: "session-key", Values: map[string]any{"customer": "Ada"},
+		Encryption: &RTCEncryption{Mode: "aes_128_gcm", Key: "encryption-key"}, AudioScenario: "chorus",
+		Geofence: &SessionGeofence{Area: "global", ExcludeArea: "india"}, GracefulStop: &GracefulStopOptions{Enabled: true, TimeoutMS: ptrInt(5000)},
+		DataPolicy: &SessionDataPolicy{Retention: "none"},
 	})
 	id, err := session.Start(context.Background())
-	if err != nil || id != "sess1" || session.ID() != "sess1" || session.Status() != StatusRunning {
+	if err != nil || id != "sess1" || session.ID() != "sess1" || session.Status() != StatusStarting {
 		t.Fatalf("session start: id=%q status=%q err=%v", id, session.Status(), err)
 	}
 	info, err := session.GetInfo(context.Background())
-	if err != nil || info.GetAgentSessionID() == nil || *info.GetAgentSessionID() != "sess1" || info.GetAgentID() != nil || info.GetStatus() == nil || string(*info.GetStatus()) != "RUNNING" {
+	if err != nil || info.GetAgentSessionID() == nil || *info.GetAgentSessionID() != "sess1" || info.GetAgentID() != nil || info.GetStatus() == nil || string(*info.GetStatus()) != "STOPPING" || session.Status() != StatusStopping {
 		t.Fatalf("session info: %#v err=%v", info, err)
 	}
 	if err := session.Stop(context.Background()); err != nil || session.Status() != StatusStopped || calls != 3 {
 		t.Fatalf("session stop: status=%q err=%v calls=%d", session.Status(), err, calls)
+	}
+	if _, err := session.Start(context.Background()); err == nil || calls != 3 {
+		t.Fatalf("idempotent session restart should fail locally: err=%v calls=%d", err, calls)
 	}
 }
 
@@ -669,6 +698,34 @@ func TestAgentConfigWithSecretRefStartsEphemeralV3Session(t *testing.T) {
 	}
 }
 
+func TestV3SessionCanStopStartingAndPropagatesStopErrors(t *testing.T) {
+	for _, tc := range []struct {
+		code   int
+		reason string
+		status AgentSessionLifecycle
+	}{{404, "TaskNotFound", StatusError}, {409, "TaskNotRunning", StatusStopped}, {409, "TaskConflict", StatusStopping}} {
+		t.Run(tc.reason, func(t *testing.T) {
+			calls := 0
+			c := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token", V3: &V3Options{BaseURL: "https://stage.example"}, HTTPClient: v3HTTPFunc(func(r *http.Request) (*http.Response, error) {
+				calls++
+				if calls == 1 {
+					return v3Reply(200, `{"agent_session_id":"session1","status":"STARTING","create_ts":1}`, ""), nil
+				}
+				return v3Reply(tc.code, `{"detail":"stop rejected","reason":"`+tc.reason+`"}`, ""), nil
+			})})
+			session := (&SavedAgent{ID: "agent1", client: c}).CreateSession(CreateSessionOptions{Channel: "room", AgentUID: "1001", RemoteUIDs: []string{"1002"}})
+			if _, err := session.Start(context.Background()); err != nil || session.Status() != StatusStarting {
+				t.Fatalf("start state: %q %v", session.Status(), err)
+			}
+			err := session.Stop(context.Background())
+			var apiErr *core.APIError
+			if !errors.As(err, &apiErr) || apiErr.StatusCode != tc.code || calls != 2 || session.Status() != tc.status {
+				t.Fatalf("stop error/state: err=%v status=%q calls=%d", err, session.Status(), calls)
+			}
+		})
+	}
+}
+
 func boolPtrTest(v bool) *bool { return &v }
 
 func TestV3SessionSnapshotsOptionsAndRejectsCN(t *testing.T) {
@@ -691,7 +748,7 @@ func TestV3SessionSnapshotsOptionsAndRejectsCN(t *testing.T) {
 	})})
 	idle := 5
 	remoteUIDs := []string{"original"}
-	session := (&SavedAgent{ID: "saved", client: c}).CreateSession(CreateSessionOptions{Channel: "room", AgentUID: "10", RemoteUIDs: remoteUIDs, IdleTimeout: &idle})
+	session := (&SavedAgent{ID: "saved", client: c}).CreateSession(CreateSessionOptions{Channel: "room", AgentUID: "agent-original", RemoteUIDs: remoteUIDs, IdleTimeout: &idle})
 	remoteUIDs[0] = "mutated"
 	idle = 100
 	if _, err := session.Start(context.Background()); err != nil {
@@ -720,8 +777,7 @@ func TestV3SessionRejectsLegacyAndUndocumentedOptionsLocally(t *testing.T) {
 		name string
 		opts CreateSessionOptions
 	}{
-		{"token", CreateSessionOptions{Channel: "c", AgentUID: "1", Token: "rtc-token"}},
-		{"string uid", CreateSessionOptions{Channel: "c", AgentUID: "1", EnableStringUID: boolPtrTest(true)}},
+		{"client reference", CreateSessionOptions{Channel: "c", AgentUID: "1", ClientReference: "stale"}},
 		{"expires in", CreateSessionOptions{Channel: "c", AgentUID: "1", ExpiresIn: 60}},
 		{"preset", CreateSessionOptions{Channel: "c", AgentUID: "1", Preset: []string{"llm.openai.gpt-4o-mini"}}},
 		{"pipeline override", CreateSessionOptions{Channel: "c", AgentUID: "1", PipelineID: "pipeline"}},

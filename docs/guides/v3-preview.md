@@ -1,23 +1,22 @@
 ---
 sidebar_position: 10
 title: Conversational AI v3 preview
-description: Save agent configurations and manage secrets, numbers, and sessions with Go.
+description: Manage agents, sessions, secrets, numbers, and campaigns with the v1 REST path from the v3 preview SDK.
 ---
 
 # Conversational AI v3 preview (P1)
 
 In v3, an **agent** is a saved configuration identified by `agent_id`. A running instance is a **session**, identified by `agent_session_id`. Existing `Agent.CreateSession(...).Start(ctx)` still starts a v2 `/join` session. `Save` creates or updates a saved configuration; it does not start a session. The Go import path remains `github.com/AgoraIO/agora-agents-go/v2`: its `/v2` suffix is the module's semantic major version, independent of the REST API version.
 
-## Quickstart on staging
+## Quickstart
 
-Set the project App ID, a REST token, the staging gateway origin, and the two gateway headers. The gateway secret is sent separately by the service operator. Pass an **origin**, not a full v3 path: the SDK appends `/conversational-ai/v3/projects/{appid}`.
+Set the project App ID and a REST token. The default API origin is `https://preview.ai.agora.io`; the SDK appends `/conversational-ai/v1/projects/{appid}`. `V3Options.BaseURL` can override the origin for local gateways.
 
 ```sh
 export AGORA_APP_ID='your-project-app-id'
 export AGORA_REST_TOKEN='your-rest-token'
-export AGORA_V3_STAGING_ORIGIN='https://your-staging-gateway.example'
-export AGORA_V3_GATEWAY_SECRET='your-gateway-secret'
-export AGORA_V3_COMPANY_ID='your-numeric-company-id'
+# Optional origin override; omit to use https://preview.ai.agora.io
+export AGORA_V3_BASE_URL='https://preview.ai.agora.io'
 ```
 
 Save as `main.go` and run `go run main.go`. This makes a read-only list request:
@@ -29,7 +28,6 @@ import (
     "context"
     "fmt"
     "log"
-    "net/http"
     "os"
 
     "github.com/AgoraIO/agora-agents-go/v2/agentkit"
@@ -42,13 +40,7 @@ func main() {
         Area: option.AreaUS,
         AppID: os.Getenv("AGORA_APP_ID"),
         Token: os.Getenv("AGORA_REST_TOKEN"),
-        V3: &agentkit.V3Options{
-            BaseURL: os.Getenv("AGORA_V3_STAGING_ORIGIN"),
-            Headers: http.Header{
-                "X-Studio-V2-Gateway-Secret": {os.Getenv("AGORA_V3_GATEWAY_SECRET")},
-                "X-Consumer-Username": {os.Getenv("AGORA_V3_COMPANY_ID")},
-            },
-        },
+        V3: &agentkit.V3Options{BaseURL: os.Getenv("AGORA_V3_BASE_URL")},
     })
     page, err := c.V3.Agents.List(context.Background(), v3.ListOptions{Limit: 10})
     if err != nil { log.Fatal(err) }
@@ -57,7 +49,7 @@ func main() {
 }
 ```
 
-An app certificate client can set `AppCertificate` in place of `Token`; AgentKit signs a fresh ConvoAI token for each v3 request. Basic auth uses `CustomerID` and `CustomerSecret`. `AGORA_AGENTS_V3_BASE_URL` is a second origin override; explicit `V3Options.BaseURL` takes precedence. Put staging-only headers in `V3Options.Headers` so v2 requests never receive them. Production path and regional availability are unconfirmed; AgentKit rejects CN saved-agent operations pending backend confirmation.
+A client can use an Agora REST `Token` or set `AppCertificate`; AgentKit signs a fresh ConvoAI token for each request in app-credentials mode. Basic authentication and internal `X-Studio-*` / `X-Consumer-Username` headers are rejected. The `AGORA_AGENTS_V3_BASE_URL` environment variable and `V3Options.BaseURL` override the default origin; the explicit option takes precedence. Region availability remains open, and AgentKit rejects v3 session starts in CN pending backend confirmation.
 
 ## AgentKit workflows
 
@@ -87,7 +79,7 @@ saved, err = saved.Update(ctx, updatedAgentConfig)
 if err != nil { return err }
 ```
 
-`WithVariable` also exists as `agent.WithVariable(name, def)`, returning a new immutable builder. Names match `^[a-z][a-z0-9_]{0,63}$`; types are `str`, `int`, `float`, `bool`, `date`, and `datetime`. `Options`, when provided, must contain 1–100 unique JSON scalar values. Descriptions are limited to 2000 Unicode characters; `Extract: true` requires a nonempty description. The no-error builder methods panic for invalid definitions. `agentkit.GetSavedAgent(ctx, c, id)` loads a handle; `saved.Delete(ctx)` deletes it. `saved.Update(ctx, config)` reuses its ID and name and returns a handle with the fresh ETag. Handles expose `ID`, `Name`, `ETag`, and `Raw` (`*v3.AgentsClient`). The old `Deploy`, `DeployOptions`, `DeployedAgent`, and `GetDeployedAgent` names remain available as compatibility aliases.
+`WithVariable` also exists as `agent.WithVariable(name, def)`, returning a new immutable builder. Names match `^[a-z][a-z0-9_]{0,63}$`; types are `str`, `int`, `float`, `bool`, `date`, and `datetime`. `Options`, when provided, must contain 1–100 unique JSON scalar values. Descriptions are limited to 2000 Unicode characters; `Extract: true` requires a nonempty description. The no-error builder methods panic for invalid definitions. `agentkit.GetSavedAgent(ctx, c, id)` loads a handle; `saved.Delete(ctx)` deletes it. `saved.Update(ctx, config)` reuses its ID and name and returns a handle with the fresh ETag. Handles expose `ID`, `Name`, `ETag`, and `Raw` (`*v3.AgentsClient`). The old `Deploy`, `DeployOptions`, `DeployedAgent`, and `GetDeployedAgent` names remain available as compatibility aliases. Agent creation is not an upsert yet: repeated POSTs can create distinct agents. Full configuration replacement on PATCH is planned; the SDK keeps current conditional PATCH behavior and does not assume replacement semantics.
 
 `Save` without an ID POSTs a new agent. Save its returned ID: names are not unique upsert keys and agent POST has no supported idempotency key. `SavedAgent.Update` GETs the current ETag, then PATCHes. It sends recursive `null`s to clear readable stale fields, omitting server-owned IDs, timestamps, and resolved credential metadata. A 412 becomes `ErrPreconditionFailed` and retains the underlying v3 error; save does not retry the conflict automatically.
 
@@ -97,7 +89,7 @@ Legacy greeting settings `mode: "single_every"` and `mode: "single_first"` map t
 
 ### Secrets and numbers
 
-Create the secret set before saving a provider that uses `SecretRef`. Values are write-only. The optional secret `Idempotency-Key` is a `string` argument; pass `""` to omit it. This code also assumes `os` and `agentkit` imports:
+Create the secret set before saving a provider that uses `SecretRef`. Values are write-only. Secret and number POSTs do not support `Idempotency-Key`; pass `""` to their compatibility string arguments. A nonempty value is rejected locally. Session and campaign create/action calls do accept optional idempotency keys. This code also assumes `os` and `agentkit` imports:
 
 ```go
 secret, err := c.Secrets.Create(ctx, agentkit.SecretCreate{
@@ -122,11 +114,11 @@ _, err = saved.UnassignNumber(ctx, number.Body.NumberID)
 if err != nil { return err }
 ```
 
-Assignment accepts `number_id`, `agentkit.Number`, `*agentkit.Number`, or a formatted E.164 value. E.164 lookup scans this project's pages because the API has no number filter, then GETs the matched number for an ETag. Assignment PATCHes only the inbound agent and explicitly supplied call policy fields; one 412 causes one fresh GET and retry. A missing project number returns `ErrNumberNotFound`. Number POST accepts an idempotency argument but staging does not reliably honor it, so it is not automatically retried. `SecretRef("prod", "openai")` yields `$secrets.prod.openai`; passing it to the v2 session path returns `ErrSecretRefNotSupported`.
+Assignment accepts `number_id`, `agentkit.Number`, `*agentkit.Number`, or a formatted E.164 value. E.164 lookup scans this project's pages because the API has no number filter, then GETs the matched number for an ETag. Assignment PATCHes only the inbound agent and explicitly supplied call policy fields; one 412 causes one fresh GET and retry. A missing project number returns `ErrNumberNotFound`. Number POST rejects a nonempty idempotency argument because the API does not accept that header. `SecretRef("prod", "openai")` yields `$secrets.prod.openai`; passing it to the v2 session path returns `ErrSecretRefNotSupported`.
 
 `saved.ListNumbers(ctx)` returns the numbers whose `inbound.agent` equals the saved agent ID. It scans **every number page in the project**, with no per-number GETs, because staging has no agent filter. Its request cost grows with the project's total number count; use it deliberately for large projects. The v3 session list is also project-wide, but the published list and get responses provide no `agent_id` association. There is no `SavedAgent.ListSessions` helper because matching the nonunique `agent_name` would be unreliable.
 
-## Low-level reference: all 23 staging operations
+## Low-level reference: all 31 operations
 
 Import `github.com/AgoraIO/agora-agents-go/v2/v3`. `agentkit.AgoraClient.V3` already has the App ID. The root `client.NewClient(...)` has no App ID option: use `api.V3.ForAppID(appID)` before calling its resources, or construct `v3.NewClient(appID, opts...)` directly. An empty App ID or resource ID fails locally before HTTP.
 
@@ -139,7 +131,7 @@ Every method takes `ctx context.Context` first and returns `(*v3.Response[T], er
 | `Agents.Get` | `id string` | `v3.Agent` | `agent_id` |
 | `Agents.Update` | `id, ifMatch string, patch v3.AgentPatch` | `v3.Agent` | Required `If-Match` |
 | `Agents.Delete` | `id string` | `v3.Deleted` | `agent_id` |
-| `Secrets.Create` | `body v3.SecretCreate, idempotencyKey string` | `v3.SecretSet` | Optional `Idempotency-Key` |
+| `Secrets.Create` | `body v3.SecretCreate, idempotencyKey string` | `v3.SecretSet` | Pass `""`; a nonempty key is rejected |
 | `Secrets.List` | `opts v3.ListOptions` | `v3.Page[v3.SecretSet]` | limit, cursor, order |
 | `Secrets.Get` | `name string` | `v3.SecretSet` | Secret set name |
 | `Secrets.Update` | `name, ifMatch string, body v3.SecretUpdate` | `v3.SecretSet` | Optional `If-Match`; nil values delete keys |
@@ -147,16 +139,24 @@ Every method takes `ctx context.Context` first and returns `(*v3.Response[T], er
 | `Secrets.Delete` | `name, ifMatch string` | `v3.Deleted` | Required `If-Match` |
 | `Secrets.SetKey` | `name, key string, body v3.SecretKeyWrite, opts v3.SecretKeyOptions` | `v3.SecretKey` | Optional `If-Match` and `If-None-Match` |
 | `Secrets.DeleteKey` | `name, key, ifMatch string` | `v3.Deleted` | Optional `If-Match` |
-| `Numbers.Create` | `body v3.NumberCreate, idempotencyKey string` | `v3.Number` | Key optional; unreliable on staging |
+| `Numbers.Create` | `body v3.NumberCreate, idempotencyKey string` | `v3.Number` | Pass `""`; a nonempty key is rejected |
 | `Numbers.List` | `opts v3.ListOptions` | `v3.Page[v3.NumberListItem]` | limit, cursor, order |
 | `Numbers.Get` | `id string` | `v3.Number` | `number_id` |
 | `Numbers.Update` | `id, ifMatch string, patch v3.NumberPatch` | `v3.Number` | Required `If-Match` |
 | `Numbers.Delete` | `id string` | `v3.Deleted` | `number_id` |
-| `Sessions.Start` | `body v3.SessionStartRequest` | `v3.Session` | Saved `agent_id`, transport, lifecycle, optional labels/client reference |
-| `Sessions.StartEphemeral` | `body v3.SessionStartEphemeralRequest` | `v3.Session` | Inline agent config; labels are not accepted |
-| `Sessions.Stop` | `id string` | `v3.Deleted` | `agent_session_id`; no request body |
+| `Sessions.Start` | `body v3.SessionStartRequest, opts ...v3.SessionWriteOptions` | `v3.Session` | Saved `agent_id`, values, labels, RTC transport, lifecycle, data policy, optional idempotency key |
+| `Sessions.StartEphemeral` | `body v3.SessionStartEphemeralRequest, opts ...v3.SessionWriteOptions` | `v3.Session` | Inline agent config, values, labels, transport, lifecycle, data policy, optional idempotency key |
+| `Sessions.Stop` | `id string` | `map[string]any` | `agent_session_id`; no request body; 404 and 409 errors are preserved |
 | `Sessions.List` | `opts v3.SessionListOptions` | `v3.Page[v3.Session]` | channel, comma-separated status, started_after/before, limit, cursor |
 | `Sessions.Get` | `id string` | `v3.Session` | `agent_session_id` |
+| `Campaigns.Create` | `body v3.CampaignCreate, opts ...v3.CampaignWriteOptions` | `v3.Campaign` | Optional `Idempotency-Key` |
+| `Campaigns.List` | `opts v3.CampaignListOptions` | `v3.Page[v3.Campaign]` | status, limit, cursor, order |
+| `Campaigns.Get` | `id string` | `v3.Campaign` | `campaign_id` |
+| `Campaigns.Update` | `id, ifMatch string, body v3.CampaignPatch` | `v3.Campaign` | Required `If-Match`; 412 exposes `Latest(ctx)` |
+| `Campaigns.Delete` | `id string` | `v3.CampaignDeleteResponse` | Only final campaigns can be deleted |
+| `Campaigns.Pause` | `id string, opts ...v3.CampaignWriteOptions` | `v3.Campaign` | Optional `Idempotency-Key` |
+| `Campaigns.Resume` | `id string, opts ...v3.CampaignWriteOptions` | `v3.Campaign` | Optional `Idempotency-Key` |
+| `Campaigns.Cancel` | `id string, opts ...v3.CampaignWriteOptions` | `v3.Campaign` | Optional `Idempotency-Key` |
 
 `v3.ListOptions` has `Limit int`, `Cursor string`, and `Order string`. `v3.SessionListOptions` embeds it and adds `Channel`, `Status`, `StartedAfter *int64`, and `StartedBefore *int64`; session list does not send `Order`. Each page has `Data.Count`, `Data.List`, `HasMore`, and `NextCursor`. `Count` is the page count, not a promised project total. A cursor loop:
 
@@ -191,12 +191,20 @@ return err
 
 `AgentPatch` and `NumberPatch` are map types; explicit `nil` sends a merge-patch `null`. PATCH uses `application/json`, matching staging. All v3 writes make one transport attempt; the caller decides whether retrying a failed write is safe.
 
+## Session options and campaign limits
+
+AgentKit routes a saved handle through `SavedAgent.CreateSession`. Inline configs with secret references or variable definitions use the ephemeral endpoint automatically; plain inline configs, including token-backed `/join` sessions, retain v2 behavior. New v3 options such as `Values`, `IdempotencyKey`, `DataPolicy`, RTC encryption, audio scenario, geofence, and maximum duration select ephemeral v3 sessions. `ClientReference` remains only as a deprecated compatibility field and is rejected on v3 starts.
+
+`IdleTimeout` and `MaxDuration` are public seconds and serialize to milliseconds. Idle timeout accepts 0–3600 seconds; max duration accepts 1–3600 seconds. `GracefulStop.TimeoutMS` already uses wire milliseconds (0–120000). RTC subscribers require exactly one UID, and the agent/subscriber UID types must match. Numeric IDs may be digits; string UIDs are also accepted. Response statuses normalize to uppercase; start accepts both current `200/create_ts` and rollout-era `201/created_at` responses.
+
+Campaign contact ingestion is inline at create time (1–5000 contacts), with no contacts API. `CampaignPacing.MaxAttempts` and `RetryBackoffMS` are passed through as schema fields; the reply says runtime retry behavior is not confirmed, so the SDK applies no retry algorithm. Campaign writes are single-attempt; callers supply the same idempotency key when retrying a result they cannot confirm.
+
 ## Compatibility and limits
 
-`Save` collects unsupported v2 fields into one `ErrUnsupportedField` before HTTP. Current examples are `sal`, `advancedFeatures`, `geofence`, `labels`, `rtc`, `audioScenario`, `pipelineId`, non-silence `parameters`, nonempty `template_variables` (v3 variables have no defaults), unverified provider fields, and multipart credentials that cannot map to one API key. Remove them from the stored-agent builder or keep that use case on v2. Managed credentials use only a URL already present in a vendor config; the SDK invents no default URL.
+`Save` collects unsupported v2 fields into one `ErrUnsupportedField` before HTTP. Current examples are `sal`, `advancedFeatures`, agent-level `geofence`, `labels`, `rtc`, `audioScenario`, `pipelineId`, unsupported `parameters`, nonempty `template_variables` (v3 variables have no defaults), unverified provider fields, and multipart credentials that cannot map to one API key. Geofence, audio scenario, farewell, and opt-out map to session transport, lifecycle, and data policy when starting an eligible inline v3 session; they are not stored agent properties. Managed credentials use only a URL already present in a vendor config; the SDK invents no default URL.
 
-Provider API keys and secret values are write-only. Supply credentials explicitly when redeploying; GET cannot reconstruct them. Redeploy writes `null` for readable stale nested fields, but actual backend handling of whole-pipeline merge patches still needs live verification. Sessions can be started from saved agent IDs or ephemeral inline configs, stopped, and retrieved. AgentKit exposes these through the same `AgentSession` handle; v3 session IDs remain distinct from v2 agent IDs, so legacy actions, history, turns, and `Raw` clients are unavailable for v3 sessions. Labels are supported for saved-agent starts only. Campaign support is not included. v2 telephony and phone-number clients keep their original semantics; they do not manage v3 project-scoped numbers.
+Provider API keys and secret values are write-only. Supply credentials explicitly when redeploying; GET cannot reconstruct them. Redeploy writes `null` for readable stale nested fields, but actual backend handling of whole-pipeline merge patches still needs live verification. Sessions can be started from saved agent IDs or ephemeral inline configs, stopped, and retrieved. AgentKit exposes these through the same `AgentSession` handle; v3 session IDs remain distinct from v2 agent IDs, so legacy actions, history, turns, and `Raw` clients are unavailable for v3 sessions. Labels are supported on both saved-agent and ephemeral starts. The low-level `Campaigns` resource covers create, list, retrieve, conditional update, delete, pause, resume, and cancel; it does not implement a dialing or retry state machine. Contact ingestion APIs, per-contact results, events, and webhooks are not included. v2 telephony and phone-number clients keep their original semantics; they do not manage v3 project-scoped numbers.
 
 ## Maintenance and verification boundary
 
-The v3 package is **handwritten against the staging OpenAPI snapshot** and protected by `.fernignore`; Fern has not generated it. Keep this guide and the types in sync as the schema evolves, and revisit generation for a production schema. Local tests cover paths, headers, pagination, conditional errors, AgentKit mapping, and number assignment. This preview has **not** been validated against a live staging or production gateway in this workspace. The production path, region/CN availability, managed URL requirement, and nested merge-patch behavior remain open backend questions.
+The v3 package is **handwritten against the staging OpenAPI snapshot** and protected by `.fernignore`; Fern has not generated it. Keep this guide and the types in sync as the schema evolves, and revisit generation for a production schema. Local tests cover paths, headers, pagination, conditional errors, AgentKit mapping, and number assignment. This preview has **not** been validated against a live staging or production gateway in this workspace. Region availability and nested PATCH replacement semantics remain open backend questions. Managed credentials omit provider URLs; BYOK requests retain the configured URL.

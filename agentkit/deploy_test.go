@@ -60,6 +60,48 @@ func TestVariableImmutableAndV2SecretGuard(t *testing.T) {
 	}
 }
 
+func TestV3AvatarCredentialsLeaveParams(t *testing.T) {
+	for _, tc := range []struct {
+		vendor string
+		key    string
+	}{
+		{vendor: "sensetime", key: "app_key"},
+		{vendor: "spatius", key: "spatius_api_key"},
+	} {
+		t.Run(tc.vendor, func(t *testing.T) {
+			secret := "provider-secret"
+			converted, _ := convertModule("avatar", map[string]interface{}{
+				"vendor": tc.vendor,
+				"params": map[string]interface{}{tc.key: secret},
+			})
+			params, _ := converted["params"].(map[string]interface{})
+			if _, leaked := params[tc.key]; leaked {
+				t.Fatalf("provider credential remained in params: %#v", params)
+			}
+			credential, _ := converted["credential"].(map[string]any)
+			if credential["api_key"] != secret {
+				t.Fatalf("provider credential was not extracted: %#v", credential)
+			}
+
+			a := NewAgent(NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token"}))
+			a.base.Avatar = map[string]interface{}{"vendor": tc.vendor, "params": map[string]interface{}{tc.key: secret}}
+			body, err := a.toV3("supported avatar")
+			if err != nil {
+				t.Fatalf("supported v3 avatar vendor should map: %v", err)
+			}
+			avatar := body.Pipeline.Avatar
+			if avatar["vendor"] != tc.vendor || avatar["credential"].(map[string]any)["api_key"] != secret {
+				t.Fatalf("avatar credentials were not mapped: %#v", avatar)
+			}
+			if params, _ := avatar["params"].(map[string]any); params != nil {
+				if _, leaked := params[tc.key]; leaked {
+					t.Fatalf("provider credential leaked into v3 params: %#v", params)
+				}
+			}
+		})
+	}
+}
+
 func TestRedeployClearsNestedStaleFieldsAndKeepsMetadataOut(t *testing.T) {
 	old := v3.Agent{AgentID: "id", AgentName: "Old", Pipeline: []byte(`{"mode":"cascaded","llm":{"vendor":"openai","params":{"old":1,"keep":2},"credential":{"mode":"byok","resolved_key_id":"server"}}}`)}
 	next := v3.AgentCreate{AgentName: "New", Pipeline: &v3.Pipeline{Mode: "cascaded", LLM: map[string]any{"vendor": "openai", "params": map[string]any{"keep": 2}, "credential": map[string]any{"mode": "managed"}}}}

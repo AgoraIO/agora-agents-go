@@ -27,14 +27,14 @@ Use the same immutable `Agent` configuration to start an existing session or sav
 
 ## Conversational AI v3 P1 preview
 
-This checkout includes a handwritten preview client for Conversational AI v3. Use a build of the `feat/v3-api-preview` branch for these features; the `@latest` installation command above does not select this branch. The module path remains `/v2` because that suffix is the Go module's semantic major version, not the REST API version. Existing `Agent.CreateSession(...).Start(ctx)` calls retain their v2 behavior.
+This checkout includes a handwritten client for the Conversational AI API v1 path used by the v3 preview. Use a build of the `feat/v3-api-preview` branch for these features; the `@latest` installation command above does not select this branch. The module path remains `/v2` because that suffix is the Go module's semantic major version, not the REST API version. Existing `Agent.CreateSession(...).Start(ctx)` calls retain their v2 behavior.
 
 - `Agent.Save` creates a stored configuration, and `SavedAgent.Update` updates it with an ETag guarded patch. `WithVariable` adds typed template or extraction variables.
 - `AgoraClient.Secrets` and `AgoraClient.Numbers` provide project setup. `agentkit.SecretRef("set", "key")` stores a `$secrets.set.key` reference in the agent configuration; secret values are write-only.
 - `SavedAgent.AssignNumber`, `UnassignNumber`, and `ListNumbers` manage project-scoped number assignments. E.164 lookup and `ListNumbers` scan project number pages, so the scan cost grows with the project.
-- `c.V3` exposes all 23 staging operations for advanced use. Lists use cursor pagination; updates use ETags. AgentKit starts sessions from saved agents or ephemeral configs that use secret references or variables.
+- `c.V3` exposes all 31 API operations for advanced use. Lists use cursor pagination; updates use ETags. AgentKit starts sessions from saved agents or ephemeral configs that use secret references or variables.
 
-Campaign support is not included. Production routing and merge-patch behavior still need backend validation. See the [v3 preview guide](docs/guides/v3-preview.md) for staging setup, examples, and limits.
+The low-level campaign resource supports campaign CRUD and lifecycle operations; contacts/events APIs and campaign retry behavior are not included. Agent updates remain conditional PATCHes; replacement semantics are planned. See the [v3 preview guide](docs/guides/v3-preview.md) for staging setup, examples, and limits.
 
 ## Quick Start
 

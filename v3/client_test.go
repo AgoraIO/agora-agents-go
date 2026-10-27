@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/AgoraIO/agora-agents-go/v2/core"
 	"github.com/AgoraIO/agora-agents-go/v2/option"
 )
 
@@ -24,7 +25,7 @@ func TestCRUDHeadersPathsAndNoWriteRetry(t *testing.T) {
 	calls := 0
 	c := NewClient("a/b", option.WithBaseURL("https://staging.example"), option.WithHTTPClient(httpFunc(func(r *http.Request) (*http.Response, error) {
 		calls++
-		if r.Method != http.MethodPut || r.URL.EscapedPath() != "/conversational-ai/v3/projects/a%2Fb/secrets/prod/keys/openai" {
+		if r.Method != http.MethodPut || r.URL.EscapedPath() != "/conversational-ai/v1/projects/a%2Fb/secrets/prod/keys/openai" {
 			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.EscapedPath())
 		}
 		if r.Header.Get("If-Match") != "e1" || r.Header.Get("If-None-Match") != "*" {
@@ -38,6 +39,67 @@ func TestCRUDHeadersPathsAndNoWriteRetry(t *testing.T) {
 	}
 	if _, err := c.Agents.Get(ctx, ""); err == nil {
 		t.Fatal("empty ID should fail before HTTP")
+	}
+}
+
+func TestDefaultOriginAuthAndInternalHeaderFiltering(t *testing.T) {
+	if got := NewClient("app").shared.baseURL; got != "https://preview.ai.agora.io" {
+		t.Fatalf("default base URL = %q", got)
+	}
+	calls := 0
+	c := NewClient("app", option.WithToken("token"), option.WithHTTPClient(httpFunc(func(r *http.Request) (*http.Response, error) {
+		calls++
+		if r.URL.Path != "/conversational-ai/v1/projects/app/agents" {
+			t.Fatalf("path=%s", r.URL.Path)
+		}
+		if r.Header.Get("Authorization") != "agora token=token" {
+			t.Fatalf("token auth missing: %v", r.Header)
+		}
+		return reply(200, `{"data":{"count":0,"list":[]},"has_more":false}`, nil), nil
+	})))
+	if _, err := c.Agents.List(context.Background(), ListOptions{}); err != nil || calls != 1 {
+		t.Fatalf("token request failed: %v calls=%d", err, calls)
+	}
+	internalHeaders := NewClient("app", option.WithHTTPHeader(http.Header{"X-Studio-Region": []string{"internal"}, "X-Consumer-Username": []string{"internal"}}), option.WithHTTPClient(httpFunc(func(*http.Request) (*http.Response, error) { calls++; return nil, nil })))
+	if _, err := internalHeaders.Agents.List(context.Background(), ListOptions{}); err == nil || calls != 1 {
+		t.Fatalf("internal headers should be rejected before HTTP: %v calls=%d", err, calls)
+	}
+	basic := NewClient("app", &core.BasicAuthOption{Username: "customer", Password: "secret"}, option.WithHTTPClient(httpFunc(func(*http.Request) (*http.Response, error) {
+		t.Fatal("basic request reached transport")
+		return nil, nil
+	})))
+	if _, err := basic.Agents.List(context.Background(), ListOptions{}); err == nil {
+		t.Fatal("basic auth should be rejected")
+	}
+	headerBasic := NewClient("app", option.WithHTTPHeader(http.Header{"Authorization": []string{"Basic Zm9vOmJhcg=="}}), option.WithHTTPClient(httpFunc(func(*http.Request) (*http.Response, error) {
+		t.Fatal("basic header reached transport")
+		return nil, nil
+	})))
+	if _, err := headerBasic.Agents.List(context.Background(), ListOptions{}); err == nil {
+		t.Fatal("basic authorization header should be rejected")
+	}
+}
+
+func TestBaseURLOverrideMustBeOrigin(t *testing.T) {
+	for _, baseURL := range []string{
+		"ftp://api.example.test",
+		"https://user:pass@api.example.test",
+		"https://api.example.test/prefix",
+		"https://api.example.test?route=other",
+		"https://api.example.test?",
+		"https://api.example.test#fragment",
+		"https://api.example.test#",
+	} {
+		t.Run(baseURL, func(t *testing.T) {
+			calls := 0
+			client := NewClient("app", option.WithBaseURL(baseURL), option.WithHTTPClient(httpFunc(func(*http.Request) (*http.Response, error) {
+				calls++
+				return reply(200, `{}`, nil), nil
+			})))
+			if _, err := client.Agents.List(context.Background(), ListOptions{}); err == nil || calls != 0 {
+				t.Fatalf("invalid origin was not rejected before HTTP: base=%q err=%v calls=%d", baseURL, err, calls)
+			}
+		})
 	}
 }
 
@@ -144,7 +206,10 @@ func TestResponsePreservesDetachedRawHeaders(t *testing.T) {
 	c := NewClient("app", option.WithBaseURL("https://staging.example"), option.WithHTTPClient(httpFunc(func(r *http.Request) (*http.Response, error) {
 		return reply(201, `{"name":"test","keys":["key"],"create_ts":1,"update_ts":1}`, header), nil
 	})))
-	got, err := c.Secrets.Create(context.Background(), SecretCreate{Name: "test", Secrets: map[string]string{"key": "value"}}, "once")
+	if _, err := c.Secrets.Create(context.Background(), SecretCreate{Name: "test"}, "once"); err == nil {
+		t.Fatal("secret idempotency key should be rejected")
+	}
+	got, err := c.Secrets.Create(context.Background(), SecretCreate{Name: "test", Secrets: map[string]string{"key": "value"}}, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,5 +224,13 @@ func TestResponsePreservesDetachedRawHeaders(t *testing.T) {
 	got.Header["X-Multi"][1] = "changed by caller"
 	if header["X-Multi"][1] != "second" {
 		t.Fatal("transport headers alias caller response")
+	}
+}
+
+func TestNumberCreateRejectsIdempotencyKey(t *testing.T) {
+	calls := 0
+	c := NewClient("app", option.WithHTTPClient(httpFunc(func(*http.Request) (*http.Response, error) { calls++; return reply(201, `{}`, nil), nil })))
+	if _, err := c.Numbers.Create(context.Background(), NumberCreate{Number: "+12025550123"}, "retry"); err == nil || calls != 0 {
+		t.Fatalf("unsupported idempotency key was not rejected locally: err=%v calls=%d", err, calls)
 	}
 }

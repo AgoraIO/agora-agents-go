@@ -71,7 +71,6 @@ type AgentSession struct {
 	appID           string
 	appCertificate  string
 	name            string
-	clientReference string
 	channel         string
 	token           string
 	agentUID        string
@@ -79,6 +78,13 @@ type AgentSession struct {
 	idleTimeout     *int
 	maxDuration     *int
 	labels          map[string]string
+	values          map[string]any
+	idempotencyKey  string
+	encryption      *v3.RTCEncryption
+	geofence        *v3.Geofence
+	audioScenario   string
+	gracefulStop    *GracefulStopOptions
+	dataPolicy      *v3.DataPolicy
 	enableStringUID *bool
 	expiresIn       int  // Token lifetime in seconds (0 = use DefaultExpirySeconds)
 	useAppCredsREST bool // When true, generate ConvoAI token per request for REST API auth
@@ -91,10 +97,11 @@ type AgentSession struct {
 	savedAgentID    string
 	initErr         error
 
-	agentID  string
-	status   AgentSessionLifecycle
-	mu       sync.RWMutex
-	handlers map[string][]EventHandler
+	agentID        string
+	status         AgentSessionLifecycle
+	startSucceeded bool
+	mu             sync.RWMutex
+	handlers       map[string][]EventHandler
 }
 
 type AgentSessionOptions struct {
@@ -115,6 +122,13 @@ type AgentSessionOptions struct {
 	IdleTimeout     *int
 	MaxDuration     *int
 	Labels          map[string]string
+	Values          map[string]any
+	IdempotencyKey  string
+	Encryption      *v3.RTCEncryption
+	Geofence        *v3.Geofence
+	AudioScenario   string
+	GracefulStop    *GracefulStopOptions
+	DataPolicy      *v3.DataPolicy
 	EnableStringUID *bool
 	// ExpiresIn is the token lifetime in seconds (default: 86400 = 24 hours, Agora maximum).
 	// Only applies when the SDK auto-generates a token. Valid range: 1–86400.
@@ -145,7 +159,6 @@ func NewAgentSession(opts AgentSessionOptions) *AgentSession {
 		appID:           opts.AppID,
 		appCertificate:  opts.AppCertificate,
 		name:            name,
-		clientReference: opts.ClientReference,
 		channel:         opts.Channel,
 		token:           opts.Token,
 		agentUID:        opts.AgentUID,
@@ -153,6 +166,13 @@ func NewAgentSession(opts AgentSessionOptions) *AgentSession {
 		idleTimeout:     cloneIntPointer(opts.IdleTimeout),
 		maxDuration:     cloneIntPointer(opts.MaxDuration),
 		labels:          cloneStringMap(opts.Labels),
+		values:          cloneAnyMap(opts.Values),
+		idempotencyKey:  opts.IdempotencyKey,
+		encryption:      cloneRTCEncryption(opts.Encryption),
+		geofence:        cloneGeofence(opts.Geofence),
+		audioScenario:   opts.AudioScenario,
+		gracefulStop:    cloneGracefulStop(opts.GracefulStop),
+		dataPolicy:      cloneDataPolicy(opts.DataPolicy),
 		enableStringUID: cloneBoolPointer(opts.EnableStringUID),
 		expiresIn:       opts.ExpiresIn,
 		useAppCredsREST: opts.UseAppCredentialsForREST,
@@ -175,6 +195,44 @@ func newV3AgentSession(agent agentcore.AgentRuntime, client *AgoraClient, opts C
 		session.backend = sessionBackendV3Saved
 	}
 	session.savedAgentID = savedAgentID
+	if config, ok := agent.(*Agent); ok && config != nil && config.base != nil {
+		base := config.base
+		if session.audioScenario == "" && base.AudioScenario != nil {
+			value := strings.ToLower(string(*base.AudioScenario))
+			if value == "default" {
+				value = "aiserver"
+			}
+			session.audioScenario = value
+		}
+		if session.geofence == nil && base.Geofence != nil {
+			geofence := &v3.Geofence{Area: strings.ToLower(string(base.Geofence.Area))}
+			if base.Geofence.ExcludeArea != nil {
+				geofence.ExcludeArea = strings.ToLower(string(*base.Geofence.ExcludeArea))
+			}
+			session.geofence = geofence
+		}
+		if base.Parameters != nil {
+			if session.gracefulStop == nil && base.Parameters.FarewellConfig != nil {
+				legacy := base.Parameters.FarewellConfig
+				graceful := &GracefulStopOptions{}
+				if legacy.GracefulEnabled != nil {
+					graceful.Enabled = *legacy.GracefulEnabled
+				}
+				if legacy.GracefulTimeoutSeconds != nil {
+					milliseconds := *legacy.GracefulTimeoutSeconds * 1000
+					graceful.TimeoutMS = &milliseconds
+				}
+				session.gracefulStop = graceful
+			}
+			if session.dataPolicy == nil && base.Parameters.OptOut != nil {
+				retention := "30_days"
+				if *base.Parameters.OptOut {
+					retention = "none"
+				}
+				session.dataPolicy = &v3.DataPolicy{Retention: retention}
+			}
+		}
+	}
 	if client == nil || client.V3 == nil || client.V3.Sessions == nil {
 		session.initErr = errors.New("agentkit: v3 sessions client is required")
 		return session
@@ -184,16 +242,8 @@ func newV3AgentSession(agent agentcore.AgentRuntime, client *AgoraClient, opts C
 		return session
 	}
 	session.v3Sessions = client.V3.Sessions
-	if opts.ClientReference != "" && opts.Name != "" && opts.ClientReference != opts.Name {
-		session.initErr = errors.New("agentkit: set either Name or ClientReference for a v3 session, not both")
-		return session
-	}
-	session.clientReference = opts.ClientReference
-	if session.clientReference == "" {
-		session.clientReference = opts.Name
-	}
-	if session.clientReference == "" {
-		session.clientReference = session.name
+	if opts.ClientReference != "" {
+		session.initErr = errors.New("agentkit: ClientReference was removed from the v3 session contract")
 	}
 	return session
 }
@@ -225,74 +275,115 @@ func cloneBoolPointer(source *bool) *bool {
 	return &cloned
 }
 
-func (s *AgentSession) v3StartRequestParts() (v3.SessionTransport, *v3.SessionLifecycle, error) {
-	if s.backend == sessionBackendV3Ephemeral && len(s.labels) > 0 {
-		return v3.SessionTransport{}, nil, errors.New("agentkit: labels are only supported when starting a saved-agent session")
+func cloneAnyMap(source map[string]any) map[string]any {
+	if source == nil {
+		return nil
 	}
+	cloned := make(map[string]any, len(source))
+	for key, value := range source {
+		cloned[key] = value
+	}
+	return cloned
+}
+
+func cloneRTCEncryption(source *v3.RTCEncryption) *v3.RTCEncryption {
+	if source == nil {
+		return nil
+	}
+	cloned := *source
+	return &cloned
+}
+
+func cloneGracefulStop(source *GracefulStopOptions) *GracefulStopOptions {
+	if source == nil {
+		return nil
+	}
+	cloned := *source
+	cloned.TimeoutMS = cloneIntPointer(source.TimeoutMS)
+	return &cloned
+}
+
+func cloneDataPolicy(source *v3.DataPolicy) *v3.DataPolicy {
+	if source == nil {
+		return nil
+	}
+	cloned := *source
+	return &cloned
+}
+
+func cloneGeofence(source *v3.Geofence) *v3.Geofence {
+	if source == nil {
+		return nil
+	}
+	cloned := *source
+	return &cloned
+}
+
+func (s *AgentSession) v3StartRequestParts() (v3.SessionTransport, *v3.SessionLifecycle, *v3.DataPolicy, error) {
 	if s.initErr != nil {
-		return v3.SessionTransport{}, nil, s.initErr
+		return v3.SessionTransport{}, nil, nil, s.initErr
 	}
 	if strings.TrimSpace(s.channel) == "" {
-		return v3.SessionTransport{}, nil, errors.New("agentkit: v3 session channel is required")
+		return v3.SessionTransport{}, nil, nil, errors.New("agentkit: v3 session channel is required")
 	}
 	if strings.TrimSpace(s.agentUID) == "" {
-		return v3.SessionTransport{}, nil, errors.New("agentkit: v3 session agent UID is required")
-	}
-	if s.token != "" {
-		return v3.SessionTransport{}, nil, errors.New("agentkit: v3 sessions do not accept a legacy RTC token")
-	}
-	if s.enableStringUID != nil {
-		return v3.SessionTransport{}, nil, errors.New("agentkit: v3 sessions do not support EnableStringUID")
+		return v3.SessionTransport{}, nil, nil, errors.New("agentkit: v3 session agent UID is required")
 	}
 	if s.expiresIn != 0 {
-		return v3.SessionTransport{}, nil, errors.New("agentkit: v3 sessions do not support ExpiresIn")
+		return v3.SessionTransport{}, nil, nil, errors.New("agentkit: v3 sessions do not support ExpiresIn")
 	}
 	if len(s.preset) > 0 {
-		return v3.SessionTransport{}, nil, errors.New("agentkit: v3 sessions do not support presets")
+		return v3.SessionTransport{}, nil, nil, errors.New("agentkit: v3 sessions do not support presets")
 	}
 	if s.pipelineID != "" {
-		return v3.SessionTransport{}, nil, errors.New("agentkit: v3 sessions do not support PipelineID overrides")
-	}
-	if s.backend == sessionBackendV3Ephemeral && s.labels != nil {
-		return v3.SessionTransport{}, nil, errors.New("agentkit: labels are only supported when starting a saved agent")
+		return v3.SessionTransport{}, nil, nil, errors.New("agentkit: v3 sessions do not support PipelineID overrides")
 	}
 	transport := v3.SessionTransport{
-		Type:          "rtc",
-		Channel:       s.channel,
-		UID:           s.agentUID,
+		Type: "rtc", Channel: s.channel, Token: s.token, UID: s.agentUID,
 		SubscribeUIDs: append([]string(nil), s.remoteUIDs...),
+		Encryption:    cloneRTCEncryption(s.encryption), AudioScenario: s.audioScenario,
+		Geofence: cloneGeofence(s.geofence),
 	}
 	var lifecycle *v3.SessionLifecycle
-	if s.idleTimeout != nil || s.maxDuration != nil {
+	if s.idleTimeout != nil || s.maxDuration != nil || s.gracefulStop != nil {
 		lifecycle = &v3.SessionLifecycle{}
-		const maxInt = int(^uint(0) >> 1)
 		if s.idleTimeout != nil {
-			if *s.idleTimeout < 0 || *s.idleTimeout > maxInt/1000 {
-				return v3.SessionTransport{}, nil, errors.New("agentkit: IdleTimeout must be non-negative seconds within millisecond range")
+			if *s.idleTimeout < 0 || *s.idleTimeout > 3600 {
+				return v3.SessionTransport{}, nil, nil, errors.New("agentkit: IdleTimeout must be between 0 and 3600 seconds")
 			}
 			milliseconds := *s.idleTimeout * 1000
 			lifecycle.IdleTimeoutMS = &milliseconds
 		}
 		if s.maxDuration != nil {
-			if *s.maxDuration < 0 || *s.maxDuration > maxInt/1000 {
-				return v3.SessionTransport{}, nil, errors.New("agentkit: MaxDuration must be non-negative seconds within millisecond range")
+			if *s.maxDuration < 1 || *s.maxDuration > 3600 {
+				return v3.SessionTransport{}, nil, nil, errors.New("agentkit: MaxDuration must be between 1 and 3600 seconds")
 			}
 			milliseconds := *s.maxDuration * 1000
 			lifecycle.MaxDurationMS = &milliseconds
 		}
+		if s.gracefulStop != nil {
+			lifecycle.GracefulStop = cloneGracefulStop(s.gracefulStop)
+		}
 	}
-	return transport, lifecycle, nil
+	if s.audioScenario != "" && s.audioScenario != "aiserver" && s.audioScenario != "chorus" {
+		return v3.SessionTransport{}, nil, nil, errors.New("agentkit: AudioScenario must be aiserver or chorus")
+	}
+	return transport, lifecycle, cloneDataPolicy(s.dataPolicy), nil
 }
 
 func (s *AgentSession) startV3(ctx context.Context) (string, error) {
 	s.mu.Lock()
+	if s.idempotencyKey != "" && s.startSucceeded {
+		s.mu.Unlock()
+		return "", errors.New("agentkit: a session handle cannot reuse its IdempotencyKey after a successful start; create a new handle with a new key")
+	}
 	if s.status != StatusIdle && s.status != StatusStopped && s.status != StatusError {
 		s.mu.Unlock()
 		return "", fmt.Errorf("cannot start session in %s state", s.status)
 	}
 	s.status = StatusStarting
 	s.mu.Unlock()
-	transport, lifecycle, err := s.v3StartRequestParts()
+	transport, lifecycle, dataPolicy, err := s.v3StartRequestParts()
 	if err != nil {
 		s.setV3StartFailure(err)
 		return "", err
@@ -305,24 +396,20 @@ func (s *AgentSession) startV3(ctx context.Context) (string, error) {
 	var response *v3.Response[v3.Session]
 	if s.backend == sessionBackendV3Saved {
 		response, err = s.v3Sessions.Start(ctx, v3.SessionStartRequest{
-			AgentID:         s.savedAgentID,
-			ClientReference: s.clientReference,
-			Labels:          cloneStringMap(s.labels),
-			Transport:       transport,
-			Lifecycle:       lifecycle,
-		})
+			AgentID: s.savedAgentID, Values: cloneAnyMap(s.values), Labels: cloneStringMap(s.labels),
+			Transport: transport, Lifecycle: lifecycle, DataPolicy: dataPolicy,
+		}, v3.SessionWriteOptions{IdempotencyKey: s.idempotencyKey})
 	} else {
 		config, ok := s.agent.(*Agent)
 		if !ok || config == nil {
 			err = errors.New("agentkit: ephemeral v3 sessions require an Agent config")
 		} else {
-			storedShape, mapErr := config.toV3("")
+			storedShape, mapErr := config.toV3Session()
 			if mapErr != nil {
 				err = mapErr
 			} else {
 				response, err = s.v3Sessions.StartEphemeral(ctx, v3.SessionStartEphemeralRequest{
-					ClientReference: s.clientReference,
-					Labels:          cloneStringMap(s.labels),
+					Labels: cloneStringMap(s.labels), Values: cloneAnyMap(s.values),
 					Agent: v3.EphemeralAgent{
 						Instructions: storedShape.Instructions,
 						Messages:     storedShape.Messages,
@@ -331,9 +418,8 @@ func (s *AgentSession) startV3(ctx context.Context) (string, error) {
 						Pipeline:     storedShape.Pipeline,
 						FillerWords:  storedShape.FillerWords,
 					},
-					Transport: transport,
-					Lifecycle: lifecycle,
-				})
+					Transport: transport, Lifecycle: lifecycle, DataPolicy: dataPolicy,
+				}, v3.SessionWriteOptions{IdempotencyKey: s.idempotencyKey})
 			}
 		}
 	}
@@ -349,6 +435,7 @@ func (s *AgentSession) startV3(ctx context.Context) (string, error) {
 	s.mu.Lock()
 	s.agentID = response.Body.AgentSessionID
 	s.status = lifecycleStatus(response.Body.Status, StatusRunning)
+	s.startSucceeded = true
 	s.mu.Unlock()
 	s.emit("started", map[string]string{"agent_session_id": s.agentID})
 	return s.agentID, nil
@@ -751,10 +838,6 @@ func (s *AgentSession) Stop(ctx context.Context) error {
 
 func (s *AgentSession) stopV3(ctx context.Context) error {
 	s.mu.Lock()
-	if s.status != StatusRunning {
-		s.mu.Unlock()
-		return fmt.Errorf("cannot stop session in %s state", s.status)
-	}
 	if s.agentID == "" {
 		s.mu.Unlock()
 		return errors.New("no agent_session_id available")
@@ -772,7 +855,7 @@ func (s *AgentSession) stopV3(ctx context.Context) error {
 	_, err := s.v3Sessions.Stop(ctx, id)
 	if err != nil {
 		s.mu.Lock()
-		s.status = StatusError
+		s.status = sessionStatusAfterStopError(err)
 		s.mu.Unlock()
 		s.emit("error", err)
 		return err
@@ -782,6 +865,27 @@ func (s *AgentSession) stopV3(ctx context.Context) error {
 	s.mu.Unlock()
 	s.emit("stopped", map[string]string{"agent_session_id": id})
 	return nil
+}
+
+func sessionStatusAfterStopError(err error) AgentSessionLifecycle {
+	var apiErr *core.APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != http.StatusConflict || apiErr.Unwrap() == nil {
+		return StatusError
+	}
+	var payload struct {
+		Reason string `json:"reason"`
+	}
+	if json.Unmarshal([]byte(apiErr.Unwrap().Error()), &payload) != nil {
+		return StatusError
+	}
+	switch payload.Reason {
+	case "TaskNotRunning":
+		return StatusStopped
+	case "TaskConflict":
+		return StatusStopping
+	default:
+		return StatusError
+	}
 }
 
 func (s *AgentSession) Say(ctx context.Context, text string, priority *Agora.SpeakAgentsRequestPriority, interruptable *bool) error {
@@ -993,6 +1097,9 @@ func (s *AgentSession) GetInfo(ctx context.Context) (*Agora.GetAgentsResponse, e
 		if err := json.Unmarshal(encoded, body); err != nil {
 			return nil, err
 		}
+		s.mu.Lock()
+		s.status = lifecycleStatus(response.Body.Status, s.status)
+		s.mu.Unlock()
 		return body, nil
 	}
 	s.mu.RLock()

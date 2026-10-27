@@ -56,7 +56,7 @@ func shouldStartEphemeralV3(base *agentcore.BaseAgent, opts CreateSessionOptions
 	if base == nil {
 		return false
 	}
-	if len(base.Variables) > 0 || opts.ClientReference != "" || opts.MaxDuration != nil || opts.Labels != nil {
+	if len(base.Variables) > 0 || opts.ClientReference != "" || opts.MaxDuration != nil || opts.Labels != nil || opts.Values != nil || opts.Encryption != nil || opts.Geofence != nil || opts.AudioScenario != "" || opts.GracefulStop != nil || opts.DataPolicy != nil || opts.IdempotencyKey != "" || base.Geofence != nil || base.AudioScenario != nil || (base.Parameters != nil && (base.Parameters.FarewellConfig != nil || base.Parameters.OptOut != nil)) {
 		return true
 	}
 	for _, module := range []map[string]interface{}{base.STT, base.LLM, base.TTS, base.MLLM} {
@@ -65,6 +65,26 @@ func shouldStartEphemeralV3(base *agentcore.BaseAgent, opts CreateSessionOptions
 		}
 	}
 	return false
+}
+
+// toV3Session removes legacy agent-level fields that the session API carries
+// in transport, lifecycle, or data_policy instead.
+func (a *Agent) toV3Session() (v3.AgentCreate, error) {
+	if a == nil || a.base == nil {
+		return v3.AgentCreate{}, errors.New("agentkit: agent config is required")
+	}
+	copyAgent := *a
+	copyBase := *a.base
+	copyBase.Geofence = nil
+	copyBase.AudioScenario = nil
+	if copyBase.Parameters != nil {
+		parameters := *copyBase.Parameters
+		parameters.FarewellConfig = nil
+		parameters.OptOut = nil
+		copyBase.Parameters = &parameters
+	}
+	copyAgent.base = &copyBase
+	return copyAgent.toV3("")
 }
 
 func containsSecretReference(value any) bool {
@@ -740,7 +760,7 @@ func convertModule(name string, input map[string]interface{}) (map[string]any, [
 		params = map[string]interface{}{}
 	}
 	key, _ := input["api_key"].(string)
-	for _, k := range []string{"api_key", "key", "api_subscription_key"} {
+	for _, k := range []string{"api_key", "key", "api_subscription_key", "app_key", "spatius_api_key"} {
 		if s, ok := params[k].(string); ok && s != "" {
 			if key != "" && key != s {
 				bad = append(bad, name+".params."+k+" (ambiguous credential)")
@@ -779,7 +799,7 @@ func convertModule(name string, input map[string]interface{}) (map[string]any, [
 	if name == "avatar" {
 		vendor, _ := input["vendor"].(string)
 		switch vendor {
-		case "akool", "liveavatar", "anam", "generic":
+		case "akool", "liveavatar", "anam", "sensetime", "spatius", "generic":
 		default:
 			bad = append(bad, name+".vendor")
 		}
@@ -805,6 +825,7 @@ func convertModule(name string, input map[string]interface{}) (map[string]any, [
 		out["credential"] = map[string]any{"mode": "byok", "api_key": key}
 	} else {
 		out["credential"] = map[string]any{"mode": "managed"}
+		delete(out, "url")
 	}
 	return out, bad
 }

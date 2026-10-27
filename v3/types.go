@@ -195,8 +195,8 @@ type SessionAnalysis struct {
 }
 type Session struct {
 	AgentSessionID string `json:"agent_session_id"`
-	// CreatedAt preserves the API's timestamp representation without assuming
-	// whether the backend emits a string or numeric value.
+	CreateTS       int64  `json:"create_ts,omitempty"`
+	// CreatedAt accepts the rollout-era response field. New responses use CreateTS.
 	CreatedAt json.RawMessage  `json:"created_at,omitempty"`
 	StartTS   int64            `json:"start_ts"`
 	StopTS    *int64           `json:"stop_ts"`
@@ -208,25 +208,54 @@ type Session struct {
 
 // SessionTransport describes the RTC connection associated with a session.
 type SessionTransport struct {
-	Type          string   `json:"type"`
-	Channel       string   `json:"channel"`
-	UID           string   `json:"uid"`
-	SubscribeUIDs []string `json:"subscribe_uids,omitempty"`
+	Type          string              `json:"type"`
+	Channel       string              `json:"channel,omitempty"`
+	Token         string              `json:"token,omitempty"`
+	UID           string              `json:"uid,omitempty"`
+	SubscribeUIDs []string            `json:"subscribe_uids,omitempty"`
+	Encryption    *RTCEncryption      `json:"encryption,omitempty"`
+	AudioScenario string              `json:"audio_scenario,omitempty"`
+	Geofence      *Geofence           `json:"geofence,omitempty"`
+	From          string              `json:"from,omitempty"`
+	To            string              `json:"to,omitempty"`
+	CallPolicy    *CampaignCallPolicy `json:"call_policy,omitempty"`
+}
+
+type RTCEncryption struct {
+	Mode string `json:"mode"`
+	Key  string `json:"key"`
+	Salt string `json:"salt,omitempty"`
+}
+
+type Geofence struct {
+	Area        string `json:"area"`
+	ExcludeArea string `json:"exclude_area,omitempty"`
 }
 
 // SessionLifecycle contains optional session timeouts in milliseconds.
 type SessionLifecycle struct {
-	IdleTimeoutMS *int `json:"idle_timeout_ms,omitempty"`
-	MaxDurationMS *int `json:"max_duration_ms,omitempty"`
+	IdleTimeoutMS *int          `json:"idle_timeout_ms,omitempty"`
+	MaxDurationMS *int          `json:"max_duration_ms,omitempty"`
+	GracefulStop  *GracefulStop `json:"graceful_stop,omitempty"`
+}
+
+type GracefulStop struct {
+	Enabled   bool `json:"enabled"`
+	TimeoutMS *int `json:"timeout_ms,omitempty"`
+}
+
+type DataPolicy struct {
+	Retention string `json:"retention,omitempty"`
 }
 
 // SessionStartRequest starts a session from an existing saved agent.
 type SessionStartRequest struct {
-	AgentID         string            `json:"agent_id"`
-	ClientReference string            `json:"client_reference,omitempty"`
-	Labels          map[string]string `json:"labels,omitempty"`
-	Transport       SessionTransport  `json:"transport"`
-	Lifecycle       *SessionLifecycle `json:"lifecycle,omitempty"`
+	AgentID    string            `json:"agent_id"`
+	Values     map[string]any    `json:"values,omitempty"`
+	Labels     map[string]string `json:"labels,omitempty"`
+	Transport  SessionTransport  `json:"transport"`
+	Lifecycle  *SessionLifecycle `json:"lifecycle,omitempty"`
+	DataPolicy *DataPolicy       `json:"data_policy,omitempty"`
 }
 
 // EphemeralAgent is an inline agent configuration that is not saved.
@@ -241,11 +270,16 @@ type EphemeralAgent struct {
 
 // SessionStartEphemeralRequest starts a session from an unsaved agent config.
 type SessionStartEphemeralRequest struct {
-	ClientReference string            `json:"client_reference,omitempty"`
-	Labels          map[string]string `json:"labels,omitempty"`
-	Agent           EphemeralAgent    `json:"agent"`
-	Transport       SessionTransport  `json:"transport"`
-	Lifecycle       *SessionLifecycle `json:"lifecycle,omitempty"`
+	Labels     map[string]string `json:"labels,omitempty"`
+	Agent      EphemeralAgent    `json:"agent"`
+	Values     map[string]any    `json:"values,omitempty"`
+	Transport  SessionTransport  `json:"transport"`
+	Lifecycle  *SessionLifecycle `json:"lifecycle,omitempty"`
+	DataPolicy *DataPolicy       `json:"data_policy,omitempty"`
+}
+
+type SessionWriteOptions struct {
+	IdempotencyKey string
 }
 type SessionListOptions struct {
 	ListOptions

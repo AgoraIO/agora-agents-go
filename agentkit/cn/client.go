@@ -8,8 +8,6 @@ import (
 type ClientOptions struct {
 	AppID          string
 	AppCertificate string
-	CustomerID     string
-	CustomerSecret string
 	Token          string
 }
 
@@ -20,8 +18,6 @@ func NewAgoraClient(opts ClientOptions) *AgoraClient {
 		Area:           option.AreaCN,
 		AppID:          opts.AppID,
 		AppCertificate: opts.AppCertificate,
-		CustomerID:     opts.CustomerID,
-		CustomerSecret: opts.CustomerSecret,
 		Token:          opts.Token,
 	})
 }

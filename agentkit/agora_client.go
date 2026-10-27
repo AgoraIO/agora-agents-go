@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 
 	Agora "github.com/AgoraIO/agora-agents-go/v2"
 	"github.com/AgoraIO/agora-agents-go/v2/agentmanagement"
@@ -24,8 +25,6 @@ const (
 	// AuthModeAppCredentials uses AppID + AppCertificate to auto-generate a
 	// short-lived ConvoAI token per API call — no Customer Secret required.
 	AuthModeAppCredentials AuthMode = "app-credentials"
-	// AuthModeBasic uses HTTP Basic Auth with a Customer ID and Customer Secret.
-	AuthModeBasic AuthMode = "basic"
 	// AuthModeToken uses a pre-built Agora token passed as the Authorization header.
 	AuthModeToken AuthMode = "token"
 )
@@ -38,13 +37,8 @@ type AgoraClientOptions struct {
 	AppID string
 	// AppCertificate is used to sign tokens. Keep this value secret.
 	AppCertificate string
-	// CustomerID and CustomerSecret are used for Basic auth (from Agora Console).
-	// Mutually exclusive with Token.
-	CustomerID     string
-	CustomerSecret string
 	// Token is a pre-built raw Agora token for REST API authentication.
 	// The SDK sets "Authorization: agora token=<Token>" automatically.
-	// Mutually exclusive with CustomerID/CustomerSecret.
 	Token string
 	// HTTPClient overrides the transport used for requests.
 	HTTPClient core.HTTPClient
@@ -54,7 +48,6 @@ type AgoraClientOptions struct {
 
 type V3Options struct {
 	BaseURL string
-	Headers http.Header
 }
 
 // AgoraClient wraps the Fern-generated client with AppID, AppCertificate, and
@@ -70,8 +63,9 @@ type AgoraClient struct {
 	PhoneNumbers    *phonenumbers.Client
 	// Secrets and Numbers are the version-neutral AgentKit accessors for the
 	// same project-scoped resources exposed under V3.
-	Secrets *v3.SecretsClient
-	Numbers *v3.NumbersClient
+	Secrets   *v3.SecretsClient
+	Numbers   *v3.NumbersClient
+	Campaigns *v3.CampaignsClient
 	// V3 exposes the complete low-level API, including sessions and raw CRUD.
 	V3             *v3.Client
 	appID          string
@@ -114,16 +108,6 @@ func (c *AgoraClient) HTTPClient() core.HTTPClient {
 //	    AppCertificate: "your-app-certificate",
 //	})
 //
-// Basic auth mode:
-//
-//	c := agentkit.NewAgoraClient(agentkit.AgoraClientOptions{
-//	    Area:           option.AreaUS,
-//	    AppID:          "your-app-id",
-//	    AppCertificate: "your-app-certificate",
-//	    CustomerID:     "your-customer-id",
-//	    CustomerSecret: "your-customer-secret",
-//	})
-//
 // Token auth mode (pre-built token):
 //
 //	c := agentkit.NewAgoraClient(agentkit.AgoraClientOptions{
@@ -139,10 +123,7 @@ func NewAgoraClient(opts AgoraClientOptions) *AgoraClient {
 	}
 
 	authMode := AuthModeAppCredentials
-	if opts.CustomerID != "" {
-		authMode = AuthModeBasic
-		reqOpts = append(reqOpts, option.WithBasicAuth(opts.CustomerID, opts.CustomerSecret))
-	} else if opts.Token != "" {
+	if opts.Token != "" {
 		authMode = AuthModeToken
 		reqOpts = append(reqOpts, option.WithToken(opts.Token))
 	}
@@ -160,9 +141,15 @@ func NewAgoraClient(opts AgoraClientOptions) *AgoraClient {
 		if opts.V3.BaseURL != "" {
 			v3Opts = append(v3Opts, option.WithBaseURL(opts.V3.BaseURL))
 		}
-		if len(opts.V3.Headers) > 0 {
-			v3Opts = append(v3Opts, option.WithHTTPHeader(opts.V3.Headers))
+	}
+	if opts.V3 == nil || opts.V3.BaseURL == "" {
+		// Area options set the legacy v2 gateway URL. V3 uses its own public
+		// origin unless the environment override is configured.
+		baseURL := os.Getenv("AGORA_AGENTS_V3_BASE_URL")
+		if baseURL == "" {
+			baseURL = "https://preview.ai.agora.io"
 		}
+		v3Opts = append(v3Opts, option.WithBaseURL(baseURL))
 	}
 	v3Client := v3.NewClient(opts.AppID, v3Opts...)
 	return &AgoraClient{
@@ -173,6 +160,7 @@ func NewAgoraClient(opts AgoraClientOptions) *AgoraClient {
 		PhoneNumbers:    c.PhoneNumbers,
 		Secrets:         v3Client.Secrets,
 		Numbers:         v3Client.Numbers,
+		Campaigns:       v3Client.Campaigns,
 		V3:              v3Client,
 		appID:           opts.AppID,
 		appCertificate:  opts.AppCertificate,

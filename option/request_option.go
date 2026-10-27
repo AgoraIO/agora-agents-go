@@ -63,14 +63,6 @@ func WithMaxAttempts(attempts uint) *core.MaxAttemptsOption {
 	}
 }
 
-// WithBasicAuth sets the 'Authorization: Basic <base64>' request header.
-func WithBasicAuth(username, password string) *core.BasicAuthOption {
-	return &core.BasicAuthOption{
-		Username: username,
-		Password: password,
-	}
-}
-
 // WithAuthorization sets the authorization request header.
 func WithAuthorization(authorization string) *core.AuthorizationOption {
 	return &core.AuthorizationOption{

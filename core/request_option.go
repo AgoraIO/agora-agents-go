@@ -3,10 +3,10 @@
 package core
 
 import (
-	base64 "encoding/base64"
 	fmt "fmt"
 	http "net/http"
 	url "net/url"
+	strings "strings"
 )
 
 // RequestOption adapts the behavior of the client or an individual request.
@@ -19,16 +19,21 @@ type RequestOption interface {
 // This type is primarily used by the generated code and is not meant
 // to be used directly; use the option package instead.
 type RequestOptions struct {
-	BaseURL         string
-	HTTPClient      HTTPClient
-	HTTPHeader      http.Header
-	BodyProperties  map[string]interface{}
-	QueryParameters url.Values
-	MaxAttempts     uint
-	Username        string
-	Password        string
-	Authorization   string
+	BaseURL            string
+	HTTPClient         HTTPClient
+	HTTPHeader         http.Header
+	BodyProperties     map[string]interface{}
+	QueryParameters    url.Values
+	MaxAttempts        uint
+	Username           string
+	Password           string
+	BasicAuthAttempted bool
+	Authorization      string
 }
+
+// BasicAuthRejectedHeader is an internal signal used by request callers to
+// reject obsolete Basic authentication before sending HTTP.
+const BasicAuthRejectedHeader = "X-Agora-SDK-Basic-Auth-Rejected"
 
 // NewRequestOptions returns a new *RequestOptions value.
 //
@@ -50,10 +55,19 @@ func NewRequestOptions(opts ...RequestOption) *RequestOptions {
 // for the request(s).
 func (r *RequestOptions) ToHeader() http.Header {
 	header := r.cloneHeader()
-	if r.Username != "" && r.Password != "" {
-		header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(r.Username+":"+r.Password)))
+	basicAttempted := r.BasicAuthAttempted || r.Username != "" || r.Password != ""
+	authorization := fmt.Sprintf("%v", r.Authorization)
+	if authorization == "" {
+		authorization = header.Get("Authorization")
 	}
-	header.Set("Authorization", fmt.Sprintf("%v", r.Authorization))
+	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(authorization)), "basic ") {
+		basicAttempted = true
+		authorization = ""
+	}
+	if basicAttempted {
+		header.Set(BasicAuthRejectedHeader, "true")
+	}
+	header.Set("Authorization", authorization)
 	return header
 }
 
@@ -127,8 +141,9 @@ type BasicAuthOption struct {
 }
 
 func (b *BasicAuthOption) applyRequestOptions(opts *RequestOptions) {
-	opts.Username = b.Username
-	opts.Password = b.Password
+	// Basic authentication was removed from the public SDK contract. Keep this
+	// generated compatibility type inert so stale callers cannot enable it.
+	opts.BasicAuthAttempted = true
 }
 
 // AuthorizationOption implements the RequestOption interface.

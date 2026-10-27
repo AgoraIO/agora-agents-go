@@ -8,6 +8,7 @@ import (
 	agentcore "github.com/AgoraIO/agora-agents-go/v2/agentkit/core"
 	"github.com/AgoraIO/agora-agents-go/v2/agentkit/vendors"
 	sdkcore "github.com/AgoraIO/agora-agents-go/v2/core"
+	"github.com/AgoraIO/agora-agents-go/v2/v3"
 )
 
 type TurnDetectionConfig = agentcore.TurnDetectionConfig
@@ -35,6 +36,9 @@ type InterruptionMode = agentcore.InterruptionMode
 type TurnDetectionType = agentcore.TurnDetectionType
 type InterruptMode = agentcore.InterruptMode
 type Eagerness = agentcore.Eagerness
+type RTCEncryption = v3.RTCEncryption
+type SessionGeofence = v3.Geofence
+type SessionDataPolicy = v3.DataPolicy
 type LlmGreetingConfigs = agentcore.LlmGreetingConfigs
 type LlmGreetingConfigsMode = agentcore.LlmGreetingConfigsMode
 type McpServersItem = agentcore.McpServersItem
@@ -360,19 +364,28 @@ type CreateSessionOptions struct {
 	// Name is the agent instance identifier sent as the top-level /join "name" field.
 	// When empty, CreateSession generates agent-<unix_timestamp>.
 	Name string
-	// ClientReference is the caller's identifier for v3 sessions. When empty,
-	// Name is used for backwards-compatible session naming.
+	// ClientReference is obsolete and rejected on v3 session starts.
 	ClientReference string
 	Channel         string
-	Token           string
-	AgentUID        string
-	RemoteUIDs      []string
-	IdleTimeout     *int
+	// Token is an optional RTC token for the channel. It is unrelated to Agora REST auth.
+	Token       string
+	AgentUID    string
+	RemoteUIDs  []string
+	IdleTimeout *int
 	// MaxDuration is the optional maximum session duration in seconds.
 	// V3 lifecycle requests convert this value to milliseconds.
 	MaxDuration *int
+	// Values supplies runtime values for declared agent variables.
+	Values map[string]any
 	// Labels are attached to v3 sessions. They are not sent by the v2 join API.
-	Labels          map[string]string
+	Labels map[string]string
+	// IdempotencyKey makes v3 session creation safe to retry for 24 hours.
+	IdempotencyKey  string
+	Encryption      *RTCEncryption
+	Geofence        *SessionGeofence
+	AudioScenario   string
+	GracefulStop    *GracefulStopOptions
+	DataPolicy      *SessionDataPolicy
 	EnableStringUID *bool
 	ExpiresIn       int
 	Preset          []string
@@ -380,6 +393,9 @@ type CreateSessionOptions struct {
 	Debug           bool
 	Warn            func(string)
 }
+
+// GracefulStopOptions configures how long a stopped agent may finish speaking.
+type GracefulStopOptions = v3.GracefulStop
 
 // CreateSession builds an AgentSession from this agent configuration.
 // Set Name on opts to identify the agent instance; omit Name to auto-generate one.
@@ -431,6 +447,13 @@ func newLegacyAgentSession(agent agentcore.AgentRuntime, opts CreateSessionOptio
 		IdleTimeout:              opts.IdleTimeout,
 		MaxDuration:              opts.MaxDuration,
 		Labels:                   opts.Labels,
+		Values:                   opts.Values,
+		IdempotencyKey:           opts.IdempotencyKey,
+		Encryption:               opts.Encryption,
+		Geofence:                 opts.Geofence,
+		AudioScenario:            opts.AudioScenario,
+		GracefulStop:             opts.GracefulStop,
+		DataPolicy:               opts.DataPolicy,
 		EnableStringUID:          opts.EnableStringUID,
 		ExpiresIn:                opts.ExpiresIn,
 		UseAppCredentialsForREST: client.IsAppCredentialsMode(),
