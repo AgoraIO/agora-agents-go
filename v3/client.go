@@ -122,13 +122,16 @@ func (t *transport) call(ctx context.Context, method, path string, query url.Val
 		return Response[any]{}, errors.New("v3: Basic authentication is not supported; use Agora token or app credentials")
 	}
 	base = internal.MergeHeaders(base, headers)
+	if method == http.MethodPost && (strings.HasSuffix(path, "/agents") || strings.HasSuffix(path, "/secrets") || strings.HasSuffix(path, "/numbers")) && hasHeader(base, "Idempotency-Key") {
+		return Response[any]{}, errors.New("v3: Idempotency-Key is not supported for agent, secret, or number creation")
+	}
 	for name := range base {
 		lower := strings.ToLower(name)
 		if strings.HasPrefix(lower, "x-studio-") || lower == "x-consumer-username" {
 			return Response[any]{}, fmt.Errorf("v3: internal header %q is not supported", name)
 		}
 	}
-	if authorization := strings.TrimSpace(base.Get("Authorization")); strings.HasPrefix(strings.ToLower(authorization), "basic ") {
+	if core.HasBasicAuthorization(base) {
 		return Response[any]{}, errors.New("v3: Basic authentication is not supported; use Agora token or app credentials")
 	}
 	if body != nil {
@@ -149,6 +152,15 @@ func (t *transport) call(ctx context.Context, method, path string, query url.Val
 		return Response[any]{}, err
 	}
 	return Response[any]{Body: output, Header: raw.Header.Clone(), ETag: raw.Header.Get("ETag"), RequestID: raw.Header.Get("Agora-Request-Id"), StatusCode: raw.StatusCode}, nil
+}
+
+func hasHeader(headers http.Header, target string) bool {
+	for name := range headers {
+		if strings.EqualFold(name, target) {
+			return true
+		}
+	}
+	return false
 }
 func listQuery(o ListOptions) url.Values {
 	q := url.Values{}

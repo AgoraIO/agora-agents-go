@@ -22,6 +22,8 @@ func TestCallerRejectsUnsupportedHeadersBeforeHTTP(t *testing.T) {
 			headers: core.NewRequestOptions(&core.BasicAuthOption{Username: "customer", Password: "secret"}).ToHeader(),
 		},
 		{name: "basic authorization", headers: http.Header{"Authorization": []string{"  bAsIc abc  "}}},
+		{name: "lowercase basic authorization", headers: http.Header{"authorization": []string{"Basic abc"}}},
+		{name: "mixed-case second authorization value", headers: http.Header{"Authorization": []string{"Bearer token", "Basic abc"}}},
 		{name: "studio routing header", headers: http.Header{"X-Studio-Region": []string{"internal"}}},
 		{name: "consumer routing header", headers: http.Header{"X-Consumer-Username": []string{"internal"}}},
 	}

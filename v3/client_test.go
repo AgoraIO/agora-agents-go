@@ -71,12 +71,18 @@ func TestDefaultOriginAuthAndInternalHeaderFiltering(t *testing.T) {
 	if _, err := basic.Agents.List(context.Background(), ListOptions{}); err == nil {
 		t.Fatal("basic auth should be rejected")
 	}
-	headerBasic := NewClient("app", option.WithHTTPHeader(http.Header{"Authorization": []string{"Basic Zm9vOmJhcg=="}}), option.WithHTTPClient(httpFunc(func(*http.Request) (*http.Response, error) {
-		t.Fatal("basic header reached transport")
-		return nil, nil
-	})))
-	if _, err := headerBasic.Agents.List(context.Background(), ListOptions{}); err == nil {
-		t.Fatal("basic authorization header should be rejected")
+	for _, headers := range []http.Header{
+		{"Authorization": []string{"Basic Zm9vOmJhcg=="}},
+		{"authorization": []string{"Basic Zm9vOmJhcg=="}},
+		{"Authorization": []string{"agora token=t", "Basic Zm9vOmJhcg=="}},
+	} {
+		headerBasic := NewClient("app", option.WithHTTPHeader(headers), option.WithHTTPClient(httpFunc(func(*http.Request) (*http.Response, error) {
+			t.Fatal("basic header reached transport")
+			return nil, nil
+		})))
+		if _, err := headerBasic.Agents.List(context.Background(), ListOptions{}); err == nil {
+			t.Fatalf("basic authorization header should be rejected: %v", headers)
+		}
 	}
 }
 
@@ -98,6 +104,30 @@ func TestBaseURLOverrideMustBeOrigin(t *testing.T) {
 			})))
 			if _, err := client.Agents.List(context.Background(), ListOptions{}); err == nil || calls != 0 {
 				t.Fatalf("invalid origin was not rejected before HTTP: base=%q err=%v calls=%d", baseURL, err, calls)
+			}
+		})
+	}
+}
+
+func TestUnsupportedCreationIdempotencyHeaderRejectedBeforeHTTP(t *testing.T) {
+	for _, resource := range []string{"agents", "secrets", "numbers"} {
+		t.Run(resource, func(t *testing.T) {
+			calls := 0
+			client := NewClient("app", option.WithHTTPHeader(http.Header{"Idempotency-Key": []string{"unsupported"}}), option.WithHTTPClient(httpFunc(func(*http.Request) (*http.Response, error) {
+				calls++
+				return reply(200, `{}`, nil), nil
+			})))
+			var err error
+			switch resource {
+			case "agents":
+				_, err = client.Agents.Create(context.Background(), AgentCreate{AgentName: "Agent"})
+			case "secrets":
+				_, err = client.Secrets.Create(context.Background(), SecretCreate{Name: "set"}, "")
+			case "numbers":
+				_, err = client.Numbers.Create(context.Background(), NumberCreate{}, "")
+			}
+			if err == nil || calls != 0 {
+				t.Fatalf("unsupported idempotency header was not rejected locally: err=%v calls=%d", err, calls)
 			}
 		})
 	}

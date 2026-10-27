@@ -75,7 +75,7 @@ func (c *Caller) Call(ctx context.Context, params *CallParams) (*CallResponse, e
 	if params.Headers.Get(core.BasicAuthRejectedHeader) != "" {
 		return nil, errors.New("Basic authentication is no longer supported; use Agora token or app credentials")
 	}
-	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(params.Headers.Get("Authorization"))), "basic ") {
+	if core.HasBasicAuthorization(params.Headers) {
 		return nil, errors.New("Basic authentication is no longer supported; use Agora token or app credentials")
 	}
 	for name := range params.Headers {

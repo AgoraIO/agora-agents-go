@@ -35,6 +35,22 @@ type RequestOptions struct {
 // reject obsolete Basic authentication before sending HTTP.
 const BasicAuthRejectedHeader = "X-Agora-SDK-Basic-Auth-Rejected"
 
+// HasBasicAuthorization reports whether any case-variant Authorization header
+// value requests Basic authentication.
+func HasBasicAuthorization(headers http.Header) bool {
+	for name, values := range headers {
+		if !strings.EqualFold(name, "Authorization") {
+			continue
+		}
+		for _, value := range values {
+			if strings.HasPrefix(strings.ToLower(strings.TrimSpace(value)), "basic ") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // NewRequestOptions returns a new *RequestOptions value.
 //
 // This function is primarily used by the generated code and is not meant
@@ -55,10 +71,16 @@ func NewRequestOptions(opts ...RequestOption) *RequestOptions {
 // for the request(s).
 func (r *RequestOptions) ToHeader() http.Header {
 	header := r.cloneHeader()
-	basicAttempted := r.BasicAuthAttempted || r.Username != "" || r.Password != ""
+	basicAttempted := r.BasicAuthAttempted || r.Username != "" || r.Password != "" || HasBasicAuthorization(header)
 	authorization := fmt.Sprintf("%v", r.Authorization)
 	if authorization == "" {
-		authorization = header.Get("Authorization")
+		for name, values := range header {
+			if strings.EqualFold(name, "Authorization") {
+				if len(values) > 0 {
+					authorization = values[0]
+				}
+			}
+		}
 	}
 	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(authorization)), "basic ") {
 		basicAttempted = true
@@ -72,7 +94,11 @@ func (r *RequestOptions) ToHeader() http.Header {
 }
 
 func (r *RequestOptions) cloneHeader() http.Header {
-	headers := r.HTTPHeader.Clone()
+	headers := make(http.Header, len(r.HTTPHeader)+4)
+	for name, values := range r.HTTPHeader {
+		canonical := http.CanonicalHeaderKey(name)
+		headers[canonical] = append(headers[canonical], values...)
+	}
 	headers.Set("X-Fern-Language", "Go")
 	headers.Set("X-Fern-SDK-Name", "github.com/AgoraIO/agora-agents-go/v2")
 	headers.Set("X-Fern-SDK-Version", "v2.12.0")
