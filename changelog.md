@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Changed
+
+- **Conversational AI v3 preview availability** — The current preview rollout is available in the US region only. This describes preview availability; the SDK keeps its existing regional routing behavior for other areas.
+
 ## [v2.12.0] — 2026-10-07
 
 ### Added
