@@ -36,6 +36,19 @@ type transport struct {
 	caller    *internal.Caller
 }
 
+func (t *transport) forLatestRead() *transport {
+	clone := *t
+	options := *t.options
+	options.HTTPHeader = t.options.HTTPHeader.Clone()
+	for name := range options.HTTPHeader {
+		if strings.EqualFold(name, "If-Match") || strings.EqualFold(name, "If-None-Match") || strings.EqualFold(name, "Idempotency-Key") {
+			delete(options.HTTPHeader, name)
+		}
+	}
+	clone.options = &options
+	return &clone
+}
+
 // PreconditionFailedError retains a 412 and can fetch the latest resource.
 type PreconditionFailedError struct {
 	Cause error
@@ -243,7 +256,7 @@ func (c *AgentsClient) Update(ctx context.Context, id, ifMatch string, patch Age
 	r, e := c.t.call(ctx, http.MethodPatch, p, nil, patch, &out, etagHeader(ifMatch), 0)
 	if e != nil {
 		return nil, precondition(ctx, e, func(ctx context.Context) (any, string, error) {
-			r, err := c.Get(ctx, id)
+			r, err := (&AgentsClient{t: c.t.forLatestRead()}).Get(ctx, id)
 			if err != nil {
 				return nil, "", err
 			}
@@ -315,7 +328,7 @@ func (c *SecretsClient) Update(ctx context.Context, name, ifMatch string, body S
 	r, e := c.t.call(ctx, http.MethodPatch, p, nil, body, &out, etagHeader(ifMatch), 0)
 	if e != nil {
 		return nil, precondition(ctx, e, func(ctx context.Context) (any, string, error) {
-			r, err := c.Get(ctx, name)
+			r, err := (&SecretsClient{t: c.t.forLatestRead()}).Get(ctx, name)
 			if err != nil {
 				return nil, "", err
 			}
@@ -336,7 +349,7 @@ func (c *SecretsClient) Replace(ctx context.Context, name, ifMatch string, body 
 	r, e := c.t.call(ctx, http.MethodPut, p, nil, body, &out, etagHeader(ifMatch), 0)
 	if e != nil {
 		return nil, precondition(ctx, e, func(ctx context.Context) (any, string, error) {
-			r, err := c.Get(ctx, name)
+			r, err := (&SecretsClient{t: c.t.forLatestRead()}).Get(ctx, name)
 			if err != nil {
 				return nil, "", err
 			}
@@ -357,7 +370,7 @@ func (c *SecretsClient) Delete(ctx context.Context, name, ifMatch string) (*Resp
 	r, e := c.t.call(ctx, http.MethodDelete, p, nil, nil, &out, etagHeader(ifMatch), 0)
 	if e != nil {
 		return nil, precondition(ctx, e, func(ctx context.Context) (any, string, error) {
-			r, err := c.Get(ctx, name)
+			r, err := (&SecretsClient{t: c.t.forLatestRead()}).Get(ctx, name)
 			if err != nil {
 				return nil, "", err
 			}
@@ -379,7 +392,7 @@ func (c *SecretsClient) SetKey(ctx context.Context, name, key string, body Secre
 	r, e := c.t.call(ctx, http.MethodPut, p, nil, body, &out, h, 0)
 	if e != nil {
 		return nil, precondition(ctx, e, func(ctx context.Context) (any, string, error) {
-			r, err := c.Get(ctx, name)
+			r, err := (&SecretsClient{t: c.t.forLatestRead()}).Get(ctx, name)
 			if err != nil {
 				return nil, "", err
 			}
@@ -397,7 +410,7 @@ func (c *SecretsClient) DeleteKey(ctx context.Context, name, key, ifMatch string
 	r, e := c.t.call(ctx, http.MethodDelete, p, nil, nil, &out, etagHeader(ifMatch), 0)
 	if e != nil {
 		return nil, precondition(ctx, e, func(ctx context.Context) (any, string, error) {
-			r, err := c.Get(ctx, name)
+			r, err := (&SecretsClient{t: c.t.forLatestRead()}).Get(ctx, name)
 			if err != nil {
 				return nil, "", err
 			}
@@ -460,7 +473,7 @@ func (c *NumbersClient) Update(ctx context.Context, id, ifMatch string, patch Nu
 	r, e := c.t.call(ctx, http.MethodPatch, p, nil, patch, &out, etagHeader(ifMatch), 0)
 	if e != nil {
 		return nil, precondition(ctx, e, func(ctx context.Context) (any, string, error) {
-			r, err := c.Get(ctx, id)
+			r, err := (&NumbersClient{t: c.t.forLatestRead()}).Get(ctx, id)
 			if err != nil {
 				return nil, "", err
 			}

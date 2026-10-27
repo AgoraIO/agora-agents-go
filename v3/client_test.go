@@ -136,13 +136,18 @@ func TestUnsupportedCreationIdempotencyHeaderRejectedBeforeHTTP(t *testing.T) {
 func TestAgentPreconditionIncludesLatest(t *testing.T) {
 	ctx := context.Background()
 	calls := 0
-	c := NewClient("app", option.WithBaseURL("https://staging.example"), option.WithHTTPClient(httpFunc(func(r *http.Request) (*http.Response, error) {
+	c := NewClient("app", option.WithBaseURL("https://staging.example"), option.WithHTTPHeader(http.Header{"If-Match": []string{"global"}, "If-None-Match": []string{"*"}, "Idempotency-Key": []string{"write-key"}}), option.WithHTTPClient(httpFunc(func(r *http.Request) (*http.Response, error) {
 		calls++
 		if r.Method == http.MethodPatch {
 			if r.Header.Get("If-Match") != "old" {
 				t.Fatal("If-Match missing")
 			}
 			return reply(412, `{"detail":"stale"}`, nil), nil
+		}
+		for _, name := range []string{"If-Match", "If-None-Match", "Idempotency-Key"} {
+			if r.Header.Get(name) != "" {
+				t.Fatalf("latest GET retained conditional header %s: %v", name, r.Header)
+			}
 		}
 		h := http.Header{}
 		h.Set("ETag", "new")

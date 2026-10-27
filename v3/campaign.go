@@ -192,7 +192,7 @@ func (c *CampaignsClient) Update(ctx context.Context, id, ifMatch string, body C
 	raw, err := c.t.call(ctx, http.MethodPatch, p, nil, body, &out, etagHeader(ifMatch), 1)
 	if err != nil {
 		return nil, precondition(ctx, err, func(ctx context.Context) (any, string, error) {
-			r, e := c.Get(ctx, id)
+			r, e := (&CampaignsClient{t: c.t.forLatestRead()}).Get(ctx, id)
 			if e != nil {
 				return nil, "", e
 			}
