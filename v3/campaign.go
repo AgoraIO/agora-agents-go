@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 )
 
 // CampaignCreate contains the supported inline campaign creation contract.
@@ -131,7 +132,11 @@ func campaignWriteHeaders(opts []CampaignWriteOptions) (http.Header, error) {
 	}
 	headers := http.Header{}
 	if len(opts) == 1 && opts[0].IdempotencyKey != "" {
-		headers.Set("Idempotency-Key", opts[0].IdempotencyKey)
+		key := opts[0].IdempotencyKey
+		if strings.TrimSpace(key) == "" {
+			return nil, errors.New("v3: idempotency key must not be whitespace-only")
+		}
+		headers.Set("Idempotency-Key", key)
 	}
 	return headers, nil
 }

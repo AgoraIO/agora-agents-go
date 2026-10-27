@@ -157,6 +157,41 @@ func TestCampaignLocalPathAndOptionValidation(t *testing.T) {
 		}
 	}
 }
+
+func TestCampaignWriteRejectsWhitespaceOnlyIdempotencyKey(t *testing.T) {
+	calls := 0
+	c := NewClient("p", option.WithHTTPClient(httpFunc(func(*http.Request) (*http.Response, error) {
+		calls++
+		return reply(200, `{}`, nil), nil
+	})))
+	ctx := context.Background()
+	for _, call := range []func() error{
+		func() error {
+			_, err := c.Campaigns.Create(ctx, CampaignCreate{}, CampaignWriteOptions{IdempotencyKey: " \t"})
+			return err
+		},
+		func() error {
+			_, err := c.Campaigns.Pause(ctx, "c", CampaignWriteOptions{IdempotencyKey: " \t"})
+			return err
+		},
+		func() error {
+			_, err := c.Campaigns.Resume(ctx, "c", CampaignWriteOptions{IdempotencyKey: " \t"})
+			return err
+		},
+		func() error {
+			_, err := c.Campaigns.Cancel(ctx, "c", CampaignWriteOptions{IdempotencyKey: " \t"})
+			return err
+		},
+	} {
+		if err := call(); err == nil {
+			t.Fatal("whitespace-only campaign idempotency key should fail locally")
+		}
+	}
+	if calls != 0 {
+		t.Fatalf("invalid campaign idempotency keys reached transport: calls=%d", calls)
+	}
+}
+
 func TestCampaignRequiredEmptyAndZeroFieldsMarshal(t *testing.T) {
 	zero := 0
 	off := false

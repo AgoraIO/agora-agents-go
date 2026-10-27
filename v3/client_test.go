@@ -133,6 +133,28 @@ func TestUnsupportedCreationIdempotencyHeaderRejectedBeforeHTTP(t *testing.T) {
 	}
 }
 
+func TestIdempotencyHeaderMustBeNonemptyOnSupportedOperations(t *testing.T) {
+	for _, method := range []string{"session", "campaign"} {
+		t.Run(method, func(t *testing.T) {
+			calls := 0
+			client := NewClient("app", option.WithHTTPHeader(http.Header{"Idempotency-Key": []string{" \t"}}), option.WithHTTPClient(httpFunc(func(*http.Request) (*http.Response, error) {
+				calls++
+				return reply(200, `{}`, nil), nil
+			})))
+			var err error
+			switch method {
+			case "session":
+				_, err = client.Sessions.Start(context.Background(), SessionStartRequest{AgentID: "a", Transport: SessionTransport{Type: "rtc", Channel: "room", UID: "1", SubscribeUIDs: []string{"2"}}})
+			case "campaign":
+				_, err = client.Campaigns.Pause(context.Background(), "c")
+			}
+			if err == nil || calls != 0 {
+				t.Fatalf("blank global idempotency header was not rejected locally: err=%v calls=%d", err, calls)
+			}
+		})
+	}
+}
+
 func TestAgentPreconditionIncludesLatest(t *testing.T) {
 	ctx := context.Background()
 	calls := 0

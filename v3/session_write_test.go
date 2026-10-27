@@ -121,6 +121,39 @@ func TestSessionWritesAllowZeroLifecycleTimeout(t *testing.T) {
 	}
 }
 
+func TestSessionWriteRejectsWhitespaceOnlyIdempotencyKey(t *testing.T) {
+	calls := 0
+	c := NewClient("app", option.WithHTTPClient(httpFunc(func(*http.Request) (*http.Response, error) {
+		calls++
+		return reply(200, `{}`, nil), nil
+	})))
+	transport := SessionTransport{Type: "rtc", Channel: "room", UID: "1", SubscribeUIDs: []string{"2"}}
+	if _, err := c.Sessions.Start(context.Background(), SessionStartRequest{AgentID: "agent", Transport: transport}, SessionWriteOptions{IdempotencyKey: " \t"}); err == nil {
+		t.Fatal("whitespace-only session idempotency key should fail locally")
+	}
+	if _, err := c.Sessions.StartEphemeral(context.Background(), SessionStartEphemeralRequest{Agent: EphemeralAgent{}, Transport: transport}, SessionWriteOptions{IdempotencyKey: " \t"}); err == nil {
+		t.Fatal("whitespace-only ephemeral idempotency key should fail locally")
+	}
+	if calls != 0 {
+		t.Fatalf("invalid idempotency keys reached transport: calls=%d", calls)
+	}
+}
+
+func TestSessionWriteIdempotencyKeyPreservesOpaqueNonblankValue(t *testing.T) {
+	for _, key := range []string{"", "  key  "} {
+		headers, err := sessionWriteHeaders([]SessionWriteOptions{{IdempotencyKey: key}})
+		if err != nil {
+			t.Fatalf("sessionWriteHeaders(%q): %v", key, err)
+		}
+		if key == "" && len(headers) != 0 {
+			t.Fatalf("empty default key should be omitted: %#v", headers)
+		}
+		if key != "" && headers.Get("Idempotency-Key") != key {
+			t.Fatalf("opaque key was changed: got %q want %q", headers.Get("Idempotency-Key"), key)
+		}
+	}
+}
+
 func TestSessionTransportRTCUIDAndTelephonyVariants(t *testing.T) {
 	cases := []struct {
 		name      string

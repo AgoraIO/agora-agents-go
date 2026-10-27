@@ -135,6 +135,18 @@ func (t *transport) call(ctx context.Context, method, path string, query url.Val
 		return Response[any]{}, errors.New("v3: Basic authentication is not supported; use Agora token or app credentials")
 	}
 	base = internal.MergeHeaders(base, headers)
+	if hasHeader(base, "Idempotency-Key") {
+		for name, values := range base {
+			if !strings.EqualFold(name, "Idempotency-Key") {
+				continue
+			}
+			for _, value := range values {
+				if strings.TrimSpace(value) == "" {
+					return Response[any]{}, errors.New("v3: Idempotency-Key must not be whitespace-only")
+				}
+			}
+		}
+	}
 	if method == http.MethodPost && (strings.HasSuffix(path, "/agents") || strings.HasSuffix(path, "/secrets") || strings.HasSuffix(path, "/numbers")) && hasHeader(base, "Idempotency-Key") {
 		return Response[any]{}, errors.New("v3: Idempotency-Key is not supported for agent, secret, or number creation")
 	}
@@ -175,6 +187,7 @@ func hasHeader(headers http.Header, target string) bool {
 	}
 	return false
 }
+
 func listQuery(o ListOptions) url.Values {
 	q := url.Values{}
 	if o.Limit > 0 {
@@ -544,6 +557,10 @@ func (c *SessionsClient) Start(ctx context.Context, body SessionStartRequest, op
 	if len(opts) > 1 {
 		return nil, errors.New("v3: at most one session write options value is accepted")
 	}
+	headers, err := sessionWriteHeaders(opts)
+	if err != nil {
+		return nil, err
+	}
 	if strings.TrimSpace(body.AgentID) == "" {
 		return nil, errors.New("v3: agentID is required")
 	}
@@ -564,7 +581,7 @@ func (c *SessionsClient) Start(ctx context.Context, body SessionStartRequest, op
 		return nil, err
 	}
 	var out Session
-	r, err := c.t.call(ctx, http.MethodPost, p, nil, body, &out, sessionWriteHeaders(opts), 0)
+	r, err := c.t.call(ctx, http.MethodPost, p, nil, body, &out, headers, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -576,6 +593,10 @@ func (c *SessionsClient) Start(ctx context.Context, body SessionStartRequest, op
 func (c *SessionsClient) StartEphemeral(ctx context.Context, body SessionStartEphemeralRequest, opts ...SessionWriteOptions) (*Response[Session], error) {
 	if len(opts) > 1 {
 		return nil, errors.New("v3: at most one session write options value is accepted")
+	}
+	headers, err := sessionWriteHeaders(opts)
+	if err != nil {
+		return nil, err
 	}
 	if err := validateSessionTransport(body.Transport); err != nil {
 		return nil, err
@@ -594,7 +615,7 @@ func (c *SessionsClient) StartEphemeral(ctx context.Context, body SessionStartEp
 		return nil, err
 	}
 	var out Session
-	r, err := c.t.call(ctx, http.MethodPost, p, nil, body, &out, sessionWriteHeaders(opts), 0)
+	r, err := c.t.call(ctx, http.MethodPost, p, nil, body, &out, headers, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -602,12 +623,16 @@ func (c *SessionsClient) StartEphemeral(ctx context.Context, body SessionStartEp
 	return response(r, out), nil
 }
 
-func sessionWriteHeaders(opts []SessionWriteOptions) http.Header {
+func sessionWriteHeaders(opts []SessionWriteOptions) (http.Header, error) {
 	h := http.Header{}
-	if len(opts) > 0 && strings.TrimSpace(opts[0].IdempotencyKey) != "" {
-		h.Set("Idempotency-Key", strings.TrimSpace(opts[0].IdempotencyKey))
+	if len(opts) > 0 && opts[0].IdempotencyKey != "" {
+		key := opts[0].IdempotencyKey
+		if strings.TrimSpace(key) == "" {
+			return nil, errors.New("v3: idempotency key must not be whitespace-only")
+		}
+		h.Set("Idempotency-Key", key)
 	}
-	return h
+	return h, nil
 }
 
 func normalizeSessionResponse(session *Session) {
