@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
 	Agora "github.com/AgoraIO/agora-agents-go/v2"
 	"github.com/AgoraIO/agora-agents-go/v2/agentmanagement"
@@ -177,8 +178,14 @@ type appCredentialsHTTPClient struct {
 }
 
 func (c *appCredentialsHTTPClient) Do(req *http.Request) (*http.Response, error) {
-	if req.Header.Get("Authorization") != "" {
-		return c.transport.Do(req)
+	for name, values := range req.Header {
+		if strings.EqualFold(name, "Authorization") {
+			for _, value := range values {
+				if value != "" {
+					return c.transport.Do(req)
+				}
+			}
+		}
 	}
 	token, err := GenerateConvoAIToken(GenerateConvoAITokenOptions{AppID: c.appID, AppCertificate: c.appCertificate, ChannelName: "v3", UID: 0})
 	if err != nil {

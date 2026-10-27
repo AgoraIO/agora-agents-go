@@ -3,9 +3,11 @@
 package core
 
 import (
+	"errors"
 	fmt "fmt"
 	http "net/http"
 	url "net/url"
+	"regexp"
 	strings "strings"
 )
 
@@ -29,11 +31,36 @@ type RequestOptions struct {
 	Password           string
 	BasicAuthAttempted bool
 	Authorization      string
+	AuthorizationSet   bool
 }
 
 // BasicAuthRejectedHeader is an internal signal used by request callers to
 // reject obsolete Basic authentication before sending HTTP.
 const BasicAuthRejectedHeader = "X-Agora-SDK-Basic-Auth-Rejected"
+
+// PublicAuthRejectedHeader preserves invalid authorization across option merging.
+const PublicAuthRejectedHeader = "X-Agora-SDK-Public-Auth-Rejected"
+
+var publicAuthorizationPattern = regexp.MustCompile(`(?i)^agora token=\S+$`)
+
+// ValidatePublicAuthorization checks every value and casing. Empty values are
+// generated placeholders, left for the app-credential signer to populate.
+func ValidatePublicAuthorization(headers http.Header) error {
+	if headers.Get(PublicAuthRejectedHeader) != "" {
+		return errors.New("only Agora token authorization is supported")
+	}
+	for name, values := range headers {
+		if !strings.EqualFold(name, "Authorization") {
+			continue
+		}
+		for _, value := range values {
+			if value != "" && !publicAuthorizationPattern.MatchString(value) {
+				return errors.New("only Agora token authorization is supported")
+			}
+		}
+	}
+	return nil
+}
 
 // HasBasicAuthorization reports whether any case-variant Authorization header
 // value requests Basic authentication.
@@ -71,6 +98,18 @@ func NewRequestOptions(opts ...RequestOption) *RequestOptions {
 // for the request(s).
 func (r *RequestOptions) ToHeader() http.Header {
 	header := r.cloneHeader()
+	for name, values := range r.HTTPHeader {
+		if strings.EqualFold(name, "Authorization") {
+			for _, value := range values {
+				if value == "" {
+					header.Set(PublicAuthRejectedHeader, "true")
+				}
+			}
+		}
+	}
+	if ValidatePublicAuthorization(header) != nil || ((r.AuthorizationSet || r.Authorization != "") && !publicAuthorizationPattern.MatchString(r.Authorization)) {
+		header.Set(PublicAuthRejectedHeader, "true")
+	}
 	basicAttempted := r.BasicAuthAttempted || r.Username != "" || r.Password != "" || HasBasicAuthorization(header)
 	authorization := fmt.Sprintf("%v", r.Authorization)
 	if authorization == "" {
@@ -179,4 +218,5 @@ type AuthorizationOption struct {
 
 func (a *AuthorizationOption) applyRequestOptions(opts *RequestOptions) {
 	opts.Authorization = a.Authorization
+	opts.AuthorizationSet = true
 }

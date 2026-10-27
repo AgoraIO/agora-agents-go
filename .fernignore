@@ -27,3 +27,11 @@ go.sum
 .fern/replay.lock
 .fern/replay.yml
 .gitattributes
+
+# Public token policy and shared transport corrections are hand-maintained.
+core/request_option.go
+option/request_option.go
+internal/caller.go
+internal/caller_auth_test.go
+internal/retrier.go
+agent_session_info.go

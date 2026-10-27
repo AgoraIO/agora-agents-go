@@ -138,6 +138,9 @@ func (t *transport) call(ctx context.Context, method, path string, query url.Val
 		return Response[any]{}, errors.New("v3: Basic authentication is not supported; use Agora token or app credentials")
 	}
 	base = internal.MergeHeaders(base, headers)
+	if err := core.ValidatePublicAuthorization(base); err != nil {
+		return Response[any]{}, err
+	}
 	if hasHeader(base, "Idempotency-Key") {
 		for name, values := range base {
 			if !strings.EqualFold(name, "Idempotency-Key") {

@@ -1099,3 +1099,49 @@ func TestAppCredentialsSignLegacyAndPreviewResourcesAndPreserveExplicitTokens(t 
 		t.Fatalf("expected legacy+override+preview calls, got %d", calls)
 	}
 }
+
+func TestTokenOnlyPublicClientRejectsOtherSchemesAcrossResources(t *testing.T) {
+	for _, opts := range [][]option.RequestOption{
+		{option.WithAuthorization("")},
+		{option.WithHTTPHeader(http.Header{"authorization": []string{""}})},
+		{option.WithAuthorization("Bearer obsolete")},
+		{option.WithHTTPHeader(http.Header{"authorization": []string{"Digest obsolete"}})},
+		{option.WithHTTPHeader(http.Header{"Authorization": []string{"agora token=valid", "Bearer obsolete"}})},
+	} {
+		calls := 0
+		transport := v3HTTPFunc(func(*http.Request) (*http.Response, error) { calls++; return v3Reply(200, `{}`, ""), nil })
+		client := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: strings.Repeat("a", 32), AppCertificate: strings.Repeat("b", 32), HTTPClient: transport})
+		if _, err := client.Agents.Get(context.Background(), &Agora.GetAgentsRequest{Appid: "app", AgentID: "id"}, opts...); err == nil {
+			t.Error("legacy resource accepted non-Agora auth")
+		}
+		preview := v3.NewClient("app", append(opts, option.WithHTTPClient(transport))...)
+		if _, err := preview.Agents.Get(context.Background(), "id"); err == nil {
+			t.Error("preview resource accepted non-Agora auth")
+		}
+		if calls != 0 {
+			t.Fatalf("invalid authorization sent %d requests", calls)
+		}
+	}
+}
+
+func TestAppCredentialSignerPreservesCaseVariantExplicitToken(t *testing.T) {
+	calls := 0
+	signer := &appCredentialsHTTPClient{transport: v3HTTPFunc(func(r *http.Request) (*http.Response, error) {
+		calls++
+		if values := r.Header["authorization"]; len(values) != 1 || values[0] != "agora token=explicit" {
+			t.Fatalf("explicit token lost: %v", r.Header)
+		}
+		if _, exists := r.Header["Authorization"]; exists {
+			t.Fatalf("signer injected a second token: %v", r.Header)
+		}
+		return v3Reply(200, `{}`, ""), nil
+	})}
+	req, _ := http.NewRequest(http.MethodGet, "https://example.test", nil)
+	req.Header["authorization"] = []string{"agora token=explicit"}
+	if _, err := signer.Do(req); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 {
+		t.Fatalf("explicit token request was not sent: %d", calls)
+	}
+}

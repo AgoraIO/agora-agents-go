@@ -72,6 +72,9 @@ type CallResponse struct {
 
 // Call issues an API call according to the given call parameters.
 func (c *Caller) Call(ctx context.Context, params *CallParams) (*CallResponse, error) {
+	if err := core.ValidatePublicAuthorization(params.Headers); err != nil {
+		return nil, err
+	}
 	if params.Headers.Get(core.BasicAuthRejectedHeader) != "" {
 		return nil, errors.New("Basic authentication is no longer supported; use Agora token or app credentials")
 	}
