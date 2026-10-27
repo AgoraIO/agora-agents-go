@@ -607,7 +607,7 @@ func TestSavedAgentCreateSessionUsesV3SessionLifecycle(t *testing.T) {
 			if r.Method != http.MethodGet || !strings.HasSuffix(r.URL.Path, "/sessions/sess1") {
 				t.Fatalf("get session request: %s %s", r.Method, r.URL.Path)
 			}
-			return v3Reply(200, `{"agent_session_id":"sess1","status":"STOPPING","start_ts":1781827200}`, ""), nil
+			return v3Reply(200, `{"agent_session_id":"sess1","status":"RUNNING","start_ts":1781827200}`, ""), nil
 		case 3:
 			if r.Method != http.MethodPost || !strings.HasSuffix(r.URL.Path, "/sessions/sess1/stop") {
 				t.Fatalf("stop request: %s %s", r.Method, r.URL.Path)
@@ -639,7 +639,7 @@ func TestSavedAgentCreateSessionUsesV3SessionLifecycle(t *testing.T) {
 		t.Fatalf("session start: id=%q status=%q err=%v", id, session.Status(), err)
 	}
 	info, err := session.GetInfo(context.Background())
-	if err != nil || info.GetAgentSessionID() == nil || *info.GetAgentSessionID() != "sess1" || info.GetAgentID() != nil || info.GetStatus() == nil || string(*info.GetStatus()) != "STOPPING" || session.Status() != StatusStopping {
+	if err != nil || info.GetAgentSessionID() == nil || *info.GetAgentSessionID() != "sess1" || info.GetAgentID() != nil || info.GetStatus() == nil || string(*info.GetStatus()) != "RUNNING" || session.Status() != StatusRunning {
 		t.Fatalf("session info: %#v err=%v", info, err)
 	}
 	if err := session.Stop(context.Background()); err != nil || session.Status() != StatusStopped || calls != 3 {
@@ -998,6 +998,13 @@ func TestInfoDuringStopCannotSupersedeWriteAndConflictCanBePolled(t *testing.T) 
 			}
 			go func() { stopDone <- session.Stop(context.Background()) }()
 			<-stopEntered
+			if err := session.Stop(context.Background()); err == nil {
+				t.Error("concurrent stop should fail locally")
+			}
+			if _, err := session.Start(context.Background()); err == nil {
+				t.Error("start during pending stop should fail locally")
+			}
+
 			if _, err := session.GetInfo(context.Background()); err != nil {
 				t.Fatal(err)
 			}
@@ -1012,6 +1019,11 @@ func TestInfoDuringStopCannotSupersedeWriteAndConflictCanBePolled(t *testing.T) 
 				}
 			} else if err != nil || session.Status() != StatusStopped {
 				t.Fatalf("stop result: %v %s", err, session.Status())
+			}
+			if !conflict {
+				if err := session.Stop(context.Background()); err == nil {
+					t.Error("already stopped session issued another stop")
+				}
 			}
 			readStatus = "STOPPED"
 			if _, err := session.GetInfo(context.Background()); err != nil {

@@ -384,8 +384,9 @@ func (s *AgentSession) startV3(ctx context.Context) (string, error) {
 		return "", errors.New("agentkit: a session handle cannot reuse its IdempotencyKey after a successful start; create a new handle with a new key")
 	}
 	if s.status != StatusIdle && s.status != StatusStopped && s.status != StatusError {
+		status := s.status
 		s.mu.Unlock()
-		return "", fmt.Errorf("cannot start session in %s state", s.status)
+		return "", fmt.Errorf("cannot start session in %s state", status)
 	}
 	s.status = StatusStarting
 	s.agentID = ""
@@ -853,6 +854,12 @@ func (s *AgentSession) Stop(ctx context.Context) error {
 
 func (s *AgentSession) stopV3(ctx context.Context) error {
 	s.mu.Lock()
+	if s.status != StatusRunning && s.status != StatusStarting {
+		status := s.status
+		s.mu.Unlock()
+		return fmt.Errorf("cannot stop session in %s state", status)
+	}
+
 	if s.agentID == "" {
 		s.mu.Unlock()
 		return errors.New("no agent_session_id available")
