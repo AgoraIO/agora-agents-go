@@ -106,6 +106,9 @@ func segment(s, label string) (string, error) {
 	if strings.TrimSpace(s) == "" {
 		return "", fmt.Errorf("v3: %s is required", label)
 	}
+	if s == "." || s == ".." {
+		return "", fmt.Errorf("v3: %s must not be a dot path segment", label)
+	}
 	return url.PathEscape(s), nil
 }
 func (t *transport) path(resource string, ids ...string) (string, error) {

@@ -59,7 +59,7 @@ func shouldStartEphemeralV3(base *agentcore.BaseAgent, opts CreateSessionOptions
 	if len(base.Variables) > 0 || opts.ClientReference != "" || opts.MaxDuration != nil || opts.Labels != nil || opts.Values != nil || opts.Encryption != nil || opts.Geofence != nil || opts.AudioScenario != "" || opts.GracefulStop != nil || opts.DataPolicy != nil || opts.IdempotencyKey != "" || base.Geofence != nil || base.AudioScenario != nil || (base.Parameters != nil && (base.Parameters.FarewellConfig != nil || base.Parameters.OptOut != nil)) {
 		return true
 	}
-	for _, module := range []map[string]interface{}{base.STT, base.LLM, base.TTS, base.MLLM} {
+	for _, module := range []map[string]interface{}{base.STT, base.LLM, base.TTS, base.MLLM, base.Avatar} {
 		if containsSecretReference(module) {
 			return true
 		}
@@ -77,6 +77,7 @@ func (a *Agent) toV3Session() (v3.AgentCreate, error) {
 	copyBase := *a.base
 	copyBase.Geofence = nil
 	copyBase.AudioScenario = nil
+	copyBase.Labels = nil
 	if copyBase.Parameters != nil {
 		parameters := *copyBase.Parameters
 		parameters.FarewellConfig = nil

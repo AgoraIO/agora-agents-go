@@ -795,3 +795,266 @@ func TestV3SessionRejectsLegacyAndUndocumentedOptionsLocally(t *testing.T) {
 		t.Fatalf("unsupported options reached transport: %d", calls)
 	}
 }
+
+func TestAvatarOnlySecretReferenceSelectsEphemeralSession(t *testing.T) {
+	calls := 0
+	client := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token", HTTPClient: v3HTTPFunc(func(r *http.Request) (*http.Response, error) {
+		calls++
+		if r.URL.Path != "/conversational-ai/v1/projects/app/sessions/ephemeral" {
+			t.Fatalf("avatar reference routed to %s", r.URL.Path)
+		}
+		var body struct {
+			Agent struct {
+				Pipeline struct {
+					Avatar struct {
+						Credential struct {
+							APIKey string `json:"api_key"`
+						} `json:"credential"`
+					} `json:"avatar"`
+				} `json:"pipeline"`
+			} `json:"agent"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		if body.Agent.Pipeline.Avatar.Credential.APIKey != "$secrets.avatars.anam" {
+			t.Fatalf("avatar reference lost: %#v", body)
+		}
+		return v3Reply(200, `{"agent_session_id":"avatar-session","status":"RUNNING","create_ts":1}`, ""), nil
+	})})
+	config := NewAgent(client).WithMllm(vendors.NewOpenAIRealtime(vendors.OpenAIRealtimeOptions{APIKey: "inline-provider-key"})).WithAvatar(vendors.NewAnamAvatar(vendors.AnamAvatarOptions{APIKey: SecretRef("avatars", "anam"), AvatarID: "avatar"}))
+	session := config.CreateSession(CreateSessionOptions{Channel: "room", AgentUID: "1", RemoteUIDs: []string{"2"}})
+	id, err := session.Start(context.Background())
+	if err != nil || id != "avatar-session" || calls != 1 {
+		t.Fatalf("avatar reference start failed: id=%q error=%v calls=%d", id, err, calls)
+	}
+}
+
+func TestEphemeralSessionInheritsBuilderLabelsWithoutSavingThem(t *testing.T) {
+	for _, override := range []bool{false, true} {
+		t.Run(fmt.Sprint(override), func(t *testing.T) {
+			expected := "builder"
+			if override {
+				expected = "session"
+			}
+			client := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token", HTTPClient: v3HTTPFunc(func(r *http.Request) (*http.Response, error) {
+				var body map[string]any
+				if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+					t.Fatal(err)
+				}
+				if body["labels"].(map[string]any)["source"] != expected {
+					t.Fatalf("labels lost: %#v", body)
+				}
+				if _, ok := body["agent"].(map[string]any)["labels"]; ok {
+					t.Fatal("session labels leaked into stored shape")
+				}
+				return v3Reply(200, `{"agent_session_id":"s","status":"RUNNING","create_ts":1}`, ""), nil
+			})})
+			config := NewAgent(client, WithLabels(map[string]string{"source": "builder"})).WithVariable("value", VariableDefinition{Type: "str"})
+			opts := CreateSessionOptions{Channel: "room", AgentUID: "1", RemoteUIDs: []string{"2"}}
+			if override {
+				opts.Labels = map[string]string{"source": "session"}
+			}
+			session := config.CreateSession(opts)
+			if _, err := session.Start(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+			if config.base.Labels["source"] != "builder" {
+				t.Fatal("builder labels mutated")
+			}
+		})
+	}
+}
+
+func TestSessionInfoCannotOverwriteCompletedStopOrRestart(t *testing.T) {
+	for _, restart := range []bool{false, true} {
+		t.Run(fmt.Sprint(restart), func(t *testing.T) {
+			readEntered := make(chan struct{})
+			releaseRead := make(chan struct{})
+			readDone := make(chan error, 1)
+			starts := 0
+			client := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token", HTTPClient: v3HTTPFunc(func(r *http.Request) (*http.Response, error) {
+				if r.Method == http.MethodGet {
+					close(readEntered)
+					<-releaseRead
+					status := "RUNNING"
+					if restart {
+						status = "STOPPED"
+					}
+					return v3Reply(200, fmt.Sprintf(`{"agent_session_id":"first","status":%q}`, status), ""), nil
+				}
+				if strings.HasSuffix(r.URL.Path, "/stop") {
+					return v3Reply(200, `{}`, ""), nil
+				}
+				starts++
+				id := "first"
+				if starts > 1 {
+					id = "second"
+				}
+				return v3Reply(200, fmt.Sprintf(`{"agent_session_id":%q,"status":"RUNNING","create_ts":1}`, id), ""), nil
+			})})
+			saved := &SavedAgent{client: client, ID: "saved"}
+			session := saved.CreateSession(CreateSessionOptions{Channel: "room", AgentUID: "1", RemoteUIDs: []string{"2"}})
+			if _, err := session.Start(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+			go func() { _, err := session.GetInfo(context.Background()); readDone <- err }()
+			<-readEntered
+			if err := session.Stop(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+			expected := StatusStopped
+			if restart {
+				if _, err := session.Start(context.Background()); err != nil {
+					t.Fatal(err)
+				}
+				expected = StatusRunning
+			}
+			close(releaseRead)
+			if err := <-readDone; err != nil {
+				t.Fatal(err)
+			}
+			if session.Status() != expected {
+				t.Fatalf("stale read replaced lifecycle: got %s want %s", session.Status(), expected)
+			}
+		})
+	}
+}
+
+func TestRestartDoesNotControlPreviousSessionWhileAwaitingIdentity(t *testing.T) {
+	restartEntered := make(chan struct{})
+	releaseRestart := make(chan struct{})
+	restartDone := make(chan error, 1)
+	starts, stops, reads := 0, 0, 0
+	client := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token", HTTPClient: v3HTTPFunc(func(r *http.Request) (*http.Response, error) {
+		if r.Method == http.MethodGet {
+			reads++
+			return v3Reply(200, `{}`, ""), nil
+		}
+		if strings.HasSuffix(r.URL.Path, "/stop") {
+			stops++
+			return v3Reply(200, `{}`, ""), nil
+		}
+		starts++
+		id := "first"
+		if starts == 2 {
+			close(restartEntered)
+			<-releaseRestart
+			id = "second"
+		}
+		return v3Reply(200, fmt.Sprintf(`{"agent_session_id":%q,"status":"RUNNING","create_ts":1}`, id), ""), nil
+	})})
+	session := (&SavedAgent{client: client, ID: "saved"}).CreateSession(CreateSessionOptions{Channel: "room", AgentUID: "1", RemoteUIDs: []string{"2"}})
+	if _, err := session.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := session.Stop(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	go func() { _, err := session.Start(context.Background()); restartDone <- err }()
+	<-restartEntered
+	if err := session.Stop(context.Background()); err == nil {
+		t.Error("stop during pending restart should have no identity")
+	}
+	if _, err := session.GetInfo(context.Background()); err == nil {
+		t.Error("get during pending restart should have no identity")
+	}
+	close(releaseRestart)
+	if err := <-restartDone; err != nil {
+		t.Fatal(err)
+	}
+	if starts != 2 || stops != 1 || reads != 0 {
+		t.Fatalf("previous identity controlled during restart: starts=%d stops=%d reads=%d", starts, stops, reads)
+	}
+	if session.ID() != "second" || session.Status() != StatusRunning {
+		t.Fatalf("restart did not establish new identity: %q %s", session.ID(), session.Status())
+	}
+}
+
+func TestInfoDuringStopCannotSupersedeWriteAndConflictCanBePolled(t *testing.T) {
+	for _, conflict := range []bool{false, true} {
+		t.Run(fmt.Sprint(conflict), func(t *testing.T) {
+			stopEntered := make(chan struct{})
+			releaseStop := make(chan struct{})
+			stopDone := make(chan error, 1)
+			readStatus := "RUNNING"
+			client := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token", HTTPClient: v3HTTPFunc(func(r *http.Request) (*http.Response, error) {
+				if r.Method == http.MethodGet {
+					return v3Reply(200, fmt.Sprintf(`{"agent_session_id":"s","status":%q}`, readStatus), ""), nil
+				}
+				if strings.HasSuffix(r.URL.Path, "/stop") {
+					close(stopEntered)
+					<-releaseStop
+					if conflict {
+						return v3Reply(409, `{"reason":"TaskConflict"}`, ""), nil
+					}
+					return v3Reply(200, `{}`, ""), nil
+				}
+				return v3Reply(200, `{"agent_session_id":"s","status":"RUNNING","create_ts":1}`, ""), nil
+			})})
+			session := (&SavedAgent{client: client, ID: "saved"}).CreateSession(CreateSessionOptions{Channel: "room", AgentUID: "1", RemoteUIDs: []string{"2"}})
+			if _, err := session.Start(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+			go func() { stopDone <- session.Stop(context.Background()) }()
+			<-stopEntered
+			if _, err := session.GetInfo(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+			if session.Status() != StatusStopping {
+				t.Errorf("read overrode pending stop: %s", session.Status())
+			}
+			close(releaseStop)
+			err := <-stopDone
+			if conflict {
+				if err == nil || session.Status() != StatusStopping {
+					t.Fatalf("conflict state: %v %s", err, session.Status())
+				}
+			} else if err != nil || session.Status() != StatusStopped {
+				t.Fatalf("stop result: %v %s", err, session.Status())
+			}
+			readStatus = "STOPPED"
+			if _, err := session.GetInfo(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+			if session.Status() != StatusStopped {
+				t.Fatalf("completed conflict prevented polling: %s", session.Status())
+			}
+		})
+	}
+}
+
+func TestLatestIssuedSessionReadWins(t *testing.T) {
+	firstReadEntered := make(chan struct{})
+	releaseFirstRead := make(chan struct{})
+	firstDone := make(chan error, 1)
+	reads := 0
+	client := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token", HTTPClient: v3HTTPFunc(func(r *http.Request) (*http.Response, error) {
+		if r.Method == http.MethodGet {
+			reads++
+			if reads == 1 {
+				close(firstReadEntered)
+				<-releaseFirstRead
+				return v3Reply(200, `{"agent_session_id":"s","status":"RUNNING"}`, ""), nil
+			}
+			return v3Reply(200, `{"agent_session_id":"s","status":"STOPPED"}`, ""), nil
+		}
+		return v3Reply(200, `{"agent_session_id":"s","status":"RUNNING","create_ts":1}`, ""), nil
+	})})
+	session := (&SavedAgent{client: client, ID: "saved"}).CreateSession(CreateSessionOptions{Channel: "room", AgentUID: "1", RemoteUIDs: []string{"2"}})
+	if _, err := session.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	go func() { _, err := session.GetInfo(context.Background()); firstDone <- err }()
+	<-firstReadEntered
+	if _, err := session.GetInfo(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	close(releaseFirstRead)
+	if err := <-firstDone; err != nil {
+		t.Fatal(err)
+	}
+	if session.Status() != StatusStopped {
+		t.Fatalf("older read overwrote newer read: %s", session.Status())
+	}
+}

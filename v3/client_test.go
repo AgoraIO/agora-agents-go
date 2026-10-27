@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/AgoraIO/agora-agents-go/v2/core"
 	"github.com/AgoraIO/agora-agents-go/v2/option"
@@ -289,5 +291,54 @@ func TestNumberCreateRejectsIdempotencyKey(t *testing.T) {
 	c := NewClient("app", option.WithHTTPClient(httpFunc(func(*http.Request) (*http.Response, error) { calls++; return reply(201, `{}`, nil), nil })))
 	if _, err := c.Numbers.Create(context.Background(), NumberCreate{Number: "+12025550123"}, "retry"); err == nil || calls != 0 {
 		t.Fatalf("unsupported idempotency key was not rejected locally: err=%v calls=%d", err, calls)
+	}
+}
+
+func TestDotSegmentsNeverReachHTTP(t *testing.T) {
+	for _, id := range []string{".", ".."} {
+		t.Run(id, func(t *testing.T) {
+			calls := 0
+			transport := option.WithHTTPClient(httpFunc(func(*http.Request) (*http.Response, error) { calls++; return reply(200, `{}`, nil), nil }))
+			c := NewClient("app", transport)
+			if _, err := c.Agents.Get(context.Background(), id); err == nil {
+				t.Error("dot agent ID accepted")
+			}
+			if _, err := c.Campaigns.Cancel(context.Background(), id); err == nil {
+				t.Error("dot campaign ID accepted")
+			}
+			if _, err := NewClient(id, transport).Agents.List(context.Background(), ListOptions{}); err == nil {
+				t.Error("dot project ID accepted")
+			}
+			if calls != 0 {
+				t.Fatalf("invalid path reached HTTP %d times", calls)
+			}
+		})
+	}
+}
+func TestWriteDoesNotWaitRetryAfterWhenRetriesDisabled(t *testing.T) {
+	for _, status := range []int{429, 503} {
+		t.Run(fmt.Sprint(status), func(t *testing.T) {
+			calls := 0
+			c := NewClient("app", option.WithHTTPClient(httpFunc(func(*http.Request) (*http.Response, error) {
+				calls++
+				return reply(status, `{"reason":"retry-later"}`, http.Header{"Retry-After": []string{"1"}, "Agora-Request-Id": []string{"no-retry-request"}}), nil
+			})))
+			began := time.Now()
+			_, err := c.Campaigns.Create(context.Background(), CampaignCreate{})
+			elapsed := time.Since(began)
+			var apiError *core.APIError
+			if !errors.As(err, &apiError) || apiError.StatusCode != status || !strings.Contains(apiError.Error(), "retry-later") {
+				t.Fatalf("backend error lost: %v", err)
+			}
+			if apiError.Header.Get("Agora-Request-Id") != "no-retry-request" {
+				t.Fatalf("request ID lost: %#v", apiError.Header)
+			}
+			if calls != 1 {
+				t.Fatalf("write was repeated %d times", calls)
+			}
+			if elapsed >= 500*time.Millisecond {
+				t.Fatalf("no-retry write unnecessarily waited %v", elapsed)
+			}
+		})
 	}
 }

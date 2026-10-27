@@ -100,6 +100,9 @@ type AgentSession struct {
 	agentID        string
 	status         AgentSessionLifecycle
 	startSucceeded bool
+	v3Revision     uint64
+	v3ReadSequence uint64
+	v3WritePending bool
 	mu             sync.RWMutex
 	handlers       map[string][]EventHandler
 }
@@ -197,6 +200,9 @@ func newV3AgentSession(agent agentcore.AgentRuntime, client *AgoraClient, opts C
 	session.savedAgentID = savedAgentID
 	if config, ok := agent.(*Agent); ok && config != nil && config.base != nil {
 		base := config.base
+		if session.labels == nil {
+			session.labels = cloneStringMap(base.Labels)
+		}
 		if session.audioScenario == "" && base.AudioScenario != nil {
 			value := strings.ToLower(string(*base.AudioScenario))
 			if value == "default" {
@@ -382,6 +388,9 @@ func (s *AgentSession) startV3(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("cannot start session in %s state", s.status)
 	}
 	s.status = StatusStarting
+	s.agentID = ""
+	s.v3Revision++
+	s.v3WritePending = true
 	s.mu.Unlock()
 	transport, lifecycle, dataPolicy, err := s.v3StartRequestParts()
 	if err != nil {
@@ -436,20 +445,26 @@ func (s *AgentSession) startV3(ctx context.Context) (string, error) {
 	s.agentID = response.Body.AgentSessionID
 	s.status = lifecycleStatus(response.Body.Status, StatusRunning)
 	s.startSucceeded = true
+	s.v3WritePending = false
+	s.v3Revision++
 	s.mu.Unlock()
-	s.emit("started", map[string]string{"agent_session_id": s.agentID})
-	return s.agentID, nil
+	s.emit("started", map[string]string{"agent_session_id": response.Body.AgentSessionID})
+	return response.Body.AgentSessionID, nil
 }
 
 func (s *AgentSession) setV3StartFailure(err error) {
 	s.mu.Lock()
 	s.status = StatusError
+	s.v3WritePending = false
+	s.v3Revision++
 	s.mu.Unlock()
 	s.emit("error", err)
 }
 
 func lifecycleStatus(status string, fallback AgentSessionLifecycle) AgentSessionLifecycle {
 	switch strings.ToLower(status) {
+	case "idle":
+		return StatusIdle
 	case "starting":
 		return StatusStarting
 	case "running":
@@ -843,25 +858,38 @@ func (s *AgentSession) stopV3(ctx context.Context) error {
 		return errors.New("no agent_session_id available")
 	}
 	s.status = StatusStopping
+	s.v3Revision++
+	s.v3WritePending = true
+	revision := s.v3Revision
 	id := s.agentID
 	s.mu.Unlock()
 	if s.v3Sessions == nil {
 		err := errors.New("agentkit: v3 sessions client is required")
 		s.mu.Lock()
 		s.status = StatusError
+		s.v3WritePending = false
+		s.v3Revision++
 		s.mu.Unlock()
 		return err
 	}
 	_, err := s.v3Sessions.Stop(ctx, id)
 	if err != nil {
 		s.mu.Lock()
-		s.status = sessionStatusAfterStopError(err)
+		if s.agentID == id && s.v3Revision == revision {
+			s.status = sessionStatusAfterStopError(err)
+			s.v3WritePending = false
+			s.v3Revision++
+		}
 		s.mu.Unlock()
 		s.emit("error", err)
 		return err
 	}
 	s.mu.Lock()
-	s.status = StatusStopped
+	if s.agentID == id && s.v3Revision == revision {
+		s.status = StatusStopped
+		s.v3WritePending = false
+		s.v3Revision++
+	}
 	s.mu.Unlock()
 	s.emit("stopped", map[string]string{"agent_session_id": id})
 	return nil
@@ -1076,9 +1104,12 @@ func (s *AgentSession) GetHistory(ctx context.Context) (*Agora.GetHistoryAgentsR
 
 func (s *AgentSession) GetInfo(ctx context.Context) (*Agora.GetAgentsResponse, error) {
 	if s.backend != sessionBackendV2 {
-		s.mu.RLock()
+		s.mu.Lock()
 		id := s.agentID
-		s.mu.RUnlock()
+		revision := s.v3Revision
+		s.v3ReadSequence++
+		sequence := s.v3ReadSequence
+		s.mu.Unlock()
 		if id == "" {
 			return nil, errors.New("no agent_session_id available")
 		}
@@ -1098,7 +1129,9 @@ func (s *AgentSession) GetInfo(ctx context.Context) (*Agora.GetAgentsResponse, e
 			return nil, err
 		}
 		s.mu.Lock()
-		s.status = lifecycleStatus(response.Body.Status, s.status)
+		if s.agentID == id && s.v3Revision == revision && s.v3ReadSequence == sequence && !s.v3WritePending {
+			s.status = lifecycleStatus(response.Body.Status, s.status)
+		}
 		s.mu.Unlock()
 		return body, nil
 	}
