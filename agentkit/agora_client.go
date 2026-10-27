@@ -128,15 +128,15 @@ func NewAgoraClient(opts AgoraClientOptions) *AgoraClient {
 		reqOpts = append(reqOpts, option.WithToken(opts.Token))
 	}
 
-	c := client.NewClient(reqOpts...)
-	v3Opts := append([]option.RequestOption(nil), reqOpts...)
 	if authMode == AuthModeAppCredentials && opts.AppCertificate != "" {
 		transport := opts.HTTPClient
 		if transport == nil {
 			transport = http.DefaultClient
 		}
-		v3Opts = append(v3Opts, option.WithHTTPClient(&v3TokenClient{transport: transport, appID: opts.AppID, appCertificate: opts.AppCertificate}))
+		reqOpts = append(reqOpts, option.WithHTTPClient(&appCredentialsHTTPClient{transport: transport, appID: opts.AppID, appCertificate: opts.AppCertificate}))
 	}
+	c := client.NewClient(reqOpts...)
+	v3Opts := append([]option.RequestOption(nil), reqOpts...)
 	if opts.V3 != nil {
 		if opts.V3.BaseURL != "" {
 			v3Opts = append(v3Opts, option.WithBaseURL(opts.V3.BaseURL))
@@ -169,14 +169,17 @@ func NewAgoraClient(opts AgoraClientOptions) *AgoraClient {
 	}
 }
 
-// v3TokenClient signs each request so long-lived clients do not retain an
-// expired token. The v3 gateway accepts the same ConvoAI token scheme as v2.
-type v3TokenClient struct {
+// appCredentialsHTTPClient signs requests without an explicit token. Both
+// legacy and preview resources share the existing ConvoAI token system.
+type appCredentialsHTTPClient struct {
 	transport             core.HTTPClient
 	appID, appCertificate string
 }
 
-func (c *v3TokenClient) Do(req *http.Request) (*http.Response, error) {
+func (c *appCredentialsHTTPClient) Do(req *http.Request) (*http.Response, error) {
+	if req.Header.Get("Authorization") != "" {
+		return c.transport.Do(req)
+	}
 	token, err := GenerateConvoAIToken(GenerateConvoAITokenOptions{AppID: c.appID, AppCertificate: c.appCertificate, ChannelName: "v3", UID: 0})
 	if err != nil {
 		return nil, err

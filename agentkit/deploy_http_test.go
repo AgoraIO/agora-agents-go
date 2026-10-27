@@ -1070,3 +1070,32 @@ func TestLatestIssuedSessionReadWins(t *testing.T) {
 		t.Fatalf("older read overwrote newer read: %s", session.Status())
 	}
 }
+
+func TestAppCredentialsSignLegacyAndPreviewResourcesAndPreserveExplicitTokens(t *testing.T) {
+	calls := 0
+	client := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: strings.Repeat("a", 32), AppCertificate: strings.Repeat("b", 32), HTTPClient: v3HTTPFunc(func(r *http.Request) (*http.Response, error) {
+		calls++
+		auth := r.Header.Get("Authorization")
+		if calls == 2 {
+			if auth != "agora token=per-call-token" {
+				t.Fatalf("per-call token overwritten: %q", auth)
+			}
+		} else if !strings.HasPrefix(auth, "agora token=") || len(auth) < 30 {
+			t.Fatalf("app credentials did not sign call %d: %q", calls, auth)
+		}
+		return v3Reply(200, `{}`, ""), nil
+	})})
+	request := &Agora.GetAgentsRequest{Appid: strings.Repeat("a", 32), AgentID: "running"}
+	if _, err := client.Agents.Get(context.Background(), request); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.Agents.Get(context.Background(), request, option.WithToken("per-call-token")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.V3.Agents.Get(context.Background(), "saved"); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 3 {
+		t.Fatalf("expected legacy+override+preview calls, got %d", calls)
+	}
+}
