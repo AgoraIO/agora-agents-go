@@ -1054,8 +1054,9 @@ func (s *AgentSession) ThinkWithOptions(
 	return s.agentManagement.AgentThink(ctx, req, reqOpts...)
 }
 
-// Update applies a legacy properties update for v2 sessions or a v3.SessionPatch
-// for v3 sessions. V3 patches only support token and message/LLM/MLLM overrides.
+// Update changes a running session using the shared properties type.
+// Token, system-message, and model-parameter updates use the same public
+// interface for sessions created from configured or saved agents.
 func (s *AgentSession) Update(ctx context.Context, properties *Agora.UpdateAgentsRequestProperties) error {
 	if s.backend != sessionBackendV2 {
 		if properties == nil {
