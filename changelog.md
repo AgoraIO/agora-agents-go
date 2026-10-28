@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [v2.13.0] — 2026-10-29
 
 ### Added
 
@@ -22,10 +22,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 ### Fixed
 
 - **Credential redaction** — Debug logging now redacts RTZR client credentials and Sarvam subscription keys.
-
-## [v2.13.0] — 2026-10-09
-
-### Changed
 
 - Tavus, Protoface, and LemonSlice are minimal provider wrappers with default API endpoints, explicit URL overrides, and shared GenericAvatar serialization, session defaults, and token handling.
 - LemonSlice defaults AvatarID to the vendor-recommended fixed `lemonslice`; explicit overrides remain supported. Typed optional selector and aspect-ratio fields serialize directly in avatar.params and override AdditionalParams without mutating caller input.
