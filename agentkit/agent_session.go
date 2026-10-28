@@ -64,40 +64,41 @@ const (
 var ErrUnsupportedSessionOperation = errors.New("agentkit: operation is not supported for v3 sessions")
 
 type AgentSession struct {
-	client          *agents.Client
-	agentManagement *agentmanagement.Client
-	httpClient      core.HTTPClient
-	routingOpts     []option.RequestOption
-	agent           agentcore.AgentRuntime
-	appID           string
-	appCertificate  string
-	name            string
-	channel         string
-	token           string
-	agentUID        string
-	remoteUIDs      []string
-	idleTimeout     *int
-	maxDuration     *int
-	labels          map[string]string
-	values          map[string]any
-	idempotencyKey  string
-	encryption      *v3.RTCEncryption
-	geofence        *v3.Geofence
-	audioScenario   string
-	gracefulStop    *GracefulStopOptions
-	dataPolicy      *v3.DataPolicy
-	enableStringUID *bool
-	expiresIn       int  // Token lifetime in seconds (0 = use DefaultExpirySeconds)
-	useAppCredsREST bool // When true, generate ConvoAI token per request for REST API auth
-	preset          []string
-	pipelineID      string
-	debug           bool
-	warn            func(string)
-	backend         sessionBackend
-	v3Sessions      *v3.SessionsClient
-	savedAgentID    string
-	telephony       *v3.SessionTransport
-	initErr         error
+	client            *agents.Client
+	agentManagement   *agentmanagement.Client
+	httpClient        core.HTTPClient
+	routingOpts       []option.RequestOption
+	agent             agentcore.AgentRuntime
+	appID             string
+	appCertificate    string
+	name              string
+	channel           string
+	token             string
+	agentUID          string
+	remoteUIDs        []string
+	idleTimeout       *int
+	maxDuration       *int
+	labels            map[string]string
+	values            map[string]any
+	idempotencyKey    string
+	encryption        *v3.RTCEncryption
+	geofence          *v3.Geofence
+	audioScenario     string
+	gracefulStop      *GracefulStopOptions
+	dataPolicy        *v3.DataPolicy
+	enableStringUID   *bool
+	expiresIn         int  // Token lifetime in seconds (0 = use DefaultExpirySeconds)
+	useAppCredsREST   bool // When true, generate ConvoAI token per request for REST API auth
+	preset            []string
+	pipelineID        string
+	debug             bool
+	warn              func(string)
+	backend           sessionBackend
+	v3Sessions        *v3.SessionsClient
+	savedAgentID      string
+	telephony         *v3.SessionTransport
+	generatedRTCToken bool
+	initErr           error
 
 	agentID        string
 	status         AgentSessionLifecycle
@@ -347,7 +348,7 @@ func (s *AgentSession) v3StartRequestParts() (v3.SessionTransport, *v3.SessionLi
 	}
 	if s.telephony != nil {
 		transport = *s.telephony
-	} else if transport.Token == "" && s.appCertificate != "" && transport.UID != "" {
+	} else if (transport.Token == "" || (s.generatedRTCToken && s.idempotencyKey == "")) && s.appCertificate != "" && transport.UID != "" {
 		if uid, err := strconv.ParseUint(transport.UID, 10, 32); err == nil && uid != 0 {
 			token, err := GenerateConvoAIToken(GenerateConvoAITokenOptions{AppID: s.appID, AppCertificate: s.appCertificate, ChannelName: transport.Channel, UID: int(uid)})
 			if err != nil {
@@ -356,6 +357,7 @@ func (s *AgentSession) v3StartRequestParts() (v3.SessionTransport, *v3.SessionLi
 			transport.Token = token
 			s.mu.Lock()
 			s.token = token
+			s.generatedRTCToken = true
 			s.mu.Unlock()
 		} else if strings.Trim(transport.UID, "0123456789") != "" {
 			token, err := GenerateRtcTokenWithAccount(GenerateRtcTokenWithAccountOptions{AppID: s.appID, AppCertificate: s.appCertificate, Channel: transport.Channel, Account: transport.UID})
@@ -365,6 +367,7 @@ func (s *AgentSession) v3StartRequestParts() (v3.SessionTransport, *v3.SessionLi
 			transport.Token = token
 			s.mu.Lock()
 			s.token = token
+			s.generatedRTCToken = true
 			s.mu.Unlock()
 		}
 	}

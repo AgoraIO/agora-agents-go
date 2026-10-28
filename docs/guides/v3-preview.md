@@ -242,7 +242,7 @@ if err != nil { return err }
 
 `Agent.Call` also supports an unsaved configuration. Call returns a configured session; `Start`, `GetInfo`, and `Stop` share the existing lifecycle. `From` is a registered number ID, and `To` is an E.164 number. RTC options cannot be combined with telephone calls. `AssignNumberOptions.CallPolicy` accepts `InboundCallPolicy`, including the four supported `InboundEndCallPolicy` conditions. Existing duration shortcuts override the corresponding nested policy values when supplied.
 
-For Platform RTC sessions, an explicit token is preserved. When a nonzero agent UID and App Certificate are available, AgentKit generates the RTC token using its existing token helpers. With an omitted or auto-assigned UID, it leaves token generation to the service. Generated tokens are retained on the handle so retrying an idempotent start does not change its request body.
+For Platform RTC sessions, an explicit token is preserved. When a nonzero agent UID and App Certificate are available, AgentKit generates the RTC token using its existing token helpers. With an omitted or auto-assigned UID, it leaves token generation to the service. Generated tokens are retained for keyed retries so the request body stays stable; unkeyed starts refresh generated tokens.
 
 `SecretSet.Keys` contains `SecretKey` values with optional `CreateTS`/`UpdateTS`; the client also accepts the rollout-era array of plain names and normalizes each name to `SecretKey{Key: name}`. `SecretKeyWrite`, `SecretKeyOptions`, interruption sub-configurations, VAD/semantic constants, and pointer helpers are available from `agentkit`.
 

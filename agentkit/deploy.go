@@ -763,13 +763,15 @@ func convertModule(name string, input map[string]interface{}) (map[string]any, [
 			}
 		}
 	}
-	if name == "llm" && input["style"] == "gemini" {
+	var urlCredential string
+	if name == "llm" && (input["style"] == "gemini" || vendor == "gemini") {
 		if endpoint, ok := out["url"].(string); ok {
 			parsed, err := url.Parse(endpoint)
 			if err != nil {
 				bad = append(bad, "llm.url")
 			} else {
 				query := parsed.Query()
+				urlCredential = query.Get("key")
 				query.Del("key")
 				parsed.RawQuery = query.Encode()
 				out["url"] = parsed.String()
@@ -781,6 +783,9 @@ func convertModule(name string, input map[string]interface{}) (map[string]any, [
 		out["vendor"] = vendor
 	}
 	fields := map[string]string{}
+	if key, _ := input["api_key"].(string); key == "" && urlCredential != "" {
+		fields["api_key"] = urlCredential
+	}
 	if bedrockStyle {
 		for _, field := range []string{"access_key", "secret_key"} {
 			if value, ok := input[field].(string); ok && value != "" {

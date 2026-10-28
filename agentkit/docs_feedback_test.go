@@ -151,7 +151,7 @@ func TestPlatformTokenGenerationOnlyWithExplicitUID(t *testing.T) {
 	client := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: strings.Repeat("a", 32), AppCertificate: strings.Repeat("b", 32), Token: "rest"})
 	saved := &SavedAgent{ID: "saved", client: client}
 	for _, uid := range []string{"", "0", "1", "agent-name"} {
-		session := saved.CreateSession(CreateSessionOptions{Channel: "room", AgentUID: uid, RemoteUIDs: []string{"2"}})
+		session := saved.CreateSession(CreateSessionOptions{Channel: "room", AgentUID: uid, RemoteUIDs: []string{"2"}, IdempotencyKey: "retry"})
 		transport, _, _, err := session.v3StartRequestParts()
 		if err != nil {
 			t.Fatal(err)
@@ -220,5 +220,35 @@ func TestInboundExplicitEmptyPolicyIsSent(t *testing.T) {
 	_, err := (&SavedAgent{ID: "saved", client: client}).AssignNumber(context.Background(), "number", AssignNumberOptions{CallPolicy: &InboundCallPolicy{}})
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestManualGeminiQueryCredentialIsPreserved(t *testing.T) {
+	got, bad := convertModule("llm", map[string]any{"vendor": "gemini", "url": "https://gemini.example?key=%24secrets.prod.gemini&alt=sse"})
+	if len(bad) > 0 || got["credential"].(map[string]any)["fields"].(map[string]string)["api_key"] != "$secrets.prod.gemini" || strings.Contains(got["url"].(string), "key=") {
+		t.Fatal(got, bad)
+	}
+}
+func TestUnkeyedPlatformSessionRefreshesGeneratedToken(t *testing.T) {
+	client := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: strings.Repeat("a", 32), AppCertificate: strings.Repeat("b", 32), Token: "rest"})
+	session := (&SavedAgent{ID: "saved", client: client}).CreateSession(CreateSessionOptions{Channel: "room", AgentUID: "1", RemoteUIDs: []string{"2"}})
+	session.token = "old-generated"
+	session.generatedRTCToken = true
+	got, _, _, err := session.v3StartRequestParts()
+	if err != nil || got.Token == "old-generated" {
+		t.Fatal(got, err)
+	}
+	session.token = "keyed-generated"
+	session.idempotencyKey = "retry"
+	got, _, _, err = session.v3StartRequestParts()
+	if err != nil || got.Token != "keyed-generated" {
+		t.Fatal(got, err)
+	}
+	session.token = "explicit"
+	session.generatedRTCToken = false
+	session.idempotencyKey = ""
+	got, _, _, err = session.v3StartRequestParts()
+	if err != nil || got.Token != "explicit" {
+		t.Fatal(got, err)
 	}
 }
