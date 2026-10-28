@@ -30,45 +30,54 @@ Use a unique avatar `AgoraUID`; do not reuse the session `AgentUID`. If you prov
 | Akool | `vendors.NewAkoolAvatar` | 16kHz (`SampleRate16kHz`) | `APIKey` |
 | Anam | `vendors.NewAnamAvatar` | Provider-managed | `APIKey` |
 | Generic | `vendors.NewGenericAvatar` | Vendor-dependent; not enforced by AgentKit | `APIKey`, `APIBaseURL`, `AvatarID`, `AgoraUID` |
+| Tavus | `vendors.NewTavus` | Vendor-dependent; not enforced by AgentKit | `APIKey`, `AvatarID`, `AgoraUID` |
+| Protoface | `vendors.NewProtoface` | Vendor-dependent; not enforced by AgentKit | `APIKey`, `AvatarID`, `AgoraUID` |
+| LemonSlice | `vendors.NewLemonSlice` | Vendor-dependent; not enforced by AgentKit | `APIKey`, `AgoraUID`, exactly one image or agent selector |
 | SenseTime (CN) | `cn/vendors.NewSensetimeAvatar` | Not enforced by AgentKit | `AgoraUID`, `AppID`, `AppKey` |
 | Spatius (CN) | `cn/vendors.NewSpatiusAvatar` | Not enforced by AgentKit | `SpatiusAPIKey`, `SpatiusAppID`, `SpatiusAvatarID`, `AgoraUID` |
 
-## Tavus, Protoface, and LemonSlice aliases
+## Tavus, Protoface, and LemonSlice providers
 
-Import `github.com/AgoraIO/agora-agents-go/v2/agentkit/vendors` to use
-`Tavus`, `Protoface`, or `LemonSlice`. All three are Go type aliases of `GenericAvatar`;
-`TavusOptions`, `ProtofaceOptions`, and `LemonSliceOptions` alias `GenericAvatarOptions`.
-Their constructors use the same validation and configuration, serialize with
-`vendor: "generic"`, and inherit Generic Avatar token handling and sample rate behavior.
+Import `github.com/AgoraIO/agora-agents-go/v2/agentkit/vendors`. These provider
+wrappers reuse GenericAvatar serialization, the `generic` wire vendor, session
+defaults, token handling, and sample rate behavior. GenericAvatar itself still
+requires an explicit APIBaseURL.
+
+| Constructor | Default APIBaseURL |
+|---|---|
+| NewTavus | https://tavusapi.com/v2/conversations/agora |
+| NewProtoface | https://api.protoface.com/v1/agora |
+| NewLemonSlice | https://lemonslice.com/api/liveai/agora |
+
+All options expose generic fields directly in struct literals. Explicit APIBaseURL
+overrides are retained. Tavus and Protoface require APIKey, AvatarID, and AgoraUID.
+LemonSlice requires APIKey and AgoraUID and defaults AvatarID to the
+vendor-recommended fixed `lemonslice`; explicit AvatarID overrides remain supported.
 
 ```go
 tavus := vendors.NewTavus(vendors.TavusOptions{
-    APIKey:     "<tavus_key>",
-    APIBaseURL: "https://tavusapi.com/v2/conversations/agora",
-    AvatarID:   "<tavus_avatar_id>",
-    AgoraUID:   "2001",
+    APIKey: "<tavus_key>", AvatarID: "<avatar_id>", AgoraUID: "2001",
 })
 protoface := vendors.NewProtoface(vendors.ProtofaceOptions{
-    APIKey:     "<protoface_key>",
-    APIBaseURL: "<protoface_api_base_url>",
-    AvatarID:   "<protoface_avatar_id>",
-    AgoraUID:   "2002",
+    APIKey: "<protoface_key>", AvatarID: "<avatar_id>", AgoraUID: "2002",
 })
-
+agentID := "<agent_id>"
 lemonSlice := vendors.NewLemonSlice(vendors.LemonSliceOptions{
-    APIKey:     "<lemon_slice_key>",
-    APIBaseURL: "<lemon_slice_api_base_url>",
-    AvatarID:   "<lemon_slice_avatar_id>",
-    AgoraUID:   "2003",
+    APIKey: "<lemon_slice_key>", AgoraUID: "2003", AgentID: &agentID,
 })
-
 agent := agentkit.NewAgent(client).WithAvatar(tavus)
 // Alternatively: agentkit.NewAgent(client).WithAvatar(protoface)
 // Alternatively: agentkit.NewAgent(client).WithAvatar(lemonSlice)
 ```
 
-Supply your provider's API base URL explicitly. Optional `AgoraToken`, `AgoraAppID`,
-`AgoraChannel`, `Enable`, and `AdditionalParams` work exactly as for `GenericAvatar`.
+LemonSlice adds optional `*string` fields AgentID, AgentImageURL, AgentImageBase64,
+and AspectRatio, serialized as `agent_id`, `agent_image_url`,
+`agent_image_base64`, and `aspect_ratio` directly in avatar.params. Exactly one
+selector must be supplied in the final merged params. AdditionalParams selectors
+remain supported; provided typed fields override matching keys. Every supplied
+selector must be a nonempty, non-whitespace string. AspectRatio accepts only
+`2x3`, `9x16`, or `1x1`; leave it nil to omit it and use the provider default
+`2x3`. Caller options and maps are not mutated.
 
 ## Generic Avatar Example
 

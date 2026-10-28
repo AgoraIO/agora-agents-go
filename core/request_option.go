@@ -140,8 +140,8 @@ func (r *RequestOptions) cloneHeader() http.Header {
 	}
 	headers.Set("X-Fern-Language", "Go")
 	headers.Set("X-Fern-SDK-Name", "github.com/AgoraIO/agora-agents-go/v2")
-	headers.Set("X-Fern-SDK-Version", "v2.12.0")
-	headers.Set("User-Agent", "github.com/AgoraIO/agora-agents-go/v2.12.0")
+	headers.Set("X-Fern-SDK-Version", "v2.13.0")
+	headers.Set("User-Agent", "github.com/AgoraIO/agora-agents-go/v2.13.0")
 	return headers
 }
 
