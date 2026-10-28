@@ -239,6 +239,9 @@ func response[T any](r Response[any], body T) *Response[T] {
 type AgentsClient struct{ t *transport }
 
 func (c *AgentsClient) Create(ctx context.Context, body AgentCreate) (*Response[Agent], error) {
+	if err := validatePreviewPipeline(body.Pipeline); err != nil {
+		return nil, err
+	}
 	p, e := c.t.path("agents")
 	if e != nil {
 		return nil, e
@@ -276,6 +279,9 @@ func (c *AgentsClient) Get(ctx context.Context, id string) (*Response[Agent], er
 	return response(r, out), nil
 }
 func (c *AgentsClient) Update(ctx context.Context, id, ifMatch string, patch AgentPatch) (*Response[Agent], error) {
+	if err := validatePreviewPipeline(patch["pipeline"]); err != nil {
+		return nil, err
+	}
 	if e := requiredETag(ifMatch); e != nil {
 		return nil, e
 	}
@@ -671,15 +677,8 @@ func (c *SessionsClient) Update(ctx context.Context, id string, patch SessionPat
 	if patch.Transport != nil && strings.TrimSpace(patch.Transport.Token) == "" {
 		return nil, errors.New("v3: session update token must be non-empty")
 	}
-	if patch.Agent != nil && patch.Agent.Overrides != nil && patch.Agent.Overrides.Pipeline != nil && patch.Agent.Overrides.Pipeline.LLM != nil && patch.Agent.Overrides.Pipeline.MLLM != nil {
-		return nil, errors.New("v3: session update cannot patch llm and mllm at the same time")
-	}
 	if patch.Agent != nil && patch.Agent.Overrides != nil && patch.Agent.Overrides.Pipeline != nil {
-		pipeline := patch.Agent.Overrides.Pipeline
-		for _, module := range []*SessionModulePatch{pipeline.LLM, pipeline.MLLM} {
-			if module == nil {
-				continue
-			}
+		if module := patch.Agent.Overrides.Pipeline.LLM; module != nil {
 			for key := range module.Params {
 				switch strings.ToLower(key) {
 				case "url", "base_url", "api_base_url", "endpoint":
@@ -740,6 +739,9 @@ func (c *SessionsClient) Start(ctx context.Context, body SessionStartRequest, op
 
 // StartEphemeral creates a running session from an inline, unsaved agent.
 func (c *SessionsClient) StartEphemeral(ctx context.Context, body SessionStartEphemeralRequest, opts ...SessionWriteOptions) (*Response[Session], error) {
+	if err := validatePreviewPipeline(body.Agent.Pipeline); err != nil {
+		return nil, err
+	}
 	if len(opts) > 1 {
 		return nil, errors.New("v3: at most one session write options value is accepted")
 	}
@@ -934,6 +936,31 @@ func validateSessionValues(values map[string]any) error {
 		case string, bool, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64, json.Number:
 		default:
 			return fmt.Errorf("v3: session value %q must be a string, number, or boolean", name)
+		}
+	}
+	return nil
+}
+
+// validatePreviewPipeline also checks map-based merge patches before transport.
+func validatePreviewPipeline(value any) error {
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	var pipeline map[string]json.RawMessage
+	if err := json.Unmarshal(encoded, &pipeline); err != nil {
+		return err
+	}
+	if _, ok := pipeline["mllm"]; ok {
+		return errors.New("v3: MLLM is not supported by the preview API")
+	}
+	if raw, ok := pipeline["mode"]; ok && string(raw) != "null" {
+		var mode string
+		if err := json.Unmarshal(raw, &mode); err != nil {
+			return err
+		}
+		if mode != "cascaded" {
+			return errors.New("v3: preview pipeline mode must be cascaded")
 		}
 	}
 	return nil

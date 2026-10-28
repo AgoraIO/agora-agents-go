@@ -1138,21 +1138,8 @@ func sessionPatchFromLegacyProperties(properties *Agora.UpdateAgentsRequestPrope
 			patch.Agent = &v3.SessionAgentPatch{Overrides: overrides}
 		}
 	}
-	if mllm := properties.GetMllm(); mllm != nil {
-		if len(mllm.GetExtraProperties()) > 0 {
-			return patch, fmt.Errorf("agentkit: v3 session Update does not support extra MLLM properties")
-		}
-		if patch.Agent != nil && patch.Agent.Overrides != nil && patch.Agent.Overrides.Pipeline != nil {
-			return patch, fmt.Errorf("agentkit: session Update cannot combine LLM and MLLM overrides")
-		}
-		params := mllm.GetParams()
-		if params != nil {
-			overrides := &v3.SessionAgentOverridesPatch{Pipeline: &v3.SessionPipelinePatch{MLLM: &v3.SessionModulePatch{Params: params}}}
-			if patch.Agent != nil && patch.Agent.Overrides != nil {
-				overrides.Messages = patch.Agent.Overrides.Messages
-			}
-			patch.Agent = &v3.SessionAgentPatch{Overrides: overrides}
-		}
+	if properties.GetMllm() != nil {
+		return patch, fmt.Errorf("agentkit: MLLM updates are not supported by the preview API")
 	}
 	return patch, nil
 }

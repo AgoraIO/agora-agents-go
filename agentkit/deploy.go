@@ -269,7 +269,7 @@ func validateSavedCredentials(pipeline *v3.Pipeline) error {
 	if pipeline == nil {
 		return nil
 	}
-	for _, module := range []map[string]any{pipeline.ASR, pipeline.LLM, pipeline.TTS, pipeline.MLLM, pipeline.Avatar} {
+	for _, module := range []map[string]any{pipeline.ASR, pipeline.LLM, pipeline.TTS, pipeline.Avatar} {
 		credential, _ := module["credential"].(map[string]any)
 		fields, _ := credential["fields"].(map[string]string)
 		for name, value := range fields {
@@ -349,6 +349,9 @@ func translatePrecondition(err error) error {
 
 func (a *Agent) toV3(name string) (v3.AgentCreate, error) {
 	b := a.base
+	if b.MLLM != nil {
+		return v3.AgentCreate{}, fmt.Errorf("%w: MLLM is not supported by the preview API", ErrUnsupportedField)
+	}
 	unsupported := []string{}
 	if b.PipelineID != "" {
 		unsupported = append(unsupported, "pipelineId")
@@ -379,51 +382,37 @@ func (a *Agent) toV3(name string) (v3.AgentCreate, error) {
 			}
 		}
 	}
-	if b.MLLM != nil && (b.LLM != nil || b.TTS != nil || b.STT != nil) {
-		unsupported = append(unsupported, "cascaded modules with mllm")
-	}
 	for name, def := range b.Variables {
 		if err := validateVariable(name, def); err != nil {
 			unsupported = append(unsupported, fmt.Sprintf("variables.%s (%v)", name, err))
 		}
 	}
 	pipe := &v3.Pipeline{Mode: "cascaded"}
-	if b.MLLM != nil {
-		pipe.Mode = "realtime"
-	}
 	var modules []struct {
 		name   string
 		config map[string]interface{}
 		target *map[string]any
 	}
-	if b.MLLM != nil {
+	if b.STT != nil {
 		modules = append(modules, struct {
 			name   string
 			config map[string]interface{}
 			target *map[string]any
-		}{"mllm", b.MLLM, &pipe.MLLM})
-	} else {
-		if b.STT != nil {
-			modules = append(modules, struct {
-				name   string
-				config map[string]interface{}
-				target *map[string]any
-			}{"asr", b.STT, &pipe.ASR})
-		}
-		if b.LLM != nil {
-			modules = append(modules, struct {
-				name   string
-				config map[string]interface{}
-				target *map[string]any
-			}{"llm", b.LLM, &pipe.LLM})
-		}
-		if b.TTS != nil {
-			modules = append(modules, struct {
-				name   string
-				config map[string]interface{}
-				target *map[string]any
-			}{"tts", b.TTS, &pipe.TTS})
-		}
+		}{"asr", b.STT, &pipe.ASR})
+	}
+	if b.LLM != nil {
+		modules = append(modules, struct {
+			name   string
+			config map[string]interface{}
+			target *map[string]any
+		}{"llm", b.LLM, &pipe.LLM})
+	}
+	if b.TTS != nil {
+		modules = append(modules, struct {
+			name   string
+			config map[string]interface{}
+			target *map[string]any
+		}{"tts", b.TTS, &pipe.TTS})
 	}
 	if b.Avatar != nil {
 		modules = append(modules, struct {
@@ -439,68 +428,33 @@ func (a *Agent) toV3(name string) (v3.AgentCreate, error) {
 	}
 	turn := b.TurnDetection
 	if turn != nil && turn.Language != nil {
-		if pipe.Mode == "realtime" {
-			unsupported = append(unsupported, "turnDetection.language in realtime pipeline")
-		} else {
-			// Match the global v2 ASR default and language precedence. Do not
-			// invent a provider endpoint; managed endpoint validation is server-side.
-			if pipe.ASR == nil {
-				pipe.ASR = map[string]any{"vendor": "ares", "credential": map[string]any{"mode": "managed"}}
-			}
-			language := string(*turn.Language)
-			if language == "" {
-				language = "en-US"
-			}
-			pipe.ASR["language"] = language
+		if pipe.ASR == nil {
+			pipe.ASR = map[string]any{"vendor": "ares", "credential": map[string]any{"mode": "managed"}}
 		}
+		language := string(*turn.Language)
+		if language == "" {
+			language = "en-US"
+		}
+		pipe.ASR["language"] = language
 	}
-	var vendorTurn map[string]interface{}
-	if b.MLLM != nil {
-		if x, ok := b.MLLM["turn_detection"]; ok && x != nil {
-			raw, marshalErr := json.Marshal(x)
-			if marshalErr == nil {
-				marshalErr = json.Unmarshal(raw, &vendorTurn)
-			}
-			if marshalErr != nil || vendorTurn == nil {
-				unsupported = append(unsupported, "mllm.turn_detection")
-			}
-		}
-	}
-	if vendorTurn != nil || turn != nil {
-		var td map[string]any
-		var bad []string
-		if vendorTurn != nil {
-			td, bad = convertTurnMap(vendorTurn, b.Interruption, pipe.Mode)
-		} else {
-			td, bad = convertTurnDetection(turn, b.Interruption, pipe.Mode)
-		}
+	if turn != nil {
+		td, bad := convertTurnDetection(turn, b.Interruption)
 		pipe.TurnDetection = td
 		unsupported = append(unsupported, bad...)
 	} else if b.Interruption != nil {
-		if pipe.Mode == "realtime" {
-			unsupported = append(unsupported, "interruption in realtime pipeline")
-		} else {
-			m, _ := agentcore.StructToMap(b.Interruption)
-			pipe.TurnDetection = map[string]any{"interruption": convertInterruption(m)}
-		}
+		m, _ := agentcore.StructToMap(b.Interruption)
+		pipe.TurnDetection = map[string]any{"interruption": convertInterruption(m)}
 	}
 	if b.Parameters != nil && b.Parameters.SilenceConfig != nil {
-		if pipe.Mode == "realtime" {
-			unsupported = append(unsupported, "parameters.silence_config in realtime pipeline")
-		} else {
-			m, _ := agentcore.StructToMap(b.Parameters.SilenceConfig)
-			m["enabled"] = true
-			pipe.SilenceConfig = m
-		}
+		m, _ := agentcore.StructToMap(b.Parameters.SilenceConfig)
+		m["enabled"] = true
+		pipe.SilenceConfig = m
 	}
 	var out v3.AgentCreate
 	out.AgentName = name
 	out.Pipeline = pipe
 	out.Variables = b.Variables
 	llm := b.LLM
-	if b.MLLM != nil {
-		llm = b.MLLM
-	}
 	if llm != nil {
 		if x, ok := llm["template_variables"]; ok && x != nil && !emptyValue(x) {
 			unsupported = append(unsupported, "llm.template_variables")
@@ -514,18 +468,6 @@ func (a *Agent) toV3(name string) (v3.AgentCreate, error) {
 			msgs, bad := convertMessages(x)
 			out.Instructions, out.Messages = splitMessages(msgs)
 			unsupported = append(unsupported, bad...)
-		}
-		if params, ok := llm["params"].(map[string]interface{}); ok && b.MLLM != nil {
-			if s, ok := params["instructions"].(string); ok && s != "" {
-				if out.Instructions == nil {
-					out.Instructions = &s
-				}
-				if pipe.MLLM != nil {
-					if pm, ok := pipe.MLLM["params"].(map[string]interface{}); ok {
-						delete(pm, "instructions")
-					}
-				}
-			}
 		}
 	}
 	if out.Instructions == nil && b.Instructions != "" {
@@ -764,7 +706,7 @@ func convertFillerWords(f map[string]interface{}) (map[string]any, []string) {
 func convertModule(name string, input map[string]interface{}) (map[string]any, []string) {
 	bedrockStyle := name == "llm" && input["style"] == "bedrock"
 	allowed := map[string]bool{"vendor": true, "params": true, "url": true}
-	for _, key := range map[string][]string{"asr": {"language", "model"}, "llm": {"style", "model", "input_modalities", "output_modalities", "max_history", "failure_message", "mcp_servers", "tools", "headers"}, "tts": {"headers", "skip_patterns"}, "mllm": {"model", "input_modalities", "output_modalities", "mcp_servers", "headers"}}[name] {
+	for _, key := range map[string][]string{"asr": {"language", "model"}, "llm": {"style", "model", "input_modalities", "output_modalities", "max_history", "failure_message", "mcp_servers", "tools", "headers"}, "tts": {"headers", "skip_patterns"}}[name] {
 		allowed[key] = true
 	}
 	consumed := map[string]bool{"api_key": true, "system_messages": true, "messages": true, "greeting_message": true, "greeting_audio_url": true, "template_variables": true, "greeting_configs": true, "turn_detection": true, "enable": true, "_minimax_preset_model": true}
@@ -836,7 +778,7 @@ func convertModule(name string, input map[string]interface{}) (map[string]any, [
 		}
 		delete(params, k)
 	}
-	if name == "llm" || name == "mllm" || name == "asr" {
+	if name == "llm" || name == "asr" {
 		if _, ok := out["model"]; !ok {
 			if v, ok := params["model"]; ok {
 				out["model"] = v
@@ -922,50 +864,16 @@ func credentialFieldName(module, vendor, field string) string {
 	return field
 }
 
-func convertTurnDetection(td *TurnDetectionConfig, interruption *InterruptionConfig, mode string) (map[string]any, []string) {
+func convertTurnDetection(td *TurnDetectionConfig, interruption *InterruptionConfig) (map[string]any, []string) {
 	m, err := agentcore.StructToMap(td)
 	if err != nil {
 		return nil, []string{"turnDetection"}
 	}
-	return convertTurnMap(m, interruption, mode)
+	return convertTurnMap(m, interruption)
 }
-func convertTurnMap(m map[string]interface{}, interruption *InterruptionConfig, mode string) (map[string]any, []string) {
+func convertTurnMap(m map[string]interface{}, interruption *InterruptionConfig) (map[string]any, []string) {
 	bad := []string{}
 	out := map[string]any{}
-	if mode == "realtime" {
-		for k, v := range m {
-			switch k {
-			case "type":
-				out[k] = v
-			case "mode":
-				if _, ok := out["type"]; !ok {
-					out["type"] = v
-				}
-			case "threshold", "prefix_padding_ms", "silence_duration_ms", "eagerness", "create_response", "interrupt_response":
-				out[k] = v
-			case "agora_vad_config", "server_vad_config", "semantic_vad_config":
-				if nested, ok := v.(map[string]interface{}); ok {
-					for nk, nv := range nested {
-						out[nk] = nv
-					}
-				} else {
-					bad = append(bad, "turnDetection."+k)
-				}
-			case "language":
-				if v != nil {
-					bad = append(bad, "turnDetection.language in realtime pipeline")
-				}
-			default:
-				if v != nil {
-					bad = append(bad, "turnDetection."+k)
-				}
-			}
-		}
-		if interruption != nil {
-			bad = append(bad, "interruption")
-		}
-		return out, bad
-	}
 	if threshold, ok := m["threshold"]; ok {
 		bad = append(bad, "turnDetection.threshold")
 		_ = threshold
@@ -1071,7 +979,7 @@ func deployPatch(old v3.Agent, new v3.AgentCreate) (v3.AgentPatch, error) {
 func clearMissing(old, new map[string]any, path string) map[string]any {
 	allowed := map[string]map[string]bool{
 		"":         {"agent_name": true, "instructions": true, "messages": true, "greeting": true, "variables": true, "pipeline": true, "filler_words": true},
-		"pipeline": {"mode": true, "asr": true, "llm": true, "tts": true, "mllm": true, "avatar": true, "turn_detection": true, "silence_config": true},
+		"pipeline": {"mode": true, "asr": true, "llm": true, "tts": true, "avatar": true, "turn_detection": true, "silence_config": true},
 	}
 	moduleAllowed := map[string]bool{"credential": true, "vendor": true, "model": true, "style": true, "language": true, "enabled": true, "params": true, "url": true, "headers": true, "input_modalities": true, "output_modalities": true, "max_history": true, "failure_message": true, "mcp_servers": true, "tools": true, "skip_patterns": true}
 	for k, ov := range old {
@@ -1081,7 +989,7 @@ func clearMissing(old, new map[string]any, path string) map[string]any {
 		if path == "pipeline" && !allowed["pipeline"][k] {
 			continue
 		}
-		isModule := path == "pipeline.asr" || path == "pipeline.llm" || path == "pipeline.tts" || path == "pipeline.mllm" || path == "pipeline.avatar"
+		isModule := path == "pipeline.asr" || path == "pipeline.llm" || path == "pipeline.tts" || path == "pipeline.avatar"
 		if isModule && !moduleAllowed[k] {
 			continue
 		}
@@ -1162,8 +1070,6 @@ func knownCredentialFields(module, vendor string) []string {
 		if vendor == "amazon" {
 			return []string{"api_key", "access_key", "secret_key"}
 		}
-		return []string{"api_key"}
-	case "mllm":
 		return []string{"api_key"}
 	case "avatar":
 		switch vendor {

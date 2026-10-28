@@ -192,20 +192,9 @@ func TestActualRealtimeVendorTurnDetection(t *testing.T) {
 	mode := Agora.MllmTurnDetectionMode("server_vad")
 	c := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token"})
 	a := NewAgent(c).WithMllm(vendors.NewOpenAIRealtime(vendors.OpenAIRealtimeOptions{APIKey: "key", Instructions: "vendor instruction", TurnDetection: &Agora.MllmTurnDetection{Mode: &mode}}))
-	body, err := a.toV3("Realtime")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if body.Pipeline.Mode != "realtime" || body.Pipeline.TurnDetection["type"] != "server_vad" {
-		t.Fatalf("turn detection: %#v", body.Pipeline.TurnDetection)
-	}
-	if body.Instructions == nil || *body.Instructions != "vendor instruction" {
-		t.Fatalf("instructions: %#v", body.Instructions)
-	}
-	if params, ok := body.Pipeline.MLLM["params"].(map[string]interface{}); ok {
-		if _, exists := params["instructions"]; exists {
-			t.Fatal("instructions duplicated in params")
-		}
+	_, err := a.toV3("Realtime")
+	if !errors.Is(err, ErrUnsupportedField) {
+		t.Fatalf("expected unsupported realtime preview pipeline: %v", err)
 	}
 	def := "default"
 	b := NewAgent(c).WithTurnDetection(&TurnDetectionConfig{Mode: &def})

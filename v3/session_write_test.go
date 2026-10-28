@@ -70,7 +70,7 @@ func TestSessionStartEphemeralAndStopContracts(t *testing.T) {
 		t.Fatalf("start response: %#v err=%v", started, err)
 	}
 	ephemeral, err := c.Sessions.StartEphemeral(ctx, SessionStartEphemeralRequest{
-		Agent:     EphemeralAgent{Instructions: strPtr("say hello"), Pipeline: &Pipeline{Mode: "realtime"}},
+		Agent:     EphemeralAgent{Instructions: strPtr("say hello"), Pipeline: &Pipeline{Mode: "cascaded"}},
 		Labels:    map[string]string{"owner": "support"},
 		Transport: transport,
 	})
@@ -175,7 +175,7 @@ func TestSessionUpdateUsesLimitedPatchWireShape(t *testing.T) {
 		if len(body) != 2 || body["transport"].(map[string]any)["token"] != "rtc-token" {
 			t.Fatalf("patch body: %#v", body)
 		}
-		params := body["agent"].(map[string]any)["overrides"].(map[string]any)["pipeline"].(map[string]any)["mllm"].(map[string]any)["params"].(map[string]any)
+		params := body["agent"].(map[string]any)["overrides"].(map[string]any)["pipeline"].(map[string]any)["llm"].(map[string]any)["params"].(map[string]any)
 		if len(params) != 1 || params["prompt"] != "updated" {
 			t.Fatalf("params must replace: %#v", params)
 		}
@@ -183,7 +183,7 @@ func TestSessionUpdateUsesLimitedPatchWireShape(t *testing.T) {
 	})))
 	_, err := c.Sessions.Update(context.Background(), "0123456789abcdef0123456789abcdef", SessionPatch{
 		Transport: &SessionTransportPatch{Token: "rtc-token"},
-		Agent:     &SessionAgentPatch{Overrides: &SessionAgentOverridesPatch{Pipeline: &SessionPipelinePatch{MLLM: &SessionModulePatch{Params: map[string]any{"prompt": "updated"}}}}},
+		Agent:     &SessionAgentPatch{Overrides: &SessionAgentOverridesPatch{Pipeline: &SessionPipelinePatch{LLM: &SessionModulePatch{Params: map[string]any{"prompt": "updated"}}}}},
 	})
 	if err != nil || calls != 1 {
 		t.Fatalf("update: calls=%d err=%v", calls, err)
@@ -249,3 +249,63 @@ func TestSessionTransportRTCUIDAndTelephonyVariants(t *testing.T) {
 
 func strPtr(s string) *string { return &s }
 func intPtrTest(n int) *int   { return &n }
+
+func TestPreviewRejectsRealtimePipelineBeforeHTTP(t *testing.T) {
+	calls := 0
+	c := NewClient("app", option.WithHTTPClient(httpFunc(func(*http.Request) (*http.Response, error) {
+		calls++
+		return nil, io.ErrUnexpectedEOF
+	})))
+	if _, err := c.Agents.Create(context.Background(), AgentCreate{AgentName: "Realtime", Pipeline: &Pipeline{Mode: "realtime"}}); err == nil {
+		t.Fatal("realtime agent create accepted")
+	}
+	if _, err := c.Sessions.StartEphemeral(context.Background(), SessionStartEphemeralRequest{Agent: EphemeralAgent{Pipeline: &Pipeline{Mode: "realtime"}}}); err == nil {
+		t.Fatal("realtime ephemeral accepted")
+	}
+	for _, pipeline := range []any{
+		map[string]any{"mode": "realtime"},
+		map[string]any{"mllm": map[string]any{"vendor": "openai"}},
+		map[string]any{"mllm": nil},
+		json.RawMessage(`{"mllm":{"vendor":"openai"}}`),
+	} {
+		if _, err := c.Agents.Update(context.Background(), "id", "etag", AgentPatch{"pipeline": pipeline}); err == nil {
+			t.Fatalf("removed pipeline accepted: %#v", pipeline)
+		}
+	}
+	if calls != 0 {
+		t.Fatalf("made %d HTTP calls", calls)
+	}
+	for _, input := range []string{`{"mode":"realtime"}`, `{"mllm":{}}`, `{"mllm":null}`} {
+		var pipeline Pipeline
+		if err := json.Unmarshal([]byte(input), &pipeline); err == nil {
+			t.Fatalf("removed pipeline silently decoded: %s", input)
+		}
+		var patch SessionPipelinePatch
+		if err := json.Unmarshal([]byte(input), &patch); err == nil {
+			t.Fatalf("removed session patch silently decoded: %s", input)
+		}
+	}
+}
+
+func TestPreviewPipelinePatchPreservesNullableMode(t *testing.T) {
+	calls := 0
+	c := NewClient("app", option.WithHTTPClient(httpFunc(func(r *http.Request) (*http.Response, error) {
+		calls++
+		var patch map[string]map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&patch); err != nil {
+			t.Fatal(err)
+		}
+		if mode, ok := patch["pipeline"]["mode"]; !ok || mode != nil {
+			t.Fatalf("null mode lost: %#v", patch)
+		}
+		return reply(200, `{"agent_id":"id"}`, nil), nil
+	})))
+	if _, err := c.Agents.Update(context.Background(), "id", "etag", AgentPatch{"pipeline": map[string]any{"mode": nil}}); err != nil || calls != 1 {
+		t.Fatalf("nullable patch: %v calls=%d", err, calls)
+	}
+	for _, pipeline := range []any{nil, map[string]any{}, map[string]any{"llm": nil}, json.RawMessage(`{"mode":null}`)} {
+		if err := validatePreviewPipeline(pipeline); err != nil {
+			t.Fatalf("valid patch rejected: %#v %v", pipeline, err)
+		}
+	}
+}

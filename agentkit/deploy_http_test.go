@@ -214,7 +214,7 @@ func TestDeployRejectsRealtimeInteractionLanguage(t *testing.T) {
 	language := Agora.AsrLanguage("fr-FR")
 	a := NewAgent(c).WithMllm(vendors.NewOpenAIRealtime(vendors.OpenAIRealtimeOptions{APIKey: "key", TurnDetection: &Agora.MllmTurnDetection{Mode: Agora.MllmTurnDetectionModeAgoraVad.Ptr()}})).WithTurnDetection(&TurnDetectionConfig{Language: &language})
 	_, err := a.Deploy(context.Background(), DeployOptions{Name: "French"})
-	if !errors.Is(err, ErrUnsupportedField) || !strings.Contains(err.Error(), "turnDetection.language") || calls != 0 {
+	if !errors.Is(err, ErrUnsupportedField) || !strings.Contains(err.Error(), "MLLM") || calls != 0 {
 		t.Fatalf("realtime language: err=%v calls=%d", err, calls)
 	}
 }
@@ -484,7 +484,7 @@ func TestSavedAgentUpdateRejectsDifferentClient(t *testing.T) {
 func TestInlineConfigCanStartSessionAndSaveWithoutMutation(t *testing.T) {
 	calls := 0
 	inlineKey := "inline-provider-key"
-	storedAgent := `{"agent_id":"saved1","agent_name":"Support","create_ts":1,"update_ts":1,"pipeline":{"mode":"realtime","mllm":{"vendor":"openai","credential":{"mode":"byok"},"url":"wss://api.openai.com/v1/realtime","model":"gpt-4o-realtime-preview"}}}`
+	storedAgent := `{"agent_id":"saved1","agent_name":"Support","create_ts":1,"update_ts":1,"pipeline":{"mode":"cascaded","llm":{"vendor":"openai","credential":{"mode":"byok"},"url":"https://api.openai.com/v1/chat/completions","model":"gpt-4o"}}}`
 	httpClient := v3HTTPFunc(func(r *http.Request) (*http.Response, error) {
 		calls++
 		switch calls {
@@ -497,9 +497,9 @@ func TestInlineConfigCanStartSessionAndSaveWithoutMutation(t *testing.T) {
 				t.Fatal(err)
 			}
 			properties := body["properties"].(map[string]any)
-			mllm := properties["mllm"].(map[string]any)
-			if mllm["api_key"] != inlineKey {
-				t.Fatalf("inline key missing from v2 session request: %#v", mllm)
+			llm := properties["llm"].(map[string]any)
+			if llm["api_key"] != inlineKey {
+				t.Fatalf("inline key missing from v2 session request: %#v", llm)
 			}
 			return v3Reply(200, `{"agent_id":"session1","status":"RUNNING"}`, ""), nil
 		case 2:
@@ -511,11 +511,11 @@ func TestInlineConfigCanStartSessionAndSaveWithoutMutation(t *testing.T) {
 				t.Fatal(err)
 			}
 			pipeline := body["pipeline"].(map[string]any)
-			mllm := pipeline["mllm"].(map[string]any)
-			credential := mllm["credential"].(map[string]any)
+			llm := pipeline["llm"].(map[string]any)
+			credential := llm["credential"].(map[string]any)
 			fields := credential["fields"].(map[string]any)
 			if fields["api_key"] != "$secrets.prod.openai" {
-				t.Fatalf("saved config did not use secret reference: %#v", mllm)
+				t.Fatalf("saved config did not use secret reference: %#v", llm)
 			}
 			return v3Reply(201, storedAgent, "e1"), nil
 		case 3:
@@ -532,11 +532,11 @@ func TestInlineConfigCanStartSessionAndSaveWithoutMutation(t *testing.T) {
 				t.Fatal(err)
 			}
 			pipeline := patch["pipeline"].(map[string]any)
-			mllm := pipeline["mllm"].(map[string]any)
-			credential := mllm["credential"].(map[string]any)
+			llm := pipeline["llm"].(map[string]any)
+			credential := llm["credential"].(map[string]any)
 			fields := credential["fields"].(map[string]any)
 			if fields["api_key"] != "$secrets.prod.openai" {
-				t.Fatalf("updated config did not use secret reference: %#v", mllm)
+				t.Fatalf("updated config did not use secret reference: %#v", llm)
 			}
 			return v3Reply(200, storedAgent, "e2"), nil
 		default:
@@ -545,16 +545,17 @@ func TestInlineConfigCanStartSessionAndSaveWithoutMutation(t *testing.T) {
 		}
 	})
 	c := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token", HTTPClient: httpClient, V3: &V3Options{BaseURL: "https://stage.example"}})
-	config := NewAgent(c).WithMllm(vendors.NewOpenAIRealtime(vendors.OpenAIRealtimeOptions{
-		APIKey: inlineKey,
-		Model:  "gpt-4o-realtime-preview",
-	}))
+	config := NewAgent(c).WithLlm(vendors.NewOpenAI(vendors.OpenAIOptions{
+		BaseURL: "https://api.openai.com/v1/chat/completions",
+		APIKey:  inlineKey,
+		Model:   "gpt-4o",
+	})).WithTts(vendors.NewOpenAITTS(vendors.OpenAITTSOptions{Voice: "alloy"}))
 	session := config.CreateSession(CreateSessionOptions{Channel: "support", Token: "rtc-token", AgentUID: "1", RemoteUIDs: []string{"100"}})
 	if _, err := session.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	savedConfig := config.WithMllm(vendors.NewOpenAIRealtime(vendors.OpenAIRealtimeOptions{
-		APIKey: SecretRef("prod", "openai"), Model: "gpt-4o-realtime-preview",
+	savedConfig := config.WithLlm(vendors.NewOpenAI(vendors.OpenAIOptions{
+		BaseURL: "https://api.openai.com/v1/chat/completions", APIKey: SecretRef("prod", "openai"), Model: "gpt-4o",
 	}))
 	saved, err := savedConfig.Save(context.Background(), SaveOptions{Name: "Support"})
 	if err != nil {
@@ -571,9 +572,9 @@ func TestInlineConfigCanStartSessionAndSaveWithoutMutation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mllm := properties["mllm"].(map[string]any)
-	if mllm["api_key"] != inlineKey {
-		t.Fatalf("session/save/update mutated the source config: %#v", mllm)
+	llm := properties["llm"].(map[string]any)
+	if llm["api_key"] != inlineKey {
+		t.Fatalf("session/save/update mutated the source config: %#v", llm)
 	}
 }
 
@@ -583,7 +584,7 @@ func TestSaveRejectsInlineProviderSecretsBeforeHTTP(t *testing.T) {
 		calls++
 		return nil, errors.New("unexpected request")
 	}), V3: &V3Options{BaseURL: "https://stage.example"}})
-	config := NewAgent(c).WithMllm(vendors.NewOpenAIRealtime(vendors.OpenAIRealtimeOptions{APIKey: "inline-secret"}))
+	config := NewAgent(c).WithLlm(vendors.NewOpenAI(vendors.OpenAIOptions{APIKey: "inline-secret", Model: "gpt-4o", BaseURL: "https://api.openai.com/v1/chat/completions"}))
 	if _, err := config.Save(context.Background(), SaveOptions{Name: "Unsafe"}); err == nil || calls != 0 {
 		t.Fatalf("inline BYOK credential saved: err=%v calls=%d", err, calls)
 	}
@@ -709,20 +710,13 @@ func TestAgentSessionUpdateUsesLimitedV3Patch(t *testing.T) {
 	}
 }
 
-func TestV3UpdatePreservesMessagesWithMLLMParams(t *testing.T) {
+func TestV3UpdateRejectsMLLMParams(t *testing.T) {
 	properties := &Agora.UpdateAgentsRequestProperties{}
-	llm := &Agora.UpdateAgentsRequestPropertiesLlm{}
-	llm.SetSystemMessages([]map[string]interface{}{{"role": "system", "content": "new instructions"}})
-	properties.SetLlm(llm)
 	mllm := &Agora.UpdateAgentsRequestPropertiesMllm{}
 	mllm.SetParams(map[string]interface{}{"temperature": 0.2})
 	properties.SetMllm(mllm)
-	patch, err := sessionPatchFromLegacyProperties(properties)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if patch.Agent == nil || patch.Agent.Overrides == nil || patch.Agent.Overrides.Messages == nil || len(*patch.Agent.Overrides.Messages) != 1 || patch.Agent.Overrides.Pipeline == nil || patch.Agent.Overrides.Pipeline.MLLM == nil {
-		t.Fatalf("message update was lost alongside MLLM params: %#v", patch)
+	if _, err := sessionPatchFromLegacyProperties(properties); err == nil {
+		t.Fatal("MLLM update should fail before HTTP")
 	}
 	bad := &Agora.UpdateAgentsRequestPropertiesLlm{}
 	bad.SetSystemMessages([]map[string]interface{}{{"role": "user", "content": "hi", "name": "unsupported"}})
@@ -749,10 +743,10 @@ func TestAgentConfigWithSecretRefStartsEphemeralV3Session(t *testing.T) {
 		}
 		agent := body["agent"].(map[string]any)
 		pipeline := agent["pipeline"].(map[string]any)
-		mllm := pipeline["mllm"].(map[string]any)
-		credential := mllm["credential"].(map[string]any)
+		llm := pipeline["llm"].(map[string]any)
+		credential := llm["credential"].(map[string]any)
 		if credential["fields"].(map[string]any)["api_key"] != "$secrets.prod.openai" {
-			t.Fatalf("secret reference lost: %#v", mllm)
+			t.Fatalf("secret reference lost: %#v", llm)
 		}
 		if len(agent["variables"].(map[string]any)) != 1 {
 			t.Fatalf("variable missing from ephemeral agent: %#v", agent)
@@ -760,7 +754,7 @@ func TestAgentConfigWithSecretRefStartsEphemeralV3Session(t *testing.T) {
 		return v3Reply(201, `{"agent_session_id":"ephemeral1","status":"running","created_at":1781827200}`, ""), nil
 	})})
 	config := NewAgent(c).
-		WithMllm(vendors.NewOpenAIRealtime(vendors.OpenAIRealtimeOptions{APIKey: SecretRef("prod", "openai")})).
+		WithLlm(vendors.NewOpenAI(vendors.OpenAIOptions{APIKey: SecretRef("prod", "openai"), Model: "gpt-4o", BaseURL: "https://api.openai.com/v1/chat/completions"})).
 		WithVariable("priority", VariableDefinition{Type: "str", Description: "Main priority"})
 	session := config.CreateSession(CreateSessionOptions{
 		Channel: "support", AgentUID: "1001", RemoteUIDs: []string{"1002"},
@@ -899,7 +893,7 @@ func TestAvatarOnlySecretReferenceSelectsEphemeralSession(t *testing.T) {
 		}
 		return v3Reply(200, `{"agent_session_id":"avatar-session","status":"RUNNING","create_ts":1}`, ""), nil
 	})})
-	config := NewAgent(client).WithMllm(vendors.NewOpenAIRealtime(vendors.OpenAIRealtimeOptions{APIKey: "inline-provider-key"})).WithAvatar(vendors.NewAnamAvatar(vendors.AnamAvatarOptions{APIKey: SecretRef("avatars", "anam"), AvatarID: "avatar"}))
+	config := NewAgent(client).WithLlm(vendors.NewOpenAI(vendors.OpenAIOptions{Model: "gpt-4o-mini"})).WithTts(vendors.NewOpenAITTS(vendors.OpenAITTSOptions{Voice: "alloy"})).WithAvatar(vendors.NewAnamAvatar(vendors.AnamAvatarOptions{APIKey: SecretRef("avatars", "anam"), AvatarID: "avatar"}))
 	session := config.CreateSession(CreateSessionOptions{Channel: "room", AgentUID: "1", RemoteUIDs: []string{"2"}})
 	id, err := session.Start(context.Background())
 	if err != nil || id != "avatar-session" || calls != 1 {
@@ -1220,5 +1214,32 @@ func TestAppCredentialSignerPreservesCaseVariantExplicitToken(t *testing.T) {
 	}
 	if calls != 1 {
 		t.Fatalf("explicit token request was not sent: %d", calls)
+	}
+}
+
+func TestPreviewRejectsMLLMBeforeHTTPAndKeepsLegacyConfig(t *testing.T) {
+	calls := 0
+	c := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token", HTTPClient: v3HTTPFunc(func(*http.Request) (*http.Response, error) {
+		calls++
+		return nil, errors.New("unexpected request")
+	})})
+	config := NewAgent(c).WithMllm(vendors.NewOpenAIRealtime(vendors.OpenAIRealtimeOptions{APIKey: "key"}))
+	if _, err := config.Save(context.Background(), SaveOptions{Name: "Realtime"}); !errors.Is(err, ErrUnsupportedField) {
+		t.Fatalf("save: %v", err)
+	}
+	for _, opts := range []CreateSessionOptions{
+		{Channel: "test", RemoteUIDs: []string{"2"}, IdempotencyKey: "preview"},
+		{Channel: "test", RemoteUIDs: []string{"2"}, Values: map[string]any{"name": "test"}},
+	} {
+		if _, err := config.CreateSession(opts).Start(context.Background()); !errors.Is(err, ErrUnsupportedField) {
+			t.Fatalf("ephemeral start: %v", err)
+		}
+	}
+	if calls != 0 {
+		t.Fatalf("preview made %d requests", calls)
+	}
+	properties, err := config.ToPropertiesMap(basePropertiesOpts())
+	if err != nil || properties["mllm"] == nil {
+		t.Fatalf("legacy config changed: %v %#v", err, properties)
 	}
 }

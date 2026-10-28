@@ -81,7 +81,7 @@ type Credential struct {
 	Fields map[string]string `json:"fields,omitempty"`
 }
 
-// Pipeline holds the common union discriminator and provider modules. Extra
+// Pipeline holds the cascaded preview pipeline and its provider modules. Extra
 // provider-specific fields can be supplied in the maps without losing typing
 // of the stable top-level shape.
 type Pipeline struct {
@@ -89,7 +89,6 @@ type Pipeline struct {
 	ASR           map[string]any `json:"asr,omitempty"`
 	LLM           map[string]any `json:"llm,omitempty"`
 	TTS           map[string]any `json:"tts,omitempty"`
-	MLLM          map[string]any `json:"mllm,omitempty"`
 	Avatar        map[string]any `json:"avatar,omitempty"`
 	TurnDetection map[string]any `json:"turn_detection,omitempty"`
 	SilenceConfig map[string]any `json:"silence_config,omitempty"`
@@ -218,8 +217,7 @@ type SessionAgentOverridesPatch struct {
 	Pipeline *SessionPipelinePatch `json:"pipeline,omitempty"`
 }
 type SessionPipelinePatch struct {
-	LLM  *SessionModulePatch `json:"llm,omitempty"`
-	MLLM *SessionModulePatch `json:"mllm,omitempty"`
+	LLM *SessionModulePatch `json:"llm,omitempty"`
 }
 type SessionModulePatch struct {
 	Params map[string]any `json:"params"`
@@ -314,4 +312,32 @@ type SessionListOptions struct {
 	Status        string
 	StartedAfter  *int64
 	StartedBefore *int64
+}
+
+// UnmarshalJSON rejects removed preview fields instead of silently discarding
+// them when a caller loads an agent configuration from JSON.
+func (p *Pipeline) UnmarshalJSON(data []byte) error {
+	if err := validatePreviewPipeline(json.RawMessage(data)); err != nil {
+		return err
+	}
+	type wire Pipeline
+	var decoded wire
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	*p = Pipeline(decoded)
+	return nil
+}
+
+func (p *SessionPipelinePatch) UnmarshalJSON(data []byte) error {
+	if err := validatePreviewPipeline(json.RawMessage(data)); err != nil {
+		return err
+	}
+	type wire SessionPipelinePatch
+	var decoded wire
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	*p = SessionPipelinePatch(decoded)
+	return nil
 }
