@@ -98,6 +98,7 @@ type AgentSession struct {
 	savedAgentID      string
 	telephony         *v3.SessionTransport
 	generatedRTCToken bool
+	refreshRTCToken   bool
 	initErr           error
 
 	agentID        string
@@ -348,7 +349,7 @@ func (s *AgentSession) v3StartRequestParts() (v3.SessionTransport, *v3.SessionLi
 	}
 	if s.telephony != nil {
 		transport = *s.telephony
-	} else if (transport.Token == "" || (s.generatedRTCToken && s.idempotencyKey == "")) && s.appCertificate != "" && transport.UID != "" {
+	} else if transport.Token == "" && s.appCertificate != "" && transport.UID != "" {
 		if uid, err := strconv.ParseUint(transport.UID, 10, 32); err == nil && uid != 0 {
 			token, err := GenerateConvoAIToken(GenerateConvoAITokenOptions{AppID: s.appID, AppCertificate: s.appCertificate, ChannelName: transport.Channel, UID: int(uid)})
 			if err != nil {
@@ -409,6 +410,10 @@ func (s *AgentSession) startV3(ctx context.Context) (string, error) {
 		s.mu.Unlock()
 		return "", fmt.Errorf("cannot start session in %s state", status)
 	}
+	if s.generatedRTCToken && s.refreshRTCToken && s.idempotencyKey == "" {
+		s.token = ""
+		s.refreshRTCToken = false
+	}
 	s.status = StatusStarting
 	s.agentID = ""
 	s.v3Revision++
@@ -467,6 +472,7 @@ func (s *AgentSession) startV3(ctx context.Context) (string, error) {
 	s.agentID = response.Body.AgentSessionID
 	s.status = lifecycleStatus(response.Body.Status, StatusRunning)
 	s.startSucceeded = true
+	s.refreshRTCToken = true
 	s.v3WritePending = false
 	s.v3Revision++
 	s.mu.Unlock()

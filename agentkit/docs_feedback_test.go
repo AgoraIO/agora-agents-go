@@ -230,25 +230,38 @@ func TestManualGeminiQueryCredentialIsPreserved(t *testing.T) {
 	}
 }
 func TestUnkeyedPlatformSessionRefreshesGeneratedToken(t *testing.T) {
-	client := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: strings.Repeat("a", 32), AppCertificate: strings.Repeat("b", 32), Token: "rest"})
+	var tokens []string
+	fail := false
+	client := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: strings.Repeat("a", 32), AppCertificate: strings.Repeat("b", 32), Token: "rest", HTTPClient: v3HTTPFunc(func(r *http.Request) (*http.Response, error) {
+		var body map[string]any
+		json.NewDecoder(r.Body).Decode(&body)
+		tokens = append(tokens, body["transport"].(map[string]any)["token"].(string))
+		if fail {
+			return v3Reply(500, `{"reason":"failure"}`, ""), nil
+		}
+		return v3Reply(200, `{"agent_session_id":"s","status":"RUNNING"}`, ""), nil
+	})})
 	session := (&SavedAgent{ID: "saved", client: client}).CreateSession(CreateSessionOptions{Channel: "room", AgentUID: "1", RemoteUIDs: []string{"2"}})
 	session.token = "old-generated"
 	session.generatedRTCToken = true
-	got, _, _, err := session.v3StartRequestParts()
-	if err != nil || got.Token == "old-generated" {
-		t.Fatal(got, err)
+	session.refreshRTCToken = true
+	if _, err := session.Start(context.Background()); err != nil || tokens[0] == "old-generated" {
+		t.Fatal(tokens, err)
 	}
-	session.token = "keyed-generated"
-	session.idempotencyKey = "retry"
-	got, _, _, err = session.v3StartRequestParts()
-	if err != nil || got.Token != "keyed-generated" {
-		t.Fatal(got, err)
+	session.status = StatusStopped
+	fail = true
+	if _, err := session.Start(context.Background()); err == nil {
+		t.Fatal("expected failure")
+	}
+	if _, err := session.Start(context.Background()); err == nil {
+		t.Fatal("expected retry failure")
+	}
+	if tokens[1] != tokens[2] {
+		t.Fatal("failed retry changed token")
 	}
 	session.token = "explicit"
 	session.generatedRTCToken = false
-	session.idempotencyKey = ""
-	got, _, _, err = session.v3StartRequestParts()
-	if err != nil || got.Token != "explicit" {
-		t.Fatal(got, err)
+	if _, err := session.Start(context.Background()); err == nil || tokens[3] != "explicit" {
+		t.Fatal(tokens, err)
 	}
 }
