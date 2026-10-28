@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [v2.13.0] — 2026-10-09
+
+### Changed
+
+- Tavus, Protoface, and LemonSlice are minimal provider wrappers with default API endpoints, explicit URL overrides, and shared GenericAvatar serialization, session defaults, and token handling.
+- LemonSlice defaults AvatarID to the vendor-recommended fixed `lemonslice`; explicit overrides remain supported. Typed optional selector and aspect-ratio fields serialize directly in avatar.params and override AdditionalParams without mutating caller input.
+- **Source compatibility:** these providers are no longer exact aliases of GenericAvatar, and LemonSliceOptions is now a superset rather than an exact GenericAvatarOptions alias. TavusOptions and ProtofaceOptions retain their GenericAvatarOptions aliases. LemonSlice now requires exactly one nonempty string selector (agent_id, agent_image_url, or agent_image_base64) in the effective merged parameters. Malformed supplied selectors are rejected. Optional aspect_ratio accepts only 2x3, 9x16, or 1x1; omission retains the provider default 2x3.
+
 ## [v2.12.0] — 2026-10-07
 
 ### Added
