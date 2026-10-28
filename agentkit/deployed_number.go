@@ -60,7 +60,10 @@ func (d *SavedAgent) ListNumbers(ctx context.Context) ([]v3.Number, error) {
 // AssignNumber resolves either a number ID or its E.164 value in this project,
 // then binds its inbound agent with If-Match. A number must already exist.
 func (d *SavedAgent) AssignNumber(ctx context.Context, number any, opts AssignNumberOptions) (*v3.Number, error) {
-	policy := map[string]any{}
+	var policy map[string]any
+	if opts.CallPolicy != nil || opts.MaxCallDurationSeconds != nil || opts.MaxSilenceDurationMs != nil {
+		policy = map[string]any{}
+	}
 	if opts.CallPolicy != nil {
 		encoded, err := json.Marshal(opts.CallPolicy)
 		if err != nil {
@@ -102,7 +105,7 @@ func (d *SavedAgent) setNumber(ctx context.Context, number any, agent any, polic
 	}
 	for attempt := 0; attempt < 2; attempt++ {
 		inbound := map[string]any{"agent": agent}
-		if len(policy) > 0 {
+		if policy != nil {
 			inbound["call_policy"] = policy
 		}
 		r, err := d.client.V3.Numbers.Update(ctx, current.Body.NumberID, current.ETag, v3.NumberPatch{"inbound": inbound})

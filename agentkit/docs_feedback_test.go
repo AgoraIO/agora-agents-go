@@ -203,3 +203,22 @@ func TestSessionAnalysisAndSecretKeyMetadata(t *testing.T) {
 		t.Fatal(secret)
 	}
 }
+
+func TestInboundExplicitEmptyPolicyIsSent(t *testing.T) {
+	client := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token", HTTPClient: v3HTTPFunc(func(r *http.Request) (*http.Response, error) {
+		if r.Method == "GET" {
+			return v3Reply(200, `{"number_id":"number"}`, "etag"), nil
+		}
+		var body map[string]any
+		json.NewDecoder(r.Body).Decode(&body)
+		inbound := body["inbound"].(map[string]any)
+		if policy, ok := inbound["call_policy"].(map[string]any); !ok || len(policy) != 0 {
+			t.Fatal(body)
+		}
+		return v3Reply(200, `{"number_id":"number"}`, "next"), nil
+	})})
+	_, err := (&SavedAgent{ID: "saved", client: client}).AssignNumber(context.Background(), "number", AssignNumberOptions{CallPolicy: &InboundCallPolicy{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
