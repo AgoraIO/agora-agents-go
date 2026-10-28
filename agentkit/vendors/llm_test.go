@@ -141,7 +141,7 @@ func TestVertexAILLMUsesExplicitURLOverride(t *testing.T) {
 	}
 }
 
-func TestGeminiBuildsStreamGenerateContentURLAndOmitsTopLevelAPIKey(t *testing.T) {
+func TestGeminiPreservesLegacyURLAndExposesCredentialForPlatform(t *testing.T) {
 	config := NewGemini(GeminiOptions{
 		APIKey: "google-key",
 		Model:  "gemini-2.0-flash",
@@ -150,8 +150,8 @@ func TestGeminiBuildsStreamGenerateContentURLAndOmitsTopLevelAPIKey(t *testing.T
 	if config["style"] != "gemini" {
 		t.Fatalf("unexpected style: %v", config["style"])
 	}
-	if _, ok := config["api_key"]; ok {
-		t.Fatalf("gemini should not emit top-level api_key, got: %#v", config)
+	if config["api_key"] != "google-key" {
+		t.Fatalf("missing Gemini credential: %#v", config)
 	}
 
 	url, _ := config["url"].(string)
@@ -262,12 +262,13 @@ func TestOpenAIManagedModeIsRestrictedToSupportedModels(t *testing.T) {
 		t.Fatalf("unexpected params: %#v", params)
 	}
 
-	assertPanic(t, "OpenAI requires APIKey unless using a supported Agora-managed model", func() {
-		NewOpenAI(OpenAIOptions{Model: "gpt-4o"})
-	})
-	assertPanic(t, "OpenAI Agora-managed mode does not allow Vendor", func() {
-		NewOpenAI(OpenAIOptions{Model: "gpt-5-mini", Vendor: "custom"})
-	})
+	for _, model := range []string{"gpt-5.6-luna", "future-managed-model"} {
+		config := NewOpenAI(OpenAIOptions{Model: model, Vendor: "openai"}).ToConfig()
+		if config["vendor"] != "openai" {
+			t.Fatal(config)
+		}
+	}
+
 }
 
 func TestOpenAIEmitsInlineToolsAlongsideMcpServers(t *testing.T) {

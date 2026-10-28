@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -95,6 +96,7 @@ type AgentSession struct {
 	backend         sessionBackend
 	v3Sessions      *v3.SessionsClient
 	savedAgentID    string
+	telephony       *v3.SessionTransport
 	initErr         error
 
 	agentID        string
@@ -325,7 +327,7 @@ func (s *AgentSession) v3StartRequestParts() (v3.SessionTransport, *v3.SessionLi
 	if s.initErr != nil {
 		return v3.SessionTransport{}, nil, nil, s.initErr
 	}
-	if strings.TrimSpace(s.channel) == "" {
+	if s.telephony == nil && strings.TrimSpace(s.channel) == "" {
 		return v3.SessionTransport{}, nil, nil, errors.New("agentkit: v3 session channel is required")
 	}
 	if s.expiresIn != 0 {
@@ -342,6 +344,29 @@ func (s *AgentSession) v3StartRequestParts() (v3.SessionTransport, *v3.SessionLi
 		SubscribeUIDs: append([]string(nil), s.remoteUIDs...),
 		Encryption:    cloneRTCEncryption(s.encryption), AudioScenario: s.audioScenario,
 		Geofence: cloneGeofence(s.geofence),
+	}
+	if s.telephony != nil {
+		transport = *s.telephony
+	} else if transport.Token == "" && s.appCertificate != "" && transport.UID != "" {
+		if uid, err := strconv.ParseUint(transport.UID, 10, 32); err == nil && uid != 0 {
+			token, err := GenerateConvoAIToken(GenerateConvoAITokenOptions{AppID: s.appID, AppCertificate: s.appCertificate, ChannelName: transport.Channel, UID: int(uid)})
+			if err != nil {
+				return v3.SessionTransport{}, nil, nil, err
+			}
+			transport.Token = token
+			s.mu.Lock()
+			s.token = token
+			s.mu.Unlock()
+		} else if strings.Trim(transport.UID, "0123456789") != "" {
+			token, err := GenerateRtcTokenWithAccount(GenerateRtcTokenWithAccountOptions{AppID: s.appID, AppCertificate: s.appCertificate, Channel: transport.Channel, Account: transport.UID})
+			if err != nil {
+				return v3.SessionTransport{}, nil, nil, err
+			}
+			transport.Token = token
+			s.mu.Lock()
+			s.token = token
+			s.mu.Unlock()
+		}
 	}
 	var lifecycle *v3.SessionLifecycle
 	if s.idleTimeout != nil || s.maxDuration != nil || s.gracefulStop != nil {

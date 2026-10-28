@@ -3,7 +3,6 @@ package vendors
 import (
 	"fmt"
 	neturl "net/url"
-	"strings"
 
 	Agora "github.com/AgoraIO/agora-agents-go/v2"
 )
@@ -58,18 +57,11 @@ func NewOpenAI(opts OpenAIOptions) *OpenAI {
 	if opts.Model == "" {
 		panic("OpenAI requires Model")
 	}
-	if opts.APIKey == "" {
-		switch strings.ToLower(strings.TrimSpace(opts.Model)) {
-		case "gpt-4o-mini", "gpt-4.1-mini", "gpt-5-nano", "gpt-5-mini":
-			if opts.BaseURL != "" {
-				panic("OpenAI Agora-managed mode does not allow BaseURL")
-			}
-			if opts.Vendor != "" {
-				panic("OpenAI Agora-managed mode does not allow Vendor")
-			}
-		default:
-			panic("OpenAI requires APIKey unless using a supported Agora-managed model")
-		}
+	if opts.APIKey == "" && opts.BaseURL != "" {
+		panic("OpenAI Agora-managed mode does not allow BaseURL")
+	}
+	if opts.Vendor == "" {
+		opts.Vendor = "openai"
 	}
 	if opts.APIKey != "" && opts.BaseURL == "" {
 		panic("OpenAI requires BaseURL when APIKey is set")
@@ -304,6 +296,9 @@ type Anthropic struct {
 }
 
 func NewAnthropic(opts AnthropicOptions) *Anthropic {
+	if opts.Vendor == "" {
+		opts.Vendor = "anthropic"
+	}
 	if opts.APIKey == "" {
 		panic("Anthropic requires APIKey")
 	}
@@ -419,6 +414,9 @@ type Gemini struct {
 }
 
 func NewGemini(opts GeminiOptions) *Gemini {
+	if opts.Vendor == "" {
+		opts.Vendor = "gemini"
+	}
 	if opts.APIKey == "" {
 		panic("Gemini requires APIKey")
 	}
@@ -465,6 +463,7 @@ func (g *Gemini) ToConfig() map[string]interface{} {
 		"params":           params,
 		"style":            "gemini",
 		"input_modalities": inputMod,
+		"api_key":          g.options.APIKey,
 	}
 	if g.options.SystemMessages != nil {
 		config["system_messages"] = g.options.SystemMessages
@@ -510,6 +509,9 @@ type Groq struct {
 }
 
 func NewGroq(opts GroqOptions) *Groq {
+	if opts.Vendor == "" {
+		opts.Vendor = "groq"
+	}
 	if opts.APIKey == "" {
 		panic("Groq requires APIKey")
 	}
@@ -592,6 +594,9 @@ type VertexAILLM struct {
 }
 
 func NewVertexAILLM(opts VertexAILLMOptions) *VertexAILLM {
+	if opts.Vendor == "" {
+		opts.Vendor = "vertexai"
+	}
 	if opts.APIKey == "" {
 		panic("VertexAILLM requires APIKey")
 	}
@@ -624,6 +629,7 @@ func (v *VertexAILLM) ToConfig() map[string]interface{} {
 }
 
 type AmazonBedrockOptions struct {
+	APIKey            string
 	AccessKey         string
 	SecretKey         string
 	Region            string
@@ -652,11 +658,11 @@ type AmazonBedrock struct {
 }
 
 func NewAmazonBedrock(opts AmazonBedrockOptions) *AmazonBedrock {
-	if opts.AccessKey == "" {
-		panic("AmazonBedrock requires AccessKey")
+	if opts.APIKey != "" && (opts.AccessKey != "" || opts.SecretKey != "") {
+		panic("AmazonBedrock accepts APIKey or AccessKey/SecretKey, not both")
 	}
-	if opts.SecretKey == "" {
-		panic("AmazonBedrock requires SecretKey")
+	if opts.APIKey == "" && (opts.AccessKey == "" || opts.SecretKey == "") {
+		panic("AmazonBedrock requires APIKey or AccessKey and SecretKey")
 	}
 	if opts.Region == "" {
 		panic("AmazonBedrock requires Region")
@@ -694,6 +700,11 @@ func (a *AmazonBedrock) ToConfig() map[string]interface{} {
 		"params":           params,
 		"style":            "bedrock",
 		"input_modalities": []string{"text"},
+	}
+	if a.options.APIKey != "" {
+		config["api_key"] = a.options.APIKey
+		delete(config, "access_key")
+		delete(config, "secret_key")
 	}
 	if a.options.InputModalities != nil {
 		config["input_modalities"] = a.options.InputModalities
@@ -760,6 +771,9 @@ type Dify struct {
 }
 
 func NewDify(opts DifyOptions) *Dify {
+	if opts.Vendor == "" {
+		opts.Vendor = "dify"
+	}
 	if opts.APIKey == "" {
 		panic("Dify requires APIKey")
 	}

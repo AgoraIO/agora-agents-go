@@ -27,7 +27,7 @@ Use the same immutable `Agent` configuration to start an existing session or sav
 
 ## Conversational AI v3 P1 preview
 
-This checkout includes a handwritten client for the Conversational AI API v1 path used by the v3 preview. Use a build of the `feat/v3-api-preview` branch for these features; the `@latest` installation command above does not select this branch. The module path remains `/v2` because that suffix is the Go module's semantic major version, not the REST API version. Existing `Agent.CreateSession(...).Start(ctx)` calls retain their v2 behavior.
+This checkout includes a handwritten client for the Conversational AI API v1 path used by the v3 preview. Install these features with `go get github.com/AgoraIO/agora-agents-go/v2@v3-api-preview`; the `@latest` installation command above does not select this branch. The module path remains `/v2` because that suffix is the Go module's semantic major version, not the REST API version. Use `Agent.CreateEphemeralSession(...).Start(ctx)` for an explicit unsaved Platform session, or `SavedAgent.CreateSession` for a saved agent. `Agent.Call` and `SavedAgent.Call` configure outbound calls. Existing `Agent.CreateSession` automatic routing remains available.
 
 - `Agent.Save` creates a stored configuration, and `SavedAgent.Update` updates it with an ETag guarded patch. `WithVariable` adds typed template or extraction variables.
 - `AgoraClient.Secrets` and `AgoraClient.Numbers` provide project setup. `agentkit.SecretRef("set", "key")` stores a `$secrets.set.key` reference in the agent configuration; secret values are write-only.
@@ -39,7 +39,7 @@ Campaign create and lifecycle actions accept an optional idempotency key with a 
 ## Quick Start
 
 Start with the `Agent` builder: create a client with app credentials, pass it to `NewAgent(client, ...)` (required; `nil` panics), choose your ASR, LLM, and TTS providers, then start a session. Omit vendor API keys for supported Agora-managed global models, or provide keys when you want BYOK.
-Set Agora interaction language with `TurnDetectionConfig.Language`; provider-specific STT language values remain under `asr.params`. Ares uses only the REST `asr.language` value sourced from `TurnDetectionConfig.Language`.
+Set Agora interaction language with `TurnDetectionConfig.Language`; the explicit interaction language takes precedence. The Platform adapter otherwise promotes vendor language to `pipeline.asr.language`, and defaults Ares to `en-US`; legacy session serialization retains its original shape.
 
 ```go
 package main

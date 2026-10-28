@@ -1371,3 +1371,11 @@ const (
     AkoolRequiredSampleRate  = SampleRate16kHz  // 16000 Hz
 )
 ```
+
+### Platform provider mapping
+
+OpenAI managed models are validated by the service; `NewOpenAI` defaults the vendor to `openai`. The other named LLM constructors also default their provider vendor. Platform Gemini requests send the API key through `credential.fields.api_key`, including with a custom endpoint. Bedrock accepts `APIKey` or an `AccessKey`/`SecretKey` pair, but not both.
+
+`MiniMaxTTSOptions` exposes `Speed`, `Volume`, `Pitch`, `Emotion`, `SampleRate`, `Bitrate`, `Format`, and `Channel`. Typed voice/audio settings merge with the corresponding `AdditionalParams` objects, preserving unrelated fields. The Platform adapter adds speed 1 when omitted.
+
+Platform ASR conversion promotes provider `language`, `ws_url`, and `uri` to the block-level fields, maps Ares `Keywords` into `params.keywords`, and defaults Ares language to `en-US`. Explicit interaction language wins. Legacy provider serialization remains supported.

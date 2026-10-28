@@ -139,14 +139,36 @@ type SecretUpdate struct {
 	Secrets map[string]*string `json:"secrets"`
 }
 type SecretSet struct {
-	Name     string   `json:"name"`
-	Keys     []string `json:"keys"`
-	CreateTS int64    `json:"create_ts"`
-	UpdateTS int64    `json:"update_ts"`
+	Name     string      `json:"name"`
+	Keys     []SecretKey `json:"keys"`
+	CreateTS int64       `json:"create_ts"`
+	UpdateTS int64       `json:"update_ts"`
 }
 type SecretKey struct {
-	Key string `json:"key"`
+	Key      string `json:"key"`
+	CreateTS *int64 `json:"create_ts,omitempty"`
+	UpdateTS *int64 `json:"update_ts,omitempty"`
 }
+
+// UnmarshalJSON accepts rollout-era key names and the launch metadata objects.
+func (k *SecretKey) UnmarshalJSON(data []byte) error {
+	if len(data) > 0 && data[0] == '"' {
+		var key string
+		if err := json.Unmarshal(data, &key); err != nil {
+			return err
+		}
+		*k = SecretKey{Key: key}
+		return nil
+	}
+	type wire SecretKey
+	var value wire
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	*k = SecretKey(value)
+	return nil
+}
+
 type SecretKeyWrite struct {
 	Value string `json:"value"`
 }
@@ -167,6 +189,20 @@ type SipTrunk struct {
 	Auth       *SipAuth  `json:"auth,omitempty"`
 	AllowedIPs *[]string `json:"allowed_ips,omitempty"`
 }
+
+// InboundCallPolicy contains the supported inbound call controls.
+type InboundCallPolicy struct {
+	MaxCallDurationSeconds *int                  `json:"max_call_duration_seconds,omitempty"`
+	MaxSilenceDurationMS   *int                  `json:"max_silence_duration_ms,omitempty"`
+	EndCall                *InboundEndCallPolicy `json:"end_call,omitempty"`
+}
+type InboundEndCallPolicy struct {
+	OnConversationComplete bool `json:"on_conversation_complete"`
+	OnUserRequest          bool `json:"on_user_request"`
+	OnFax                  bool `json:"on_fax"`
+	OnAIAssistant          bool `json:"on_ai_assistant"`
+}
+
 type Inbound struct {
 	Agent      *string        `json:"agent"`
 	CallPolicy map[string]any `json:"call_policy,omitempty"`
@@ -188,9 +224,17 @@ type Number struct {
 }
 type NumberListItem = Number
 
+type SessionAnalysis struct {
+	Status     string         `json:"status"`
+	SkipReason *string        `json:"skip_reason"`
+	CompleteTS *int64         `json:"complete_ts"`
+	Result     map[string]any `json:"result"`
+	Error      *string        `json:"error"`
+}
 type Session struct {
-	AgentSessionID string `json:"agent_session_id"`
-	CreateTS       int64  `json:"create_ts,omitempty"`
+	Analysis       *SessionAnalysis `json:"analysis,omitempty"`
+	AgentSessionID string           `json:"agent_session_id"`
+	CreateTS       int64            `json:"create_ts,omitempty"`
 	// CreatedAt accepts the rollout-era response field. New responses use CreateTS.
 	CreatedAt json.RawMessage `json:"created_at,omitempty"`
 	StartTS   int64           `json:"start_ts"`

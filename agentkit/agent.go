@@ -1,6 +1,7 @@
 package agentkit
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -403,6 +404,12 @@ func (a *Agent) CreateSession(opts CreateSessionOptions) *AgentSession {
 	return NewSession(a, opts)
 }
 
+// CreateEphemeralSession explicitly starts an unsaved configuration through the Platform API.
+func (a *Agent) CreateEphemeralSession(opts CreateSessionOptions) *AgentSession {
+	client, _ := a.base.Client.(*AgoraClient)
+	return newV3AgentSession(a, client, opts, "")
+}
+
 // NewSession creates an AgentSession from any AgentRuntime implementation.
 func NewSession(agent agentcore.AgentRuntime, opts CreateSessionOptions) *AgentSession {
 	if config, ok := agent.(*Agent); ok && config != nil && config.base != nil {
@@ -496,4 +503,59 @@ func vendorName(config map[string]interface{}) string {
 	}
 	vendor, _ := config["vendor"].(string)
 	return vendor
+}
+
+// Pointer helpers keep AgentKit examples within this package.
+func Bool(value bool) *bool          { return &value }
+func Int(value int) *int             { return &value }
+func Float64(value float64) *float64 { return &value }
+func String(value string) *string    { return &value }
+
+type InterruptionKeywordsConfig = Agora.StartAgentsRequestPropertiesInterruptionKeywordsConfig
+type InterruptionDisabledConfig = Agora.StartAgentsRequestPropertiesInterruptionDisabledConfig
+
+const StartOfSpeechModeVad = Agora.StartAgentsRequestPropertiesTurnDetectionConfigStartOfSpeechModeVad
+const EndOfSpeechModeVad = Agora.StartAgentsRequestPropertiesTurnDetectionConfigEndOfSpeechModeVad
+const EndOfSpeechModeSemantic = Agora.StartAgentsRequestPropertiesTurnDetectionConfigEndOfSpeechModeSemantic
+
+type CallPolicy = v3.CampaignCallPolicy
+type EndCallPolicy = v3.CampaignEndCallPolicy
+type VoicemailPolicy = v3.CampaignVoicemailPolicy
+type TransferPolicy = v3.CampaignTransferPolicy
+
+// CallOptions configures an outbound telephone session. From is a registered number ID.
+// RTC-only options must be omitted; Call returns a session to start with Start(ctx).
+type CallOptions struct {
+	CreateSessionOptions
+	From       string
+	To         string
+	CallPolicy *CallPolicy
+}
+
+func (a *Agent) Call(opts CallOptions) *AgentSession {
+	return configureCall(a.CreateEphemeralSession(opts.CreateSessionOptions), opts)
+}
+func (a *SavedAgent) Call(opts CallOptions) *AgentSession {
+	return configureCall(a.CreateSession(opts.CreateSessionOptions), opts)
+}
+func configureCall(session *AgentSession, opts CallOptions) *AgentSession {
+	if opts.Channel != "" || opts.Token != "" || opts.AgentUID != "" || len(opts.RemoteUIDs) > 0 || opts.Encryption != nil || opts.Geofence != nil || opts.AudioScenario != "" || opts.EnableStringUID != nil {
+		session.initErr = fmt.Errorf("agentkit: telephone calls do not accept RTC options")
+	}
+	transport := v3.SessionTransport{Type: "telephony", From: opts.From, To: opts.To, CallPolicy: opts.CallPolicy}
+	encoded, err := json.Marshal(transport)
+	if err != nil {
+		session.initErr = err
+		return session
+	}
+	var copied v3.SessionTransport
+	if err = json.Unmarshal(encoded, &copied); err != nil {
+		session.initErr = err
+		return session
+	}
+	if session.geofence != nil || session.audioScenario != "" {
+		session.initErr = fmt.Errorf("agentkit: telephone calls do not accept RTC configuration")
+	}
+	session.telephony = &copied
+	return session
 }

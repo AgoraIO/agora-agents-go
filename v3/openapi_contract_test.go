@@ -58,7 +58,7 @@ func TestHandwrittenResourcesMatchOpenAPISnapshot(t *testing.T) {
 	if _, ok := endCall["on_voicemail"]; !ok {
 		t.Fatal("campaign end-call policy lacks on_voicemail")
 	}
-	if _, ok := doc.Components.Schemas["SessionAnalysis"]; ok {
-		t.Fatal("removed session analysis schema returned")
+	if _, ok := doc.Components.Schemas["SessionAnalysis"]; !ok {
+		t.Fatal("session analysis schema missing")
 	}
 }

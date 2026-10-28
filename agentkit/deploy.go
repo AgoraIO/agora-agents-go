@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"net/url"
 	"regexp"
 	"sort"
 	"strings"
@@ -45,11 +46,16 @@ type SecretCreate = v3.SecretCreate
 type SecretSet = v3.SecretSet
 type SecretUpdate = v3.SecretUpdate
 type SecretReplace = v3.SecretReplace
+type SecretKeyWrite = v3.SecretKeyWrite
+type SecretKeyOptions = v3.SecretKeyOptions
+type SecretKey = v3.SecretKey
 type NumberCreate = v3.NumberCreate
 type Number = v3.Number
 type SipTrunk = v3.SipTrunk
 type SipAuth = v3.SipAuth
 type Inbound = v3.Inbound
+type InboundCallPolicy = v3.InboundCallPolicy
+type InboundEndCallPolicy = v3.InboundEndCallPolicy
 
 func shouldStartEphemeralV3(base *agentcore.BaseAgent, opts CreateSessionOptions) bool {
 	if base == nil {
@@ -709,7 +715,7 @@ func convertModule(name string, input map[string]interface{}) (map[string]any, [
 	for _, key := range map[string][]string{"asr": {"language", "model"}, "llm": {"style", "model", "input_modalities", "output_modalities", "max_history", "failure_message", "mcp_servers", "tools", "headers"}, "tts": {"headers", "skip_patterns"}}[name] {
 		allowed[key] = true
 	}
-	consumed := map[string]bool{"api_key": true, "system_messages": true, "messages": true, "greeting_message": true, "greeting_audio_url": true, "template_variables": true, "greeting_configs": true, "turn_detection": true, "enable": true, "_minimax_preset_model": true}
+	consumed := map[string]bool{"api_key": true, "system_messages": true, "messages": true, "greeting_message": true, "greeting_audio_url": true, "template_variables": true, "greeting_configs": true, "turn_detection": true, "enable": true, "_minimax_preset_model": true, "keywords": name == "asr"}
 	out := map[string]any{}
 	bad := []string{}
 	for k, v := range input {
@@ -735,6 +741,44 @@ func convertModule(name string, input map[string]interface{}) (map[string]any, [
 		if region, ok := input["region"]; ok {
 			params["region"] = agentcore.CloneValue(region)
 		}
+	}
+	if name == "asr" {
+		if keywords, ok := input["keywords"]; ok {
+			params["keywords"] = agentcore.CloneValue(keywords)
+		}
+		if _, exists := out["language"]; !exists {
+			if language, ok := params["language"]; ok {
+				out["language"] = language
+			} else if vendor == "ares" {
+				out["language"] = "en-US"
+			}
+		}
+		delete(params, "language")
+		for _, alias := range []string{"ws_url", "uri"} {
+			if endpoint, ok := params[alias]; ok {
+				if _, exists := out["url"]; !exists {
+					out["url"] = endpoint
+				}
+				delete(params, alias)
+			}
+		}
+	}
+	if name == "llm" && input["style"] == "gemini" {
+		if endpoint, ok := out["url"].(string); ok {
+			parsed, err := url.Parse(endpoint)
+			if err != nil {
+				bad = append(bad, "llm.url")
+			} else {
+				query := parsed.Query()
+				query.Del("key")
+				parsed.RawQuery = query.Encode()
+				out["url"] = parsed.String()
+			}
+		}
+	}
+	if name == "avatar" && vendor == "heygen" {
+		vendor = "liveavatar"
+		out["vendor"] = vendor
 	}
 	fields := map[string]string{}
 	if bedrockStyle {
@@ -791,8 +835,18 @@ func convertModule(name string, input map[string]interface{}) (map[string]any, [
 			params["model"] = v
 		}
 	}
+	if name == "tts" && vendor == "minimax" {
+		voice, _ := params["voice_setting"].(map[string]any)
+		if voice == nil {
+			voice = map[string]any{}
+		}
+		if _, ok := voice["speed"]; !ok {
+			voice["speed"] = 1.0
+		}
+		params["voice_setting"] = voice
+	}
 	if name == "avatar" {
-		vendor, _ := input["vendor"].(string)
+		vendor, _ := out["vendor"].(string)
 		switch vendor {
 		case "akool", "liveavatar", "anam", "sensetime", "spatius", "generic":
 		default:
@@ -826,6 +880,10 @@ func convertModule(name string, input map[string]interface{}) (map[string]any, [
 }
 
 func credentialFieldName(module, vendor, field string) string {
+	// Legacy providers use key while Platform uses provider-specific field names.
+	if field == "key" {
+		field = "api_key"
+	}
 	switch module {
 	case "asr":
 		switch vendor {

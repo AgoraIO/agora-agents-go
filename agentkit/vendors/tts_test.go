@@ -288,7 +288,7 @@ func TestTTSVendorParamsMatchGeneratedCoreShapes(t *testing.T) {
 				"key":           "minimax-key",
 				"group_id":      "group",
 				"model":         "speech-02-turbo",
-				"voice_setting": map[string]interface{}{"voice_id": "shortcut-voice"},
+				"voice_setting": map[string]interface{}{"voice_id": "shortcut-voice", "speed": 1},
 				"url":           "wss://api-uw.minimax.io/ws/v1/t2a_v2",
 			},
 		},

@@ -6,7 +6,7 @@ description: Manage agents, sessions, secrets, numbers, and campaigns with the v
 
 # Conversational AI v3 preview (P1)
 
-In v3, an **agent** is a saved configuration identified by `agent_id`. A running instance is a **session**, identified by `agent_session_id`. Existing `Agent.CreateSession(...).Start(ctx)` still starts a v2 `/join` session. `Save` creates or updates a saved configuration; it does not start a session. The Go import path remains `github.com/AgoraIO/agora-agents-go/v2`: its `/v2` suffix is the module's semantic major version, independent of the REST API version.
+In v3, an **agent** is a saved configuration identified by `agent_id`. A running instance is a **session**, identified by `agent_session_id`. Use `Agent.CreateEphemeralSession(...).Start(ctx)` to explicitly start an unsaved Platform session. `Agent.CreateSession` retains automatic routing for compatibility. `Save` creates or updates a saved configuration; it does not start a session. The Go import path remains `github.com/AgoraIO/agora-agents-go/v2`: its `/v2` suffix is the module's semantic major version, independent of the REST API version.
 
 ## Quickstart
 
@@ -62,10 +62,9 @@ agent := agentkit.NewAgent(c,
     agentkit.WithVariable("resolved", agentkit.VariableDefinition{
         Type: "bool", Extract: true, Description: "Was the issue resolved?",
     }),
-).WithMllm(vendors.NewOpenAIRealtime(vendors.OpenAIRealtimeOptions{
-    APIKey: agentkit.SecretRef("prod", "openai"),
-    Instructions: "Help the caller briefly and politely.",
-}))
+).WithLlm(vendors.NewOpenAI(vendors.OpenAIOptions{
+    Model: "gpt-5.6-luna",
+})).WithInstructions("Help the caller briefly and politely.")
 
 // Create once; persist the returned ID.
 saved, err := agent.Save(ctx, agentkit.SaveOptions{Name: "Support"})
@@ -79,11 +78,11 @@ saved, err = saved.Update(ctx, updatedAgentConfig)
 if err != nil { return err }
 ```
 
-`WithVariable` also exists as `agent.WithVariable(name, def)`, returning a new immutable builder. Names match `^[a-z][a-z0-9_]{0,63}$`; types are `str`, `int`, `float`, `bool`, `date`, and `datetime`. `Options`, when provided, must contain 1–100 unique JSON scalar values. Descriptions are limited to 2000 Unicode characters; `Extract: true` requires a nonempty description. The no-error builder methods panic for invalid definitions. `agentkit.GetSavedAgent(ctx, c, id)` loads a handle; `saved.Delete(ctx)` deletes it. `saved.Update(ctx, config)` reuses its ID and name and returns a handle with the fresh ETag. Handles expose `ID`, `Name`, `ETag`, and `Raw` (`*v3.AgentsClient`). The old `Deploy`, `DeployOptions`, `DeployedAgent`, and `GetDeployedAgent` names remain available as compatibility aliases. Agent creation is not an upsert yet: repeated POSTs can create distinct agents. Full configuration replacement on PATCH is planned; the SDK keeps current conditional PATCH behavior and does not assume replacement semantics.
+`WithVariable` also exists as `agent.WithVariable(name, def)`, returning a new immutable builder. Names match `^[a-z][a-z0-9_]{0,63}$`; types are `str`, `int`, `float`, `bool`, `date`, and `datetime`. `Options`, when provided, must contain 1–100 unique JSON scalar values. Descriptions are limited to 2000 Unicode characters; `Extract: true` requires a nonempty description. The no-error builder methods panic for invalid definitions. `agentkit.GetSavedAgent(ctx, c, id)` loads a handle; `saved.Delete(ctx)` deletes it. `saved.Update(ctx, config)` reuses its ID and name and returns a handle with the fresh ETag. Handles expose `ID`, `Name`, `ETag`, and `Raw` (`*v3.AgentsClient`). The old `Deploy`, `DeployOptions`, `DeployedAgent`, and `GetDeployedAgent` names remain available as compatibility aliases. Agent creation is not an upsert yet: repeated POSTs can create distinct agents. Agent PATCH uses JSON merge patch with conditional ETags.
 
 `Save` without an ID POSTs a new agent. Save its returned ID: names are not unique upsert keys and agent POST has no supported idempotency key. `SavedAgent.Update` GETs the current ETag, then PATCHes. It sends recursive `null`s to clear readable stale fields, omitting server-owned IDs, timestamps, and resolved credential metadata. A 412 becomes `ErrPreconditionFailed` and retains the underlying v3 error; save does not retry the conflict automatically.
 
-For cascaded saves, an explicit `TurnDetection.Language` is preserved as `pipeline.asr.language`, taking precedence over the ASR vendor language as on v2. Without an explicit STT vendor, it uses the existing global `ares` default with managed credentials; endpoint availability remains a backend concern. The preview API supports cascading pipelines only; MLLM configurations cannot be saved or used with preview session features. Existing MLLM sessions remain supported through the original session API.
+For cascaded saves, an explicit `TurnDetection.Language` is preserved as `pipeline.asr.language`, taking precedence over the ASR vendor language as on v2. Otherwise the ASR vendor language is promoted to the block-level field, and Ares defaults to `en-US`. Without an explicit STT vendor, it uses the existing global `ares` default with managed credentials; endpoint availability remains a backend concern. The preview API supports cascading pipelines only; MLLM configurations cannot be saved or used with preview session features. Existing MLLM sessions remain supported through the original session API.
 
 Legacy greeting settings `mode: "single_every"` and `mode: "single_first"` map to `on: "each_join"` and `on: "first_join"`. An explicit `on` takes precedence. Unknown legacy modes and playback settings without an actual greeting are rejected before a request. Audio download timeout and PCM sample-rate settings require an audio greeting; supplying them for a text greeting is rejected. Empty message content remains valid. Variable descriptions allow up to 2000 Unicode characters, rather than 2000 UTF-8 bytes.
 
@@ -95,7 +94,7 @@ Create the secret set before saving a provider that uses `SecretRef`. Values are
 secret, err := c.Secrets.Create(ctx, agentkit.SecretCreate{
     Name: "prod",
     Secrets: map[string]string{"openai": os.Getenv("OPENAI_API_KEY")},
-}, "secret-create-2026-10")
+}, "")
 if err != nil { return err }
 _ = secret.Body.Keys // Values are never returned.
 
@@ -194,7 +193,7 @@ return err
 
 ## Session options and campaign limits
 
-AgentKit routes a saved handle through `SavedAgent.CreateSession`. Inline configs with secret references or variable definitions use the ephemeral endpoint automatically; plain inline configs, including token-backed `/join` sessions, retain v2 behavior. New v3 options such as `Values`, `IdempotencyKey`, `DataPolicy`, RTC encryption, audio scenario, geofence, and maximum duration select ephemeral v3 sessions. `ClientReference` remains only as a deprecated compatibility field and is rejected on v3 starts.
+For deterministic Platform routing, use `Agent.CreateEphemeralSession` even when the configuration has no variables or secrets. AgentKit routes a saved handle through `SavedAgent.CreateSession`. Inline configs with secret references or variable definitions use the ephemeral endpoint automatically; plain inline configs, including token-backed `/join` sessions, retain v2 behavior. New v3 options such as `Values`, `IdempotencyKey`, `DataPolicy`, RTC encryption, audio scenario, geofence, and maximum duration select ephemeral v3 sessions. `ClientReference` remains only as a deprecated compatibility field and is rejected on v3 starts.
 
 `AgentSession.Update(ctx, *Agora.UpdateAgentsRequestProperties)` keeps the same call shape on v2 and v3. For v3 sessions, only token, LLM system messages, and complete LLM params replacements are sent; other legacy update fields are rejected. The versioned low-level client accepts `v3.SessionPatch` directly.
 
@@ -206,8 +205,45 @@ Campaign contacts are inline at create time (1–50,000 contacts; the create pay
 
 `Save` collects unsupported v2 fields into one `ErrUnsupportedField` before HTTP. Current examples are `sal`, `advancedFeatures`, agent-level `geofence`, `labels`, `rtc`, `audioScenario`, `pipelineId`, unsupported `parameters`, nonempty `template_variables` (v3 variables have no defaults), unverified provider fields, and multipart credentials that cannot map to one API key. Geofence, audio scenario, farewell, and opt-out map to session transport, lifecycle, and data policy when starting an eligible inline v3 session; they are not stored agent properties. Managed credentials omit endpoint URLs from the v3 payload; BYOK credentials retain explicitly configured URLs.
 
-Provider credentials use `credential.fields` with provider-specific keys. Saved-agent writes accept only `$secrets.<set>.<key>` references; ephemeral inline session configs may use direct values. Secret values are write-only, so GET does not reconstruct credentials. Updates clear stale credential fields with merge-patch nulls alongside readable stale values. Sessions can be started from saved agent IDs or ephemeral inline configs, stopped, retrieved, and updated with the limited token/messages/LLM params patch. Session analysis is not in this contract. AgentKit exposes these through the same `AgentSession` handle; v3 session IDs remain distinct from v2 agent IDs, so legacy actions, history, turns, and `Raw` clients are unavailable for v3 sessions. Labels are supported on both saved-agent and ephemeral starts. The low-level `Campaigns` resource covers create, list, retrieve, conditional update, delete, pause, resume, and cancel; it does not implement a dialing or retry state machine. Contact ingestion APIs, per-contact results, events, and webhooks are not included. v2 telephony and phone-number clients keep their original semantics; they do not manage v3 project-scoped numbers.
+Provider credentials use `credential.fields` with provider-specific keys. Saved-agent writes accept only `$secrets.<set>.<key>` references; ephemeral inline session configs may use direct values. Secret values are write-only, so GET does not reconstruct credentials. Updates clear stale credential fields with merge-patch nulls alongside readable stale values. Sessions can be started from saved agent IDs or ephemeral inline configs, stopped, retrieved, and updated with the limited token/messages/LLM params patch. Optional typed `Session.Analysis` exposes extraction status, result, error, and completion metadata when returned by the server. Rollout responses may omit analysis. AgentKit exposes these through the same `AgentSession` handle; v3 session IDs remain distinct from v2 agent IDs, so legacy actions, history, turns, and `Raw` clients are unavailable for v3 sessions. Labels are supported on both saved-agent and ephemeral starts. The low-level `Campaigns` resource covers create, list, retrieve, conditional update, delete, pause, resume, and cancel; it does not implement a dialing or retry state machine. Contact ingestion APIs, per-contact results, events, and webhooks are not included. v2 telephony and phone-number clients keep their original semantics; they do not manage v3 project-scoped numbers.
 
 ## Maintenance and verification boundary
 
 The v3 package is **handwritten against the repository-root `openapi.json` / `openapi.yaml` contract snapshot** and protected by `.fernignore`; Fern has not generated it. A contract test checks key routes and schema fields. Keep this guide and the types in sync as the schema evolves. Local tests cover paths, headers, pagination, conditional errors, AgentKit mapping, and number assignment. This preview has **not** been validated against a live staging or production gateway in this workspace. Regional availability follows the preview rollout; the SDK adds no region guard. Nested patch replacement semantics follow the checked-in schema. Managed credentials omit provider URLs; BYOK requests retain the configured URL. SIP trunk `allowed_ips` accepts the schema-defined IPv4 address/CIDR entries, `*`, and explicit empty-list clearing.
+
+## Install the preview
+
+Use the slashless preview branch (Go rejects a slash in a branch version query):
+
+```sh
+go get github.com/AgoraIO/agora-agents-go/v2@v3-api-preview
+```
+
+Pin the resulting pseudo-version in `go.mod` for reproducible builds. The module is still `/v2`; a `v3.0.0-alpha.1` tag cannot be used with that module path. Release maintainers must use a module-compatible version or plan a separate major-module migration.
+
+## Explicit sessions and outbound calls
+
+```go
+session := agent.CreateEphemeralSession(agentkit.CreateSessionOptions{
+    Channel: "support", AgentUID: "1002", RemoteUIDs: []string{"1001"},
+})
+_, err := session.Start(ctx)
+if err != nil { return err }
+
+call := saved.Call(agentkit.CallOptions{
+    From: number.Body.NumberID, To: "+12025550123",
+    CallPolicy: &agentkit.CallPolicy{
+        EndCall: &agentkit.EndCallPolicy{OnUserRequest: true},
+    },
+})
+_, err = call.Start(ctx)
+if err != nil { return err }
+```
+
+`Agent.Call` also supports an unsaved configuration. Call returns a configured session; `Start`, `GetInfo`, and `Stop` share the existing lifecycle. `From` is a registered number ID, and `To` is an E.164 number. RTC options cannot be combined with telephone calls. `AssignNumberOptions.CallPolicy` accepts `InboundCallPolicy`, including the four supported `InboundEndCallPolicy` conditions. Existing duration shortcuts override the corresponding nested policy values when supplied.
+
+For Platform RTC sessions, an explicit token is preserved. When a nonzero agent UID and App Certificate are available, AgentKit generates the RTC token using its existing token helpers. With an omitted or auto-assigned UID, it leaves token generation to the service. Generated tokens are retained on the handle so retrying an idempotent start does not change its request body.
+
+`SecretSet.Keys` contains `SecretKey` values with optional `CreateTS`/`UpdateTS`; the client also accepts the rollout-era array of plain names and normalizes each name to `SecretKey{Key: name}`. `SecretKeyWrite`, `SecretKeyOptions`, interruption sub-configurations, VAD/semantic constants, and pointer helpers are available from `agentkit`.
+
+Provider mapping uses explicit vendor defaults. OpenAI managed-model availability is validated by the service rather than a hardcoded SDK list. MiniMax exposes `Speed`, `Volume`, `Pitch`, `Emotion`, `SampleRate`, `Bitrate`, `Format`, and `Channel`, merging typed fields with `AdditionalParams`; the Platform adapter supplies a default speed of 1. Gemini credentials stay in `credential.fields.api_key` on Platform requests, and HeyGen maps to `liveavatar`. Bedrock accepts either `APIKey` or the existing access-key pair using vendor `amazon`; the two credential forms cannot be combined.

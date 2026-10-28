@@ -12,6 +12,7 @@ import (
 )
 
 type AssignNumberOptions struct {
+	CallPolicy             *InboundCallPolicy
 	MaxCallDurationSeconds *int
 	MaxSilenceDurationMs   *int
 }
@@ -60,6 +61,21 @@ func (d *SavedAgent) ListNumbers(ctx context.Context) ([]v3.Number, error) {
 // then binds its inbound agent with If-Match. A number must already exist.
 func (d *SavedAgent) AssignNumber(ctx context.Context, number any, opts AssignNumberOptions) (*v3.Number, error) {
 	policy := map[string]any{}
+	if opts.CallPolicy != nil {
+		encoded, err := json.Marshal(opts.CallPolicy)
+		if err != nil {
+			return nil, err
+		}
+		if err = json.Unmarshal(encoded, &policy); err != nil {
+			return nil, err
+		}
+		if opts.CallPolicy.MaxCallDurationSeconds != nil && *opts.CallPolicy.MaxCallDurationSeconds < 1 {
+			return nil, errors.New("agentkit: max call duration must be positive")
+		}
+		if opts.CallPolicy.MaxSilenceDurationMS != nil && *opts.CallPolicy.MaxSilenceDurationMS < 1 {
+			return nil, errors.New("agentkit: max silence duration must be positive")
+		}
+	}
 	if opts.MaxCallDurationSeconds != nil {
 		if *opts.MaxCallDurationSeconds < 1 {
 			return nil, errors.New("agentkit: max call duration must be positive")

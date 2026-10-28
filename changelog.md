@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- Corrected Platform provider serialization and documentation examples; added explicit ephemeral sessions, outbound call helpers, inbound end-call controls, optional extraction results, and compatible secret-key metadata decoding.
+
 - **Conversational AI v3 preview availability** — The current preview rollout is available in the US region only. This describes preview availability; the SDK keeps its existing regional routing behavior for other areas.
 
 ## [v2.13.0] — 2026-10-09
