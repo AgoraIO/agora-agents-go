@@ -831,6 +831,84 @@ func (m *MiniMaxTTS) ToConfig() map[string]interface{} {
 	return config
 }
 
+type SonioxTTSOptions struct {
+	APIKey            string
+	BaseURL           string
+	Model             string
+	Language          string
+	Voice             string
+	SampleRate        *SampleRate
+	Speed             *float64
+	ReduceSilence     *bool
+	ReturnTimestamps  *bool
+	ClientReferenceID string
+	Dump              *bool
+	AdditionalParams  map[string]interface{}
+	SkipPatterns      []int
+}
+
+// SonioxTTS is the Soniox streaming speech synthesis provider. Only APIKey is required.
+type SonioxTTS struct {
+	options SonioxTTSOptions
+}
+
+func NewSonioxTTS(opts SonioxTTSOptions) *SonioxTTS {
+	if opts.APIKey == "" {
+		panic("SonioxTTS requires APIKey")
+	}
+	if opts.Speed != nil && !(*opts.Speed >= 0.7 && *opts.Speed <= 1.3) {
+		panic("SonioxTTS Speed must be between 0.7 and 1.3")
+	}
+	return &SonioxTTS{options: opts}
+}
+
+func (s *SonioxTTS) GetSampleRate() *SampleRate {
+	return s.options.SampleRate
+}
+
+func (s *SonioxTTS) ToConfig() map[string]interface{} {
+	params := map[string]interface{}{}
+	for key, value := range s.options.AdditionalParams {
+		params[key] = value
+	}
+	params["api_key"] = s.options.APIKey
+	if s.options.BaseURL != "" {
+		params["base_url"] = s.options.BaseURL
+	}
+	if s.options.Model != "" {
+		params["model"] = s.options.Model
+	}
+	if s.options.Language != "" {
+		params["language"] = s.options.Language
+	}
+	if s.options.Voice != "" {
+		params["voice"] = s.options.Voice
+	}
+	if s.options.SampleRate != nil {
+		params["sample_rate"] = int(*s.options.SampleRate)
+	}
+	if s.options.Speed != nil {
+		params["speed"] = *s.options.Speed
+	}
+	if s.options.ReduceSilence != nil {
+		params["reduce_silence"] = *s.options.ReduceSilence
+	}
+	if s.options.ReturnTimestamps != nil {
+		params["return_timestamps"] = *s.options.ReturnTimestamps
+	}
+	if s.options.ClientReferenceID != "" {
+		params["client_reference_id"] = s.options.ClientReferenceID
+	}
+	if s.options.Dump != nil {
+		params["dump"] = *s.options.Dump
+	}
+	config := map[string]interface{}{"vendor": "soniox", "params": params}
+	if s.options.SkipPatterns != nil {
+		config["skip_patterns"] = s.options.SkipPatterns
+	}
+	return config
+}
+
 // SarvamTTSLanguage is a target language supported by Sarvam TTS.
 type SarvamTTSLanguage = Agora.SarvamTtsParamsTargetLanguageCode
 
