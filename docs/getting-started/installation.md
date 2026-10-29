@@ -13,12 +13,14 @@ description: Install the Agora Conversational AI Go SDK and configure your proje
 ## Install
 
 ```sh
-go get github.com/AgoraIO/agora-agents-go/v2@latest
+go get github.com/AgoraIO/agora-agents-go/v2@v2.14.0-alpha.3
 ```
 
 ## Import Paths
 
 The SDK is organized into several packages. Import the ones you need:
+
+The alpha.3 command above becomes available when the release tag is published. Before publication, use `@v3-api-preview`. The module import path remains `/v2`.
 
 ```go
 // Root package — type definitions, pointer helpers (Agora.String(), Agora.Bool(), etc.), environments

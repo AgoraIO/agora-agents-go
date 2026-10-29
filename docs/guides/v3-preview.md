@@ -216,10 +216,10 @@ The v3 package is **handwritten against the repository-root `openapi.json` / `op
 Use the slashless preview branch (Go rejects a slash in a branch version query):
 
 ```sh
-go get github.com/AgoraIO/agora-agents-go/v2@v3-api-preview
+go get github.com/AgoraIO/agora-agents-go/v2@v2.14.0-alpha.3
 ```
 
-Pin the resulting pseudo-version in `go.mod` for reproducible builds. The module is still `/v2`; a `v3.0.0-alpha.1` tag cannot be used with that module path. Release maintainers must use a module-compatible version or plan a separate major-module migration.
+The alpha.3 preview uses tag `v2.14.0-alpha.3`, compatible with the existing `/v2` module path. This checkout prepares that release; the command is available after the tag is published. The slashless `v3-api-preview` branch remains available for testing before publication.
 
 ## Explicit sessions and outbound calls
 

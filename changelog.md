@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [v2.14.0-alpha.3] — 2026-10-29
+
 ### Fixed
 
 - Preserved custom token expiration semantics: RTM login uses the whole-token lifetime, while `PrivilegeExpire` adjusts only RTC privileges.
