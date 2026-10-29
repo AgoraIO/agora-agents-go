@@ -75,12 +75,6 @@ func (c *Caller) Call(ctx context.Context, params *CallParams) (*CallResponse, e
 	if err := core.ValidatePublicAuthorization(params.Headers); err != nil {
 		return nil, err
 	}
-	if params.Headers.Get(core.BasicAuthRejectedHeader) != "" {
-		return nil, errors.New("Basic authentication is no longer supported; use Agora token or app credentials")
-	}
-	if core.HasBasicAuthorization(params.Headers) {
-		return nil, errors.New("Basic authentication is no longer supported; use Agora token or app credentials")
-	}
 	for name := range params.Headers {
 		lowerName := strings.ToLower(name)
 		if strings.HasPrefix(lowerName, "x-studio-") || lowerName == "x-consumer-username" {

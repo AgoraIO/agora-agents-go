@@ -134,9 +134,6 @@ func (t *transport) call(ctx context.Context, method, path string, query url.Val
 		return Response[any]{}, errors.New("v3: empty endpoint")
 	}
 	base := t.options.ToHeader()
-	if base.Get(core.BasicAuthRejectedHeader) != "" || t.options.BasicAuthAttempted || t.options.Username != "" || t.options.Password != "" {
-		return Response[any]{}, errors.New("v3: Basic authentication is not supported; use Agora token or app credentials")
-	}
 	base = internal.MergeHeaders(base, headers)
 	if err := core.ValidatePublicAuthorization(base); err != nil {
 		return Response[any]{}, err
@@ -161,9 +158,6 @@ func (t *transport) call(ctx context.Context, method, path string, query url.Val
 		if strings.HasPrefix(lower, "x-studio-") || lower == "x-consumer-username" {
 			return Response[any]{}, fmt.Errorf("v3: internal header %q is not supported", name)
 		}
-	}
-	if core.HasBasicAuthorization(base) {
-		return Response[any]{}, errors.New("v3: Basic authentication is not supported; use Agora token or app credentials")
 	}
 	if body != nil {
 		base.Set("Content-Type", "application/json")

@@ -19,3 +19,5 @@ Install the slashless `v3-api-preview` branch or pin its resolved pseudo-version
 Generated REST authorization tokens now use the official ConvoAI builder and include ConvoAI, RTC, and RTM services. The ConvoAI service is required for Platform session routes. Prebuilt tokens remain unchanged; callers must supply the required service themselves. The token dependency and both checksums are committed.
 
 AssemblyAI, Google, Microsoft, Sarvam, and Speechmatics retain provider `params.language` alongside the pipeline language. Sarvam TTS sends `params.model: bulbul:v3` by default; an explicit `Model` or additional model parameter overrides that default.
+
+HTTP Basic authentication remains supported alongside Token007, with no gateway change required. AgentKit accepts `CustomerID` and `CustomerSecret`; low-level clients accept `option.WithBasicAuth`. RTC token generation remains independent of REST authentication.

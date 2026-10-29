@@ -28,6 +28,8 @@ const (
 	AuthModeAppCredentials AuthMode = "app-credentials"
 	// AuthModeToken uses a pre-built Agora token passed as the Authorization header.
 	AuthModeToken AuthMode = "token"
+	// AuthModeBasic uses a Customer ID and Customer Secret.
+	AuthModeBasic AuthMode = "basic"
 )
 
 // AgoraClientOptions contains configuration for creating an AgoraClient.
@@ -41,6 +43,10 @@ type AgoraClientOptions struct {
 	// Token is a pre-built raw Agora token for REST API authentication.
 	// The SDK sets "Authorization: agora token=<Token>" automatically.
 	Token string
+	// CustomerID and CustomerSecret select Basic auth. Both are required and cannot be combined with Token.
+	// AppCertificate may still be supplied to generate RTC transport tokens.
+	CustomerID     string
+	CustomerSecret string
 	// HTTPClient overrides the transport used for requests.
 	HTTPClient core.HTTPClient
 	// V3 configures the v3 origin and staging gateway headers independently.
@@ -123,7 +129,20 @@ func NewAgoraClient(opts AgoraClientOptions) *AgoraClient {
 		reqOpts = append(reqOpts, option.WithHTTPClient(opts.HTTPClient))
 	}
 
+	if (opts.CustomerID != "" || opts.CustomerSecret != "") && (strings.TrimSpace(opts.CustomerID) == "" || strings.TrimSpace(opts.CustomerSecret) == "") {
+		panic("CustomerID and CustomerSecret must both be supplied")
+	}
+	if strings.Contains(opts.CustomerID, ":") {
+		panic("CustomerID cannot contain a colon")
+	}
+	if opts.CustomerID != "" && opts.Token != "" {
+		panic("Basic authentication and Token are mutually exclusive")
+	}
 	authMode := AuthModeAppCredentials
+	if opts.CustomerID != "" {
+		authMode = AuthModeBasic
+		reqOpts = append(reqOpts, option.WithBasicAuth(opts.CustomerID, opts.CustomerSecret))
+	}
 	if opts.Token != "" {
 		authMode = AuthModeToken
 		reqOpts = append(reqOpts, option.WithToken(opts.Token))

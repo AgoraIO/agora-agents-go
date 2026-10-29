@@ -49,7 +49,7 @@ func main() {
 }
 ```
 
-A client can use an Agora REST `Token` or set `AppCertificate`; AgentKit signs a fresh ConvoAI token for each request in app-credentials mode. Basic authentication and internal `X-Studio-*` / `X-Consumer-Username` headers are rejected. The `AGORA_AGENTS_V3_BASE_URL` environment variable and `V3Options.BaseURL` override the default origin; the explicit option takes precedence. The SDK does not hard-code regional availability; follow the preview rollout guidance for the target project.
+A client can use an Agora REST `Token` or set `AppCertificate`; AgentKit signs a fresh ConvoAI token for each request in app-credentials mode. Alternatively, supply both `CustomerID` and `CustomerSecret` for Basic authentication; do not combine them with `Token`. `AppCertificate` may still generate RTC transport tokens in Basic mode. Internal `X-Studio-*` / `X-Consumer-Username` headers are rejected. The `AGORA_AGENTS_V3_BASE_URL` environment variable and `V3Options.BaseURL` override the default origin; the explicit option takes precedence. The SDK does not hard-code regional availability; follow the preview rollout guidance for the target project.
 
 ## AgentKit workflows
 

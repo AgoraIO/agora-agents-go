@@ -33,6 +33,50 @@ func TestHandwrittenResourcesMatchOpenAPISnapshot(t *testing.T) {
 	if _, ok := doc.Components.SecuritySchemes["AgoraTokenAuth"]; !ok {
 		t.Fatal("snapshot must use the existing Agora token authorization")
 	}
+	if basic := doc.Components.SecuritySchemes["BasicAuth"]; basic["type"] != "http" || basic["scheme"] != "basic" {
+		t.Fatal("snapshot must include HTTP Basic authentication")
+	}
+	assertAuthAlternatives := func(security []map[string][]string) {
+		t.Helper()
+		if len(security) != 2 {
+			t.Fatal("authentication requires two OR alternatives")
+		}
+		seen := map[string]bool{}
+		for _, alternative := range security {
+			if len(alternative) != 1 {
+				t.Fatal("authentication modes must be separate OR alternatives")
+			}
+			for name, scopes := range alternative {
+				if len(scopes) != 0 || (name != "AgoraTokenAuth" && name != "BasicAuth") {
+					t.Fatalf("unexpected security requirement: %s", name)
+				}
+				seen[name] = true
+			}
+		}
+		if !seen["AgoraTokenAuth"] || !seen["BasicAuth"] {
+			t.Fatal("token and Basic alternatives are both required")
+		}
+	}
+	assertAuthAlternatives(doc.Security)
+	for _, path := range doc.Paths {
+		for _, method := range []string{"get", "post", "put", "patch", "delete", "head", "options", "trace"} {
+			operation, exists := path[method]
+			if !exists {
+				continue
+			}
+			var fields map[string]json.RawMessage
+			if err := json.Unmarshal(operation, &fields); err != nil {
+				t.Fatal(err)
+			}
+			if raw, overridden := fields["security"]; overridden {
+				var security []map[string][]string
+				if err := json.Unmarshal(raw, &security); err != nil {
+					t.Fatal(err)
+				}
+				assertAuthAlternatives(security)
+			}
+		}
+	}
 	for _, route := range []struct{ path, method string }{
 		{"/conversational-ai/v1/projects/{appid}/sessions/{agent_session_id}", "patch"},
 		{"/conversational-ai/v1/projects/{appid}/sessions/ephemeral", "post"},

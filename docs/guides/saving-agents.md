@@ -51,7 +51,7 @@ if err != nil { return err }
 
 `Save` without `AgentID` creates a stored agent. `saved.Update(ctx, config)` updates it conditionally using the current ETag; a stale ETag returns `agentkit.ErrPreconditionFailed`. `agentkit.GetSavedAgent(ctx, client, agentID)` reloads a handle. Start a session from the saved handle with `saved.CreateSession(opts)`, then use the same `Start`, `GetInfo`, and `Stop` methods as an inline session. `GetInfo` reports the v3 `agent_session_id` separately from the v2 `agent_id`.
 
-For this stored-agent preview, `AgoraClientOptions.V3.BaseURL` optionally overrides the default `https://preview.ai.agora.io` origin. Internal Studio headers and Basic auth are rejected. Use the `feat/v3-api-preview` branch build; the normal `@latest` installation command does not select it. See the [advanced v3 guide](./v3-preview.md) for transport, pagination, response headers, and API limits.
+For this stored-agent preview, `AgoraClientOptions.V3.BaseURL` optionally overrides the default `https://preview.ai.agora.io` origin. Token007 and Basic authentication are supported; internal Studio headers are rejected. Use the `feat/v3-api-preview` branch build; the normal `@latest` installation command does not select it. See the [advanced v3 guide](./v3-preview.md) for transport, pagination, response headers, and API limits.
 
 ## Store credentials as secret references
 

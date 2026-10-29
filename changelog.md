@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Restored HTTP Basic authentication alongside Token007 for AgentKit and low-level clients, with complete-pair and conflicting-mode validation. RTC token generation remains independent of REST authentication.
 - Preserved custom token expiration semantics: RTM login uses the whole-token lifetime, while `PrivilegeExpire` adjusts only RTC privileges.
 - Generated ConvoAI REST tokens include the ConvoAI product service using the official token builder; regression tests decode signatures, services, identities, expiration, and session request authorization.
 - Required provider ASR language parameters survive Platform conversion for AssemblyAI, Google, Microsoft, Sarvam, and Speechmatics.

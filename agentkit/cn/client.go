@@ -9,6 +9,9 @@ type ClientOptions struct {
 	AppID          string
 	AppCertificate string
 	Token          string
+	// CustomerID and CustomerSecret select Basic authentication instead of Token.
+	CustomerID     string
+	CustomerSecret string
 }
 
 type AgoraClient = agentkit.AgoraClient
@@ -19,5 +22,7 @@ func NewAgoraClient(opts ClientOptions) *AgoraClient {
 		AppID:          opts.AppID,
 		AppCertificate: opts.AppCertificate,
 		Token:          opts.Token,
+		CustomerID:     opts.CustomerID,
+		CustomerSecret: opts.CustomerSecret,
 	})
 }

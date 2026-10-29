@@ -3,8 +3,8 @@
 package core
 
 import (
+	"encoding/base64"
 	"errors"
-	fmt "fmt"
 	http "net/http"
 	url "net/url"
 	"regexp"
@@ -35,7 +35,7 @@ type RequestOptions struct {
 }
 
 // BasicAuthRejectedHeader is an internal signal used by request callers to
-// reject obsolete Basic authentication before sending HTTP.
+// reject incomplete or conflicting Basic authentication before sending HTTP.
 const BasicAuthRejectedHeader = "X-Agora-SDK-Basic-Auth-Rejected"
 
 // PublicAuthRejectedHeader preserves invalid authorization across option merging.
@@ -45,19 +45,43 @@ var publicAuthorizationPattern = regexp.MustCompile(`(?i)^agora token=\S+$`)
 
 // ValidatePublicAuthorization checks every value and casing. Empty values are
 // generated placeholders, left for the app-credential signer to populate.
-func ValidatePublicAuthorization(headers http.Header) error {
-	if headers.Get(PublicAuthRejectedHeader) != "" {
-		return errors.New("only Agora token authorization is supported")
+func validPublicAuthorization(value string) bool {
+	if publicAuthorizationPattern.MatchString(value) {
+		return true
 	}
+	parts := strings.SplitN(value, " ", 2)
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "Basic") {
+		return false
+	}
+	decoded, err := base64.StdEncoding.DecodeString(parts[1])
+	if err != nil {
+		return false
+	}
+	pair := strings.SplitN(string(decoded), ":", 2)
+	return len(pair) == 2 && strings.TrimSpace(pair[0]) != "" && strings.TrimSpace(pair[1]) != ""
+}
+
+func ValidatePublicAuthorization(headers http.Header) error {
+	if headers.Get(PublicAuthRejectedHeader) != "" || headers.Get(BasicAuthRejectedHeader) != "" {
+		return errors.New("use one valid Agora token or complete Basic authentication credential pair")
+	}
+	count := 0
 	for name, values := range headers {
 		if !strings.EqualFold(name, "Authorization") {
 			continue
 		}
 		for _, value := range values {
-			if value != "" && !publicAuthorizationPattern.MatchString(value) {
-				return errors.New("only Agora token authorization is supported")
+			if value == "" {
+				continue
+			}
+			count++
+			if !validPublicAuthorization(value) {
+				return errors.New("only Agora token or valid Basic authorization is supported")
 			}
 		}
+	}
+	if count > 1 {
+		return errors.New("multiple Authorization values are not supported")
 	}
 	return nil
 }
@@ -107,26 +131,23 @@ func (r *RequestOptions) ToHeader() http.Header {
 			}
 		}
 	}
-	if ValidatePublicAuthorization(header) != nil || ((r.AuthorizationSet || r.Authorization != "") && !publicAuthorizationPattern.MatchString(r.Authorization)) {
+	if ValidatePublicAuthorization(header) != nil {
 		header.Set(PublicAuthRejectedHeader, "true")
 	}
-	basicAttempted := r.BasicAuthAttempted || r.Username != "" || r.Password != "" || HasBasicAuthorization(header)
-	authorization := fmt.Sprintf("%v", r.Authorization)
-	if authorization == "" {
-		for name, values := range header {
-			if strings.EqualFold(name, "Authorization") {
-				if len(values) > 0 {
-					authorization = values[0]
-				}
-			}
+	authorization := r.Authorization
+	if r.AuthorizationSet && !validPublicAuthorization(authorization) {
+		header.Set(PublicAuthRejectedHeader, "true")
+	}
+	basic := r.BasicAuthAttempted || r.Username != "" || r.Password != ""
+	if basic {
+		if strings.TrimSpace(r.Username) == "" || strings.TrimSpace(r.Password) == "" || strings.Contains(r.Username, ":") || authorization != "" || header.Get("Authorization") != "" {
+			header.Set(BasicAuthRejectedHeader, "true")
+		} else {
+			authorization = "Basic " + base64.StdEncoding.EncodeToString([]byte(r.Username+":"+r.Password))
 		}
 	}
-	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(authorization)), "basic ") {
-		basicAttempted = true
-		authorization = ""
-	}
-	if basicAttempted {
-		header.Set(BasicAuthRejectedHeader, "true")
+	if authorization == "" {
+		authorization = header.Get("Authorization")
 	}
 	header.Set("Authorization", authorization)
 	return header
@@ -206,9 +227,9 @@ type BasicAuthOption struct {
 }
 
 func (b *BasicAuthOption) applyRequestOptions(opts *RequestOptions) {
-	// Basic authentication was removed from the public SDK contract. Keep this
-	// generated compatibility type inert so stale callers cannot enable it.
 	opts.BasicAuthAttempted = true
+	opts.Username = b.Username
+	opts.Password = b.Password
 }
 
 // AuthorizationOption implements the RequestOption interface.

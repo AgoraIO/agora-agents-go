@@ -18,8 +18,8 @@ func TestCallerRejectsUnsupportedHeadersBeforeHTTP(t *testing.T) {
 		headers http.Header
 	}{
 		{
-			name:    "legacy basic auth option",
-			headers: core.NewRequestOptions(&core.BasicAuthOption{Username: "customer", Password: "secret"}).ToHeader(),
+			name:    "incomplete basic auth option",
+			headers: core.NewRequestOptions(&core.BasicAuthOption{Username: "customer", Password: ""}).ToHeader(),
 		},
 		{name: "bearer authorization", headers: http.Header{"Authorization": []string{"Bearer abc"}}},
 		{name: "other scheme after token", headers: http.Header{"Authorization": []string{"agora token=valid", "Digest abc"}}},
@@ -42,5 +42,21 @@ func TestCallerRejectsUnsupportedHeadersBeforeHTTP(t *testing.T) {
 				t.Fatalf("unsupported auth/routing header was not rejected locally: err=%v calls=%d", err, calls)
 			}
 		})
+	}
+}
+
+func TestCallerSupportsBasicAuthorization(t *testing.T) {
+	calls := 0
+	caller := NewCaller(&CallerParams{Client: authTestHTTPClient(func(req *http.Request) (*http.Response, error) {
+		calls++
+		user, password, ok := req.BasicAuth()
+		if !ok || user != "customer" || password != "secret" {
+			t.Fatal("incorrect Basic auth")
+		}
+		return &http.Response{StatusCode: 200, Header: http.Header{}, Body: http.NoBody}, nil
+	})})
+	_, err := caller.Call(context.Background(), &CallParams{URL: "https://example.test", Method: http.MethodGet, Headers: core.NewRequestOptions(&core.BasicAuthOption{Username: "customer", Password: "secret"}).ToHeader(), ResponseIsOptional: true})
+	if err != nil || calls != 1 {
+		t.Fatalf("err=%v calls=%d", err, calls)
 	}
 }

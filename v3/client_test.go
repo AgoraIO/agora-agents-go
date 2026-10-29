@@ -66,24 +66,33 @@ func TestDefaultOriginAuthAndInternalHeaderFiltering(t *testing.T) {
 	if _, err := internalHeaders.Agents.List(context.Background(), ListOptions{}); err == nil || calls != 1 {
 		t.Fatalf("internal headers should be rejected before HTTP: %v calls=%d", err, calls)
 	}
-	basic := NewClient("app", &core.BasicAuthOption{Username: "customer", Password: "secret"}, option.WithHTTPClient(httpFunc(func(*http.Request) (*http.Response, error) {
-		t.Fatal("basic request reached transport")
-		return nil, nil
-	})))
-	if _, err := basic.Agents.List(context.Background(), ListOptions{}); err == nil {
-		t.Fatal("basic auth should be rejected")
-	}
-	for _, headers := range []http.Header{
-		{"Authorization": []string{"Basic Zm9vOmJhcg=="}},
-		{"authorization": []string{"Basic Zm9vOmJhcg=="}},
-		{"Authorization": []string{"agora token=t", "Basic Zm9vOmJhcg=="}},
+	for _, opts := range [][]option.RequestOption{
+		{option.WithBasicAuth("customer", "secret")},
+		{option.WithHTTPHeader(http.Header{"authorization": []string{"Basic Y3VzdG9tZXI6c2VjcmV0"}})},
+		{option.WithAuthorization("Basic Y3VzdG9tZXI6c2VjcmV0")},
 	} {
-		headerBasic := NewClient("app", option.WithHTTPHeader(headers), option.WithHTTPClient(httpFunc(func(*http.Request) (*http.Response, error) {
-			t.Fatal("basic header reached transport")
-			return nil, nil
+		opts = append(opts, option.WithHTTPClient(httpFunc(func(r *http.Request) (*http.Response, error) {
+			user, password, ok := r.BasicAuth()
+			if !ok || user != "customer" || password != "secret" {
+				t.Fatal("Basic credentials not preserved")
+			}
+			return reply(200, `{"data":{"list":[],"count":0},"has_more":false}`, nil), nil
 		})))
-		if _, err := headerBasic.Agents.List(context.Background(), ListOptions{}); err == nil {
-			t.Fatalf("basic authorization header should be rejected: %v", headers)
+		if _, err := NewClient("app", opts...).Agents.List(context.Background(), ListOptions{}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, opts := range [][]option.RequestOption{
+		{option.WithBasicAuth("customer", "")},
+		{option.WithBasicAuth(" ", "secret")},
+		{option.WithAuthorization("Basic IDpzZWNyZXQ=")},
+		{option.WithBasicAuth("bad:id", "secret")},
+		{option.WithBasicAuth("customer", "secret"), option.WithToken("token")},
+		{option.WithHTTPHeader(http.Header{"Authorization": []string{"agora token=t", "Basic Y3VzdG9tZXI6c2VjcmV0"}})},
+	} {
+		opts = append(opts, option.WithHTTPClient(httpFunc(func(*http.Request) (*http.Response, error) { t.Fatal("invalid auth reached HTTP"); return nil, nil })))
+		if _, err := NewClient("app", opts...).Agents.List(context.Background(), ListOptions{}); err == nil {
+			t.Fatal("invalid authentication accepted")
 		}
 	}
 }

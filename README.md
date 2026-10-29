@@ -301,3 +301,5 @@ a proof of concept, but know that we will not be able to merge it as-is. We sugg
 an issue first to discuss with us!
 
 On the other hand, contributions to the README are always very welcome!
+
+REST authentication supports generated ConvoAI Token007 tokens, supplied `Token` values, or a complete `CustomerID` / `CustomerSecret` Basic-auth pair. See [Authentication](docs/getting-started/authentication.md).
