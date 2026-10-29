@@ -1131,6 +1131,7 @@ type Asr struct {
 	XfyunBigmodel *XfyunBigmodelAsr
 	XfyunDialect  *XfyunDialectAsr
 	Smallestai    *SmallestAiAsr
+	Stepfun       *StepfunAsr
 }
 
 func (a *Asr) GetVendor() string {
@@ -1266,6 +1267,13 @@ func (a *Asr) GetSmallestai() *SmallestAiAsr {
 	return a.Smallestai
 }
 
+func (a *Asr) GetStepfun() *StepfunAsr {
+	if a == nil {
+		return nil
+	}
+	return a.Stepfun
+}
+
 func (a *Asr) UnmarshalJSON(data []byte) error {
 	var unmarshaler struct {
 		Vendor string `json:"vendor"`
@@ -1386,6 +1394,12 @@ func (a *Asr) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		a.Smallestai = value
+	case "stepfun":
+		value := new(StepfunAsr)
+		if err := json.Unmarshal(data, &value); err != nil {
+			return err
+		}
+		a.Stepfun = value
 	}
 	return nil
 }
@@ -1448,6 +1462,9 @@ func (a Asr) MarshalJSON() ([]byte, error) {
 	if a.Smallestai != nil {
 		return internal.MarshalJSONWithExtraProperty(a.Smallestai, "vendor", "smallestai")
 	}
+	if a.Stepfun != nil {
+		return internal.MarshalJSONWithExtraProperty(a.Stepfun, "vendor", "stepfun")
+	}
 	return nil, fmt.Errorf("type %T does not define a non-empty union type", a)
 }
 
@@ -1469,10 +1486,8 @@ type AsrVisitor interface {
 	VisitXfyun(*XfyunAsr) error
 	VisitXfyunBigmodel(*XfyunBigmodelAsr) error
 	VisitXfyunDialect(*XfyunDialectAsr) error
-}
-
-type SmallestAiAsrVisitor interface {
 	VisitSmallestai(*SmallestAiAsr) error
+	VisitStepfun(*StepfunAsr) error
 }
 
 func (a *Asr) Accept(visitor AsrVisitor) error {
@@ -1528,11 +1543,10 @@ func (a *Asr) Accept(visitor AsrVisitor) error {
 		return visitor.VisitXfyunDialect(a.XfyunDialect)
 	}
 	if a.Smallestai != nil {
-		smallestaiVisitor, ok := visitor.(SmallestAiAsrVisitor)
-		if !ok {
-			return fmt.Errorf("visitor %T does not support smallestai ASR", visitor)
-		}
-		return smallestaiVisitor.VisitSmallestai(a.Smallestai)
+		return visitor.VisitSmallestai(a.Smallestai)
+	}
+	if a.Stepfun != nil {
+		return visitor.VisitStepfun(a.Stepfun)
 	}
 	return fmt.Errorf("type %T does not define a non-empty union type", a)
 }
@@ -1595,6 +1609,9 @@ func (a *Asr) validate() error {
 	}
 	if a.Smallestai != nil {
 		fields = append(fields, "smallestai")
+	}
+	if a.Stepfun != nil {
+		fields = append(fields, "stepfun")
 	}
 	if len(fields) == 0 {
 		if a.Vendor != "" {
@@ -7374,7 +7391,7 @@ var (
 
 type LlmToolExecution struct {
 	// Execution mode. Phase 1a only accepts `sync`.
-	Mode *LlmToolExecutionMode `json:"mode,omitempty" url:"mode,omitempty"`
+	Mode *string `json:"mode,omitempty" url:"mode,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
 	explicitFields *big.Int `json:"-" url:"-"`
@@ -7397,20 +7414,9 @@ func (l *LlmToolExecution) require(field *big.Int) {
 
 // SetMode sets the Mode field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (l *LlmToolExecution) SetMode(mode *LlmToolExecutionMode) {
+func (l *LlmToolExecution) SetMode(mode *string) {
 	l.Mode = mode
 	l.require(llmToolExecutionFieldMode)
-}
-
-// LlmToolExecutionMode controls how an inline REST tool is executed.
-type LlmToolExecutionMode string
-
-const (
-	LlmToolExecutionModeSync LlmToolExecutionMode = "sync"
-)
-
-func (l LlmToolExecutionMode) Ptr() *LlmToolExecutionMode {
-	return &l
 }
 
 func (l *LlmToolExecution) UnmarshalJSON(data []byte) error {
@@ -8531,6 +8537,933 @@ func (m *MicrosoftTtsParams) MarshalJSON() ([]byte, error) {
 }
 
 func (m *MicrosoftTtsParams) String() string {
+	if len(m.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(m.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(m); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", m)
+}
+
+// MiniMax duplex streaming Text-to-Speech configuration.
+var (
+	minimaxDuplexTtsFieldBatch        = big.NewInt(1 << 0)
+	minimaxDuplexTtsFieldEnableWords  = big.NewInt(1 << 1)
+	minimaxDuplexTtsFieldParams       = big.NewInt(1 << 2)
+	minimaxDuplexTtsFieldSkipPatterns = big.NewInt(1 << 3)
+)
+
+type MinimaxDuplexTts struct {
+	// Whether to enable batch processing for MiniMax duplex streaming TTS. Omit this field to use the server default of true.
+	Batch *bool `json:"batch,omitempty" url:"batch,omitempty"`
+	// Whether to enable word-level output for MiniMax duplex streaming TTS. Omit this field to leave it unset in the request.
+	EnableWords *bool                   `json:"enable_words,omitempty" url:"enable_words,omitempty"`
+	Params      *MinimaxDuplexTtsParams `json:"params" url:"params"`
+	// Controls whether the TTS module skips bracketed content when reading LLM response text.
+	SkipPatterns []int `json:"skip_patterns,omitempty" url:"skip_patterns,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	extraProperties map[string]interface{}
+	rawJSON         json.RawMessage
+}
+
+func (m *MinimaxDuplexTts) GetBatch() *bool {
+	if m == nil {
+		return nil
+	}
+	return m.Batch
+}
+
+func (m *MinimaxDuplexTts) GetEnableWords() *bool {
+	if m == nil {
+		return nil
+	}
+	return m.EnableWords
+}
+
+func (m *MinimaxDuplexTts) GetParams() *MinimaxDuplexTtsParams {
+	if m == nil {
+		return nil
+	}
+	return m.Params
+}
+
+func (m *MinimaxDuplexTts) GetSkipPatterns() []int {
+	if m == nil {
+		return nil
+	}
+	return m.SkipPatterns
+}
+
+func (m *MinimaxDuplexTts) GetExtraProperties() map[string]interface{} {
+	return m.extraProperties
+}
+
+func (m *MinimaxDuplexTts) require(field *big.Int) {
+	if m.explicitFields == nil {
+		m.explicitFields = big.NewInt(0)
+	}
+	m.explicitFields.Or(m.explicitFields, field)
+}
+
+// SetBatch sets the Batch field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxDuplexTts) SetBatch(batch *bool) {
+	m.Batch = batch
+	m.require(minimaxDuplexTtsFieldBatch)
+}
+
+// SetEnableWords sets the EnableWords field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxDuplexTts) SetEnableWords(enableWords *bool) {
+	m.EnableWords = enableWords
+	m.require(minimaxDuplexTtsFieldEnableWords)
+}
+
+// SetParams sets the Params field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxDuplexTts) SetParams(params *MinimaxDuplexTtsParams) {
+	m.Params = params
+	m.require(minimaxDuplexTtsFieldParams)
+}
+
+// SetSkipPatterns sets the SkipPatterns field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxDuplexTts) SetSkipPatterns(skipPatterns []int) {
+	m.SkipPatterns = skipPatterns
+	m.require(minimaxDuplexTtsFieldSkipPatterns)
+}
+
+func (m *MinimaxDuplexTts) UnmarshalJSON(data []byte) error {
+	type unmarshaler MinimaxDuplexTts
+	var value unmarshaler
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	*m = MinimaxDuplexTts(value)
+	extraProperties, err := internal.ExtractExtraProperties(data, *m)
+	if err != nil {
+		return err
+	}
+	m.extraProperties = extraProperties
+	m.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (m *MinimaxDuplexTts) MarshalJSON() ([]byte, error) {
+	type embed MinimaxDuplexTts
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*m),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, m.explicitFields)
+	return json.Marshal(explicitMarshaler)
+}
+
+func (m *MinimaxDuplexTts) String() string {
+	if len(m.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(m.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(m); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", m)
+}
+
+// MiniMax duplex streaming TTS configuration parameters.
+var (
+	minimaxDuplexTtsParamsFieldKey                   = big.NewInt(1 << 0)
+	minimaxDuplexTtsParamsFieldURL                   = big.NewInt(1 << 1)
+	minimaxDuplexTtsParamsFieldModel                 = big.NewInt(1 << 2)
+	minimaxDuplexTtsParamsFieldVoiceSetting          = big.NewInt(1 << 3)
+	minimaxDuplexTtsParamsFieldAudioSetting          = big.NewInt(1 << 4)
+	minimaxDuplexTtsParamsFieldLanguageBoost         = big.NewInt(1 << 5)
+	minimaxDuplexTtsParamsFieldTextNormalizationMode = big.NewInt(1 << 6)
+	minimaxDuplexTtsParamsFieldPronunciationDict     = big.NewInt(1 << 7)
+	minimaxDuplexTtsParamsFieldVoiceModify           = big.NewInt(1 << 8)
+	minimaxDuplexTtsParamsFieldSubtitleEnable        = big.NewInt(1 << 9)
+	minimaxDuplexTtsParamsFieldSubtitleType          = big.NewInt(1 << 10)
+	minimaxDuplexTtsParamsFieldContinuousSound       = big.NewInt(1 << 11)
+	minimaxDuplexTtsParamsFieldSessionID             = big.NewInt(1 << 12)
+)
+
+type MinimaxDuplexTtsParams struct {
+	// MiniMax API key.
+	Key string `json:"key" url:"key"`
+	// WebSocket endpoint (e.g., wss://api.minimax.cn/ws/v1/t2a_v2_bidi).
+	URL *string `json:"url,omitempty" url:"url,omitempty"`
+	// MiniMax model identifier (e.g., speech-2.8-turbo).
+	Model        string                              `json:"model" url:"model"`
+	VoiceSetting *MinimaxDuplexTtsParamsVoiceSetting `json:"voice_setting" url:"voice_setting"`
+	// Audio output settings.
+	AudioSetting *MinimaxDuplexTtsParamsAudioSetting `json:"audio_setting,omitempty" url:"audio_setting,omitempty"`
+	// Language boost mode (e.g., Chinese).
+	LanguageBoost *string `json:"language_boost,omitempty" url:"language_boost,omitempty"`
+	// Text normalization mode (e.g., basic).
+	TextNormalizationMode *string `json:"text_normalization_mode,omitempty" url:"text_normalization_mode,omitempty"`
+	// Custom pronunciation dictionary settings.
+	PronunciationDict *MinimaxDuplexTtsParamsPronunciationDict `json:"pronunciation_dict,omitempty" url:"pronunciation_dict,omitempty"`
+	// Voice modification settings.
+	VoiceModify *MinimaxDuplexTtsParamsVoiceModify `json:"voice_modify,omitempty" url:"voice_modify,omitempty"`
+	// Whether to enable subtitles.
+	SubtitleEnable *bool `json:"subtitle_enable,omitempty" url:"subtitle_enable,omitempty"`
+	// Subtitle granularity (e.g., word).
+	SubtitleType *string `json:"subtitle_type,omitempty" url:"subtitle_type,omitempty"`
+	// Whether to enable continuous sound.
+	ContinuousSound *bool `json:"continuous_sound,omitempty" url:"continuous_sound,omitempty"`
+	// Optional MiniMax provider session identifier.
+	SessionID *string `json:"session_id,omitempty" url:"session_id,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (m *MinimaxDuplexTtsParams) GetKey() string {
+	if m == nil {
+		return ""
+	}
+	return m.Key
+}
+
+func (m *MinimaxDuplexTtsParams) GetURL() *string {
+	if m == nil {
+		return nil
+	}
+	return m.URL
+}
+
+func (m *MinimaxDuplexTtsParams) GetModel() string {
+	if m == nil {
+		return ""
+	}
+	return m.Model
+}
+
+func (m *MinimaxDuplexTtsParams) GetVoiceSetting() *MinimaxDuplexTtsParamsVoiceSetting {
+	if m == nil {
+		return nil
+	}
+	return m.VoiceSetting
+}
+
+func (m *MinimaxDuplexTtsParams) GetAudioSetting() *MinimaxDuplexTtsParamsAudioSetting {
+	if m == nil {
+		return nil
+	}
+	return m.AudioSetting
+}
+
+func (m *MinimaxDuplexTtsParams) GetLanguageBoost() *string {
+	if m == nil {
+		return nil
+	}
+	return m.LanguageBoost
+}
+
+func (m *MinimaxDuplexTtsParams) GetTextNormalizationMode() *string {
+	if m == nil {
+		return nil
+	}
+	return m.TextNormalizationMode
+}
+
+func (m *MinimaxDuplexTtsParams) GetPronunciationDict() *MinimaxDuplexTtsParamsPronunciationDict {
+	if m == nil {
+		return nil
+	}
+	return m.PronunciationDict
+}
+
+func (m *MinimaxDuplexTtsParams) GetVoiceModify() *MinimaxDuplexTtsParamsVoiceModify {
+	if m == nil {
+		return nil
+	}
+	return m.VoiceModify
+}
+
+func (m *MinimaxDuplexTtsParams) GetSubtitleEnable() *bool {
+	if m == nil {
+		return nil
+	}
+	return m.SubtitleEnable
+}
+
+func (m *MinimaxDuplexTtsParams) GetSubtitleType() *string {
+	if m == nil {
+		return nil
+	}
+	return m.SubtitleType
+}
+
+func (m *MinimaxDuplexTtsParams) GetContinuousSound() *bool {
+	if m == nil {
+		return nil
+	}
+	return m.ContinuousSound
+}
+
+func (m *MinimaxDuplexTtsParams) GetSessionID() *string {
+	if m == nil {
+		return nil
+	}
+	return m.SessionID
+}
+
+func (m *MinimaxDuplexTtsParams) GetExtraProperties() map[string]interface{} {
+	return m.ExtraProperties
+}
+
+func (m *MinimaxDuplexTtsParams) require(field *big.Int) {
+	if m.explicitFields == nil {
+		m.explicitFields = big.NewInt(0)
+	}
+	m.explicitFields.Or(m.explicitFields, field)
+}
+
+// SetKey sets the Key field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxDuplexTtsParams) SetKey(key string) {
+	m.Key = key
+	m.require(minimaxDuplexTtsParamsFieldKey)
+}
+
+// SetURL sets the URL field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxDuplexTtsParams) SetURL(url *string) {
+	m.URL = url
+	m.require(minimaxDuplexTtsParamsFieldURL)
+}
+
+// SetModel sets the Model field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxDuplexTtsParams) SetModel(model string) {
+	m.Model = model
+	m.require(minimaxDuplexTtsParamsFieldModel)
+}
+
+// SetVoiceSetting sets the VoiceSetting field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxDuplexTtsParams) SetVoiceSetting(voiceSetting *MinimaxDuplexTtsParamsVoiceSetting) {
+	m.VoiceSetting = voiceSetting
+	m.require(minimaxDuplexTtsParamsFieldVoiceSetting)
+}
+
+// SetAudioSetting sets the AudioSetting field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxDuplexTtsParams) SetAudioSetting(audioSetting *MinimaxDuplexTtsParamsAudioSetting) {
+	m.AudioSetting = audioSetting
+	m.require(minimaxDuplexTtsParamsFieldAudioSetting)
+}
+
+// SetLanguageBoost sets the LanguageBoost field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxDuplexTtsParams) SetLanguageBoost(languageBoost *string) {
+	m.LanguageBoost = languageBoost
+	m.require(minimaxDuplexTtsParamsFieldLanguageBoost)
+}
+
+// SetTextNormalizationMode sets the TextNormalizationMode field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxDuplexTtsParams) SetTextNormalizationMode(textNormalizationMode *string) {
+	m.TextNormalizationMode = textNormalizationMode
+	m.require(minimaxDuplexTtsParamsFieldTextNormalizationMode)
+}
+
+// SetPronunciationDict sets the PronunciationDict field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxDuplexTtsParams) SetPronunciationDict(pronunciationDict *MinimaxDuplexTtsParamsPronunciationDict) {
+	m.PronunciationDict = pronunciationDict
+	m.require(minimaxDuplexTtsParamsFieldPronunciationDict)
+}
+
+// SetVoiceModify sets the VoiceModify field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxDuplexTtsParams) SetVoiceModify(voiceModify *MinimaxDuplexTtsParamsVoiceModify) {
+	m.VoiceModify = voiceModify
+	m.require(minimaxDuplexTtsParamsFieldVoiceModify)
+}
+
+// SetSubtitleEnable sets the SubtitleEnable field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxDuplexTtsParams) SetSubtitleEnable(subtitleEnable *bool) {
+	m.SubtitleEnable = subtitleEnable
+	m.require(minimaxDuplexTtsParamsFieldSubtitleEnable)
+}
+
+// SetSubtitleType sets the SubtitleType field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxDuplexTtsParams) SetSubtitleType(subtitleType *string) {
+	m.SubtitleType = subtitleType
+	m.require(minimaxDuplexTtsParamsFieldSubtitleType)
+}
+
+// SetContinuousSound sets the ContinuousSound field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxDuplexTtsParams) SetContinuousSound(continuousSound *bool) {
+	m.ContinuousSound = continuousSound
+	m.require(minimaxDuplexTtsParamsFieldContinuousSound)
+}
+
+// SetSessionID sets the SessionID field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxDuplexTtsParams) SetSessionID(sessionID *string) {
+	m.SessionID = sessionID
+	m.require(minimaxDuplexTtsParamsFieldSessionID)
+}
+
+func (m *MinimaxDuplexTtsParams) UnmarshalJSON(data []byte) error {
+	type embed MinimaxDuplexTtsParams
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*m),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*m = MinimaxDuplexTtsParams(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *m)
+	if err != nil {
+		return err
+	}
+	m.ExtraProperties = extraProperties
+	m.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (m *MinimaxDuplexTtsParams) MarshalJSON() ([]byte, error) {
+	type embed MinimaxDuplexTtsParams
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*m),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, m.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, m.ExtraProperties)
+}
+
+func (m *MinimaxDuplexTtsParams) String() string {
+	if len(m.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(m.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(m); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", m)
+}
+
+// Audio output settings.
+var (
+	minimaxDuplexTtsParamsAudioSettingFieldSampleRate = big.NewInt(1 << 0)
+	minimaxDuplexTtsParamsAudioSettingFieldFormat     = big.NewInt(1 << 1)
+	minimaxDuplexTtsParamsAudioSettingFieldChannels   = big.NewInt(1 << 2)
+)
+
+type MinimaxDuplexTtsParamsAudioSetting struct {
+	// Audio sample rate in Hz.
+	SampleRate *int `json:"sample_rate,omitempty" url:"sample_rate,omitempty"`
+	// Audio output format (e.g., pcm).
+	Format *string `json:"format,omitempty" url:"format,omitempty"`
+	// Number of audio channels.
+	Channels *int `json:"channels,omitempty" url:"channels,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (m *MinimaxDuplexTtsParamsAudioSetting) GetSampleRate() *int {
+	if m == nil {
+		return nil
+	}
+	return m.SampleRate
+}
+
+func (m *MinimaxDuplexTtsParamsAudioSetting) GetFormat() *string {
+	if m == nil {
+		return nil
+	}
+	return m.Format
+}
+
+func (m *MinimaxDuplexTtsParamsAudioSetting) GetChannels() *int {
+	if m == nil {
+		return nil
+	}
+	return m.Channels
+}
+
+func (m *MinimaxDuplexTtsParamsAudioSetting) GetExtraProperties() map[string]interface{} {
+	return m.ExtraProperties
+}
+
+func (m *MinimaxDuplexTtsParamsAudioSetting) require(field *big.Int) {
+	if m.explicitFields == nil {
+		m.explicitFields = big.NewInt(0)
+	}
+	m.explicitFields.Or(m.explicitFields, field)
+}
+
+// SetSampleRate sets the SampleRate field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxDuplexTtsParamsAudioSetting) SetSampleRate(sampleRate *int) {
+	m.SampleRate = sampleRate
+	m.require(minimaxDuplexTtsParamsAudioSettingFieldSampleRate)
+}
+
+// SetFormat sets the Format field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxDuplexTtsParamsAudioSetting) SetFormat(format *string) {
+	m.Format = format
+	m.require(minimaxDuplexTtsParamsAudioSettingFieldFormat)
+}
+
+// SetChannels sets the Channels field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxDuplexTtsParamsAudioSetting) SetChannels(channels *int) {
+	m.Channels = channels
+	m.require(minimaxDuplexTtsParamsAudioSettingFieldChannels)
+}
+
+func (m *MinimaxDuplexTtsParamsAudioSetting) UnmarshalJSON(data []byte) error {
+	type embed MinimaxDuplexTtsParamsAudioSetting
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*m),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*m = MinimaxDuplexTtsParamsAudioSetting(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *m)
+	if err != nil {
+		return err
+	}
+	m.ExtraProperties = extraProperties
+	m.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (m *MinimaxDuplexTtsParamsAudioSetting) MarshalJSON() ([]byte, error) {
+	type embed MinimaxDuplexTtsParamsAudioSetting
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*m),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, m.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, m.ExtraProperties)
+}
+
+func (m *MinimaxDuplexTtsParamsAudioSetting) String() string {
+	if len(m.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(m.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(m); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", m)
+}
+
+// Custom pronunciation dictionary settings.
+var (
+	minimaxDuplexTtsParamsPronunciationDictFieldTone = big.NewInt(1 << 0)
+)
+
+type MinimaxDuplexTtsParamsPronunciationDict struct {
+	// Pronunciation override list.
+	Tone []string `json:"tone,omitempty" url:"tone,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (m *MinimaxDuplexTtsParamsPronunciationDict) GetTone() []string {
+	if m == nil {
+		return nil
+	}
+	return m.Tone
+}
+
+func (m *MinimaxDuplexTtsParamsPronunciationDict) GetExtraProperties() map[string]interface{} {
+	return m.ExtraProperties
+}
+
+func (m *MinimaxDuplexTtsParamsPronunciationDict) require(field *big.Int) {
+	if m.explicitFields == nil {
+		m.explicitFields = big.NewInt(0)
+	}
+	m.explicitFields.Or(m.explicitFields, field)
+}
+
+// SetTone sets the Tone field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxDuplexTtsParamsPronunciationDict) SetTone(tone []string) {
+	m.Tone = tone
+	m.require(minimaxDuplexTtsParamsPronunciationDictFieldTone)
+}
+
+func (m *MinimaxDuplexTtsParamsPronunciationDict) UnmarshalJSON(data []byte) error {
+	type embed MinimaxDuplexTtsParamsPronunciationDict
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*m),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*m = MinimaxDuplexTtsParamsPronunciationDict(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *m)
+	if err != nil {
+		return err
+	}
+	m.ExtraProperties = extraProperties
+	m.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (m *MinimaxDuplexTtsParamsPronunciationDict) MarshalJSON() ([]byte, error) {
+	type embed MinimaxDuplexTtsParamsPronunciationDict
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*m),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, m.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, m.ExtraProperties)
+}
+
+func (m *MinimaxDuplexTtsParamsPronunciationDict) String() string {
+	if len(m.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(m.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(m); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", m)
+}
+
+// Voice modification settings.
+var (
+	minimaxDuplexTtsParamsVoiceModifyFieldPitch        = big.NewInt(1 << 0)
+	minimaxDuplexTtsParamsVoiceModifyFieldIntensity    = big.NewInt(1 << 1)
+	minimaxDuplexTtsParamsVoiceModifyFieldTimbre       = big.NewInt(1 << 2)
+	minimaxDuplexTtsParamsVoiceModifyFieldSoundEffects = big.NewInt(1 << 3)
+)
+
+type MinimaxDuplexTtsParamsVoiceModify struct {
+	// Voice modification pitch adjustment.
+	Pitch *float64 `json:"pitch,omitempty" url:"pitch,omitempty"`
+	// Voice intensity adjustment.
+	Intensity *float64 `json:"intensity,omitempty" url:"intensity,omitempty"`
+	// Voice timbre adjustment.
+	Timbre *float64 `json:"timbre,omitempty" url:"timbre,omitempty"`
+	// Sound effect preset (e.g., spacious_echo).
+	SoundEffects *string `json:"sound_effects,omitempty" url:"sound_effects,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (m *MinimaxDuplexTtsParamsVoiceModify) GetPitch() *float64 {
+	if m == nil {
+		return nil
+	}
+	return m.Pitch
+}
+
+func (m *MinimaxDuplexTtsParamsVoiceModify) GetIntensity() *float64 {
+	if m == nil {
+		return nil
+	}
+	return m.Intensity
+}
+
+func (m *MinimaxDuplexTtsParamsVoiceModify) GetTimbre() *float64 {
+	if m == nil {
+		return nil
+	}
+	return m.Timbre
+}
+
+func (m *MinimaxDuplexTtsParamsVoiceModify) GetSoundEffects() *string {
+	if m == nil {
+		return nil
+	}
+	return m.SoundEffects
+}
+
+func (m *MinimaxDuplexTtsParamsVoiceModify) GetExtraProperties() map[string]interface{} {
+	return m.ExtraProperties
+}
+
+func (m *MinimaxDuplexTtsParamsVoiceModify) require(field *big.Int) {
+	if m.explicitFields == nil {
+		m.explicitFields = big.NewInt(0)
+	}
+	m.explicitFields.Or(m.explicitFields, field)
+}
+
+// SetPitch sets the Pitch field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxDuplexTtsParamsVoiceModify) SetPitch(pitch *float64) {
+	m.Pitch = pitch
+	m.require(minimaxDuplexTtsParamsVoiceModifyFieldPitch)
+}
+
+// SetIntensity sets the Intensity field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxDuplexTtsParamsVoiceModify) SetIntensity(intensity *float64) {
+	m.Intensity = intensity
+	m.require(minimaxDuplexTtsParamsVoiceModifyFieldIntensity)
+}
+
+// SetTimbre sets the Timbre field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxDuplexTtsParamsVoiceModify) SetTimbre(timbre *float64) {
+	m.Timbre = timbre
+	m.require(minimaxDuplexTtsParamsVoiceModifyFieldTimbre)
+}
+
+// SetSoundEffects sets the SoundEffects field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxDuplexTtsParamsVoiceModify) SetSoundEffects(soundEffects *string) {
+	m.SoundEffects = soundEffects
+	m.require(minimaxDuplexTtsParamsVoiceModifyFieldSoundEffects)
+}
+
+func (m *MinimaxDuplexTtsParamsVoiceModify) UnmarshalJSON(data []byte) error {
+	type embed MinimaxDuplexTtsParamsVoiceModify
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*m),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*m = MinimaxDuplexTtsParamsVoiceModify(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *m)
+	if err != nil {
+		return err
+	}
+	m.ExtraProperties = extraProperties
+	m.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (m *MinimaxDuplexTtsParamsVoiceModify) MarshalJSON() ([]byte, error) {
+	type embed MinimaxDuplexTtsParamsVoiceModify
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*m),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, m.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, m.ExtraProperties)
+}
+
+func (m *MinimaxDuplexTtsParamsVoiceModify) String() string {
+	if len(m.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(m.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(m); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", m)
+}
+
+var (
+	minimaxDuplexTtsParamsVoiceSettingFieldVoiceID   = big.NewInt(1 << 0)
+	minimaxDuplexTtsParamsVoiceSettingFieldSpeed     = big.NewInt(1 << 1)
+	minimaxDuplexTtsParamsVoiceSettingFieldVol       = big.NewInt(1 << 2)
+	minimaxDuplexTtsParamsVoiceSettingFieldPitch     = big.NewInt(1 << 3)
+	minimaxDuplexTtsParamsVoiceSettingFieldEmotion   = big.NewInt(1 << 4)
+	minimaxDuplexTtsParamsVoiceSettingFieldLatexRead = big.NewInt(1 << 5)
+)
+
+type MinimaxDuplexTtsParamsVoiceSetting struct {
+	// Voice identifier (e.g., female-shaonv).
+	VoiceID string `json:"voice_id" url:"voice_id"`
+	// Speech speed multiplier.
+	Speed *float64 `json:"speed,omitempty" url:"speed,omitempty"`
+	// Voice volume multiplier.
+	Vol *float64 `json:"vol,omitempty" url:"vol,omitempty"`
+	// Voice pitch adjustment.
+	Pitch *float64 `json:"pitch,omitempty" url:"pitch,omitempty"`
+	// Emotion preset.
+	Emotion *string `json:"emotion,omitempty" url:"emotion,omitempty"`
+	// Whether to read LaTeX expressions.
+	LatexRead *bool `json:"latex_read,omitempty" url:"latex_read,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (m *MinimaxDuplexTtsParamsVoiceSetting) GetVoiceID() string {
+	if m == nil {
+		return ""
+	}
+	return m.VoiceID
+}
+
+func (m *MinimaxDuplexTtsParamsVoiceSetting) GetSpeed() *float64 {
+	if m == nil {
+		return nil
+	}
+	return m.Speed
+}
+
+func (m *MinimaxDuplexTtsParamsVoiceSetting) GetVol() *float64 {
+	if m == nil {
+		return nil
+	}
+	return m.Vol
+}
+
+func (m *MinimaxDuplexTtsParamsVoiceSetting) GetPitch() *float64 {
+	if m == nil {
+		return nil
+	}
+	return m.Pitch
+}
+
+func (m *MinimaxDuplexTtsParamsVoiceSetting) GetEmotion() *string {
+	if m == nil {
+		return nil
+	}
+	return m.Emotion
+}
+
+func (m *MinimaxDuplexTtsParamsVoiceSetting) GetLatexRead() *bool {
+	if m == nil {
+		return nil
+	}
+	return m.LatexRead
+}
+
+func (m *MinimaxDuplexTtsParamsVoiceSetting) GetExtraProperties() map[string]interface{} {
+	return m.ExtraProperties
+}
+
+func (m *MinimaxDuplexTtsParamsVoiceSetting) require(field *big.Int) {
+	if m.explicitFields == nil {
+		m.explicitFields = big.NewInt(0)
+	}
+	m.explicitFields.Or(m.explicitFields, field)
+}
+
+// SetVoiceID sets the VoiceID field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxDuplexTtsParamsVoiceSetting) SetVoiceID(voiceID string) {
+	m.VoiceID = voiceID
+	m.require(minimaxDuplexTtsParamsVoiceSettingFieldVoiceID)
+}
+
+// SetSpeed sets the Speed field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxDuplexTtsParamsVoiceSetting) SetSpeed(speed *float64) {
+	m.Speed = speed
+	m.require(minimaxDuplexTtsParamsVoiceSettingFieldSpeed)
+}
+
+// SetVol sets the Vol field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxDuplexTtsParamsVoiceSetting) SetVol(vol *float64) {
+	m.Vol = vol
+	m.require(minimaxDuplexTtsParamsVoiceSettingFieldVol)
+}
+
+// SetPitch sets the Pitch field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxDuplexTtsParamsVoiceSetting) SetPitch(pitch *float64) {
+	m.Pitch = pitch
+	m.require(minimaxDuplexTtsParamsVoiceSettingFieldPitch)
+}
+
+// SetEmotion sets the Emotion field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxDuplexTtsParamsVoiceSetting) SetEmotion(emotion *string) {
+	m.Emotion = emotion
+	m.require(minimaxDuplexTtsParamsVoiceSettingFieldEmotion)
+}
+
+// SetLatexRead sets the LatexRead field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (m *MinimaxDuplexTtsParamsVoiceSetting) SetLatexRead(latexRead *bool) {
+	m.LatexRead = latexRead
+	m.require(minimaxDuplexTtsParamsVoiceSettingFieldLatexRead)
+}
+
+func (m *MinimaxDuplexTtsParamsVoiceSetting) UnmarshalJSON(data []byte) error {
+	type embed MinimaxDuplexTtsParamsVoiceSetting
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*m),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*m = MinimaxDuplexTtsParamsVoiceSetting(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *m)
+	if err != nil {
+		return err
+	}
+	m.ExtraProperties = extraProperties
+	m.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (m *MinimaxDuplexTtsParamsVoiceSetting) MarshalJSON() ([]byte, error) {
+	type embed MinimaxDuplexTtsParamsVoiceSetting
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*m),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, m.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, m.ExtraProperties)
+}
+
+func (m *MinimaxDuplexTtsParamsVoiceSetting) String() string {
 	if len(m.rawJSON) > 0 {
 		if value, err := internal.StringifyJSON(m.rawJSON); err == nil {
 			return value
@@ -13986,6 +14919,357 @@ func (s *SmallestAiTtsParams) String() string {
 	return fmt.Sprintf("%#v", s)
 }
 
+// Soniox Text-to-Speech configuration.
+var (
+	sonioxTtsFieldParams       = big.NewInt(1 << 0)
+	sonioxTtsFieldSkipPatterns = big.NewInt(1 << 1)
+)
+
+type SonioxTts struct {
+	Params *SonioxTtsParams `json:"params" url:"params"`
+	// Controls whether the TTS module skips bracketed content when reading LLM response text.
+	SkipPatterns []int `json:"skip_patterns,omitempty" url:"skip_patterns,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	extraProperties map[string]interface{}
+	rawJSON         json.RawMessage
+}
+
+func (s *SonioxTts) GetParams() *SonioxTtsParams {
+	if s == nil {
+		return nil
+	}
+	return s.Params
+}
+
+func (s *SonioxTts) GetSkipPatterns() []int {
+	if s == nil {
+		return nil
+	}
+	return s.SkipPatterns
+}
+
+func (s *SonioxTts) GetExtraProperties() map[string]interface{} {
+	return s.extraProperties
+}
+
+func (s *SonioxTts) require(field *big.Int) {
+	if s.explicitFields == nil {
+		s.explicitFields = big.NewInt(0)
+	}
+	s.explicitFields.Or(s.explicitFields, field)
+}
+
+// SetParams sets the Params field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *SonioxTts) SetParams(params *SonioxTtsParams) {
+	s.Params = params
+	s.require(sonioxTtsFieldParams)
+}
+
+// SetSkipPatterns sets the SkipPatterns field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *SonioxTts) SetSkipPatterns(skipPatterns []int) {
+	s.SkipPatterns = skipPatterns
+	s.require(sonioxTtsFieldSkipPatterns)
+}
+
+func (s *SonioxTts) UnmarshalJSON(data []byte) error {
+	type unmarshaler SonioxTts
+	var value unmarshaler
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	*s = SonioxTts(value)
+	extraProperties, err := internal.ExtractExtraProperties(data, *s)
+	if err != nil {
+		return err
+	}
+	s.extraProperties = extraProperties
+	s.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (s *SonioxTts) MarshalJSON() ([]byte, error) {
+	type embed SonioxTts
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*s),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, s.explicitFields)
+	return json.Marshal(explicitMarshaler)
+}
+
+func (s *SonioxTts) String() string {
+	if len(s.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(s.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(s); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", s)
+}
+
+// Soniox TTS configuration parameters. Only api_key is required.
+var (
+	sonioxTtsParamsFieldAPIKey            = big.NewInt(1 << 0)
+	sonioxTtsParamsFieldBaseURL           = big.NewInt(1 << 1)
+	sonioxTtsParamsFieldModel             = big.NewInt(1 << 2)
+	sonioxTtsParamsFieldLanguage          = big.NewInt(1 << 3)
+	sonioxTtsParamsFieldVoice             = big.NewInt(1 << 4)
+	sonioxTtsParamsFieldSampleRate        = big.NewInt(1 << 5)
+	sonioxTtsParamsFieldSpeed             = big.NewInt(1 << 6)
+	sonioxTtsParamsFieldReduceSilence     = big.NewInt(1 << 7)
+	sonioxTtsParamsFieldReturnTimestamps  = big.NewInt(1 << 8)
+	sonioxTtsParamsFieldClientReferenceID = big.NewInt(1 << 9)
+	sonioxTtsParamsFieldDump              = big.NewInt(1 << 10)
+)
+
+type SonioxTtsParams struct {
+	// Soniox API key.
+	APIKey string `json:"api_key" url:"api_key"`
+	// WebSocket endpoint for Soniox streaming speech synthesis.
+	BaseURL *string `json:"base_url,omitempty" url:"base_url,omitempty"`
+	// Soniox TTS model name.
+	Model *string `json:"model,omitempty" url:"model,omitempty"`
+	// Language code for speech synthesis.
+	Language *string `json:"language,omitempty" url:"language,omitempty"`
+	// Soniox voice name.
+	Voice *string `json:"voice,omitempty" url:"voice,omitempty"`
+	// Output audio sample rate in Hz.
+	SampleRate *int `json:"sample_rate,omitempty" url:"sample_rate,omitempty"`
+	// Speech rate multiplier, from 0.7 to 1.3 inclusive.
+	Speed *float64 `json:"speed,omitempty" url:"speed,omitempty"`
+	// Whether to reduce silence in synthesized speech.
+	ReduceSilence *bool `json:"reduce_silence,omitempty" url:"reduce_silence,omitempty"`
+	// Whether to return timestamps for synthesized speech.
+	ReturnTimestamps *bool `json:"return_timestamps,omitempty" url:"return_timestamps,omitempty"`
+	// Client-provided reference identifier.
+	ClientReferenceID *string `json:"client_reference_id,omitempty" url:"client_reference_id,omitempty"`
+	// Whether to enable diagnostic dumping.
+	Dump *bool `json:"dump,omitempty" url:"dump,omitempty"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (s *SonioxTtsParams) GetAPIKey() string {
+	if s == nil {
+		return ""
+	}
+	return s.APIKey
+}
+
+func (s *SonioxTtsParams) GetBaseURL() *string {
+	if s == nil {
+		return nil
+	}
+	return s.BaseURL
+}
+
+func (s *SonioxTtsParams) GetModel() *string {
+	if s == nil {
+		return nil
+	}
+	return s.Model
+}
+
+func (s *SonioxTtsParams) GetLanguage() *string {
+	if s == nil {
+		return nil
+	}
+	return s.Language
+}
+
+func (s *SonioxTtsParams) GetVoice() *string {
+	if s == nil {
+		return nil
+	}
+	return s.Voice
+}
+
+func (s *SonioxTtsParams) GetSampleRate() *int {
+	if s == nil {
+		return nil
+	}
+	return s.SampleRate
+}
+
+func (s *SonioxTtsParams) GetSpeed() *float64 {
+	if s == nil {
+		return nil
+	}
+	return s.Speed
+}
+
+func (s *SonioxTtsParams) GetReduceSilence() *bool {
+	if s == nil {
+		return nil
+	}
+	return s.ReduceSilence
+}
+
+func (s *SonioxTtsParams) GetReturnTimestamps() *bool {
+	if s == nil {
+		return nil
+	}
+	return s.ReturnTimestamps
+}
+
+func (s *SonioxTtsParams) GetClientReferenceID() *string {
+	if s == nil {
+		return nil
+	}
+	return s.ClientReferenceID
+}
+
+func (s *SonioxTtsParams) GetDump() *bool {
+	if s == nil {
+		return nil
+	}
+	return s.Dump
+}
+
+func (s *SonioxTtsParams) GetExtraProperties() map[string]interface{} {
+	return s.ExtraProperties
+}
+
+func (s *SonioxTtsParams) require(field *big.Int) {
+	if s.explicitFields == nil {
+		s.explicitFields = big.NewInt(0)
+	}
+	s.explicitFields.Or(s.explicitFields, field)
+}
+
+// SetAPIKey sets the APIKey field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *SonioxTtsParams) SetAPIKey(apiKey string) {
+	s.APIKey = apiKey
+	s.require(sonioxTtsParamsFieldAPIKey)
+}
+
+// SetBaseURL sets the BaseURL field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *SonioxTtsParams) SetBaseURL(baseURL *string) {
+	s.BaseURL = baseURL
+	s.require(sonioxTtsParamsFieldBaseURL)
+}
+
+// SetModel sets the Model field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *SonioxTtsParams) SetModel(model *string) {
+	s.Model = model
+	s.require(sonioxTtsParamsFieldModel)
+}
+
+// SetLanguage sets the Language field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *SonioxTtsParams) SetLanguage(language *string) {
+	s.Language = language
+	s.require(sonioxTtsParamsFieldLanguage)
+}
+
+// SetVoice sets the Voice field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *SonioxTtsParams) SetVoice(voice *string) {
+	s.Voice = voice
+	s.require(sonioxTtsParamsFieldVoice)
+}
+
+// SetSampleRate sets the SampleRate field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *SonioxTtsParams) SetSampleRate(sampleRate *int) {
+	s.SampleRate = sampleRate
+	s.require(sonioxTtsParamsFieldSampleRate)
+}
+
+// SetSpeed sets the Speed field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *SonioxTtsParams) SetSpeed(speed *float64) {
+	s.Speed = speed
+	s.require(sonioxTtsParamsFieldSpeed)
+}
+
+// SetReduceSilence sets the ReduceSilence field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *SonioxTtsParams) SetReduceSilence(reduceSilence *bool) {
+	s.ReduceSilence = reduceSilence
+	s.require(sonioxTtsParamsFieldReduceSilence)
+}
+
+// SetReturnTimestamps sets the ReturnTimestamps field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *SonioxTtsParams) SetReturnTimestamps(returnTimestamps *bool) {
+	s.ReturnTimestamps = returnTimestamps
+	s.require(sonioxTtsParamsFieldReturnTimestamps)
+}
+
+// SetClientReferenceID sets the ClientReferenceID field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *SonioxTtsParams) SetClientReferenceID(clientReferenceID *string) {
+	s.ClientReferenceID = clientReferenceID
+	s.require(sonioxTtsParamsFieldClientReferenceID)
+}
+
+// SetDump sets the Dump field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *SonioxTtsParams) SetDump(dump *bool) {
+	s.Dump = dump
+	s.require(sonioxTtsParamsFieldDump)
+}
+
+func (s *SonioxTtsParams) UnmarshalJSON(data []byte) error {
+	type embed SonioxTtsParams
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*s),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*s = SonioxTtsParams(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *s)
+	if err != nil {
+		return err
+	}
+	s.ExtraProperties = extraProperties
+	s.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (s *SonioxTtsParams) MarshalJSON() ([]byte, error) {
+	type embed SonioxTtsParams
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*s),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, s.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, s.ExtraProperties)
+}
+
+func (s *SonioxTtsParams) String() string {
+	if len(s.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(s.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(s); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", s)
+}
+
 // Speechmatics ASR configuration.
 var (
 	speechmaticsAsrFieldLanguage = big.NewInt(1 << 0)
@@ -14088,16 +15372,14 @@ func (s *SpeechmaticsAsr) String() string {
 
 // Speechmatics ASR configuration parameters.
 var (
-	speechmaticsAsrParamsFieldKey      = big.NewInt(1 << 0)
+	speechmaticsAsrParamsFieldAPIKey   = big.NewInt(1 << 0)
 	speechmaticsAsrParamsFieldLanguage = big.NewInt(1 << 1)
 	speechmaticsAsrParamsFieldURI      = big.NewInt(1 << 2)
 )
 
 type SpeechmaticsAsrParams struct {
 	// Speechmatics API key
-	Key string `json:"key" url:"key"`
-	// Deprecated: Use Key instead. APIKey is normalized to Key during serialization.
-	APIKey string `json:"-" url:"-"`
+	APIKey string `json:"api_key" url:"api_key"`
 	// Language code to use for transcription
 	Language string `json:"language" url:"language"`
 	// WebSocket URL for the Speechmatics streaming API
@@ -14111,19 +15393,11 @@ type SpeechmaticsAsrParams struct {
 	rawJSON json.RawMessage
 }
 
-func (s *SpeechmaticsAsrParams) GetKey() string {
+func (s *SpeechmaticsAsrParams) GetAPIKey() string {
 	if s == nil {
 		return ""
 	}
-	if s.Key != "" {
-		return s.Key
-	}
 	return s.APIKey
-}
-
-// Deprecated: Use GetKey instead.
-func (s *SpeechmaticsAsrParams) GetAPIKey() string {
-	return s.GetKey()
 }
 
 func (s *SpeechmaticsAsrParams) GetLanguage() string {
@@ -14151,19 +15425,11 @@ func (s *SpeechmaticsAsrParams) require(field *big.Int) {
 	s.explicitFields.Or(s.explicitFields, field)
 }
 
-// SetKey sets the Key field and marks it as non-optional;
+// SetAPIKey sets the APIKey field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (s *SpeechmaticsAsrParams) SetKey(key string) {
-	s.Key = key
-	s.require(speechmaticsAsrParamsFieldKey)
-}
-
-// SetAPIKey sets the deprecated APIKey field and normalizes it to Key.
-// Deprecated: Use SetKey instead.
 func (s *SpeechmaticsAsrParams) SetAPIKey(apiKey string) {
 	s.APIKey = apiKey
-	s.Key = apiKey
-	s.require(speechmaticsAsrParamsFieldKey)
+	s.require(speechmaticsAsrParamsFieldAPIKey)
 }
 
 // SetLanguage sets the Language field and marks it as non-optional;
@@ -14196,40 +15462,207 @@ func (s *SpeechmaticsAsrParams) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	s.ExtraProperties = extraProperties
-	if legacyKey, ok := s.ExtraProperties["api_key"].(string); ok {
-		if s.Key == "" {
-			s.Key = legacyKey
-		}
-		delete(s.ExtraProperties, "api_key")
-	}
-	s.APIKey = s.Key
 	s.rawJSON = json.RawMessage(data)
 	return nil
 }
 
 func (s *SpeechmaticsAsrParams) MarshalJSON() ([]byte, error) {
 	type embed SpeechmaticsAsrParams
-	normalized := *s
-	if normalized.Key == "" {
-		normalized.Key = normalized.APIKey
-	}
-	normalized.APIKey = ""
 	var marshaler = struct {
 		embed
 	}{
-		embed: embed(normalized),
+		embed: embed(*s),
 	}
 	explicitMarshaler := internal.HandleExplicitFields(marshaler, s.explicitFields)
-	extraProperties := make(map[string]interface{}, len(s.ExtraProperties))
-	for key, value := range s.ExtraProperties {
-		if key != "api_key" {
-			extraProperties[key] = value
-		}
-	}
-	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, extraProperties)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, s.ExtraProperties)
 }
 
 func (s *SpeechmaticsAsrParams) String() string {
+	if len(s.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(s.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(s); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", s)
+}
+
+// StepFun ASR configuration.
+var (
+	stepfunAsrFieldLanguage = big.NewInt(1 << 0)
+	stepfunAsrFieldParams   = big.NewInt(1 << 1)
+)
+
+type StepfunAsr struct {
+	Language *AsrLanguage      `json:"language,omitempty" url:"language,omitempty"`
+	Params   *StepfunAsrParams `json:"params" url:"params"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (s *StepfunAsr) GetLanguage() *AsrLanguage {
+	if s == nil {
+		return nil
+	}
+	return s.Language
+}
+
+func (s *StepfunAsr) GetParams() *StepfunAsrParams {
+	if s == nil {
+		return nil
+	}
+	return s.Params
+}
+
+func (s *StepfunAsr) GetExtraProperties() map[string]interface{} {
+	return s.ExtraProperties
+}
+
+func (s *StepfunAsr) require(field *big.Int) {
+	if s.explicitFields == nil {
+		s.explicitFields = big.NewInt(0)
+	}
+	s.explicitFields.Or(s.explicitFields, field)
+}
+
+// SetLanguage sets the Language field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *StepfunAsr) SetLanguage(language *AsrLanguage) {
+	s.Language = language
+	s.require(stepfunAsrFieldLanguage)
+}
+
+// SetParams sets the Params field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *StepfunAsr) SetParams(params *StepfunAsrParams) {
+	s.Params = params
+	s.require(stepfunAsrFieldParams)
+}
+
+func (s *StepfunAsr) UnmarshalJSON(data []byte) error {
+	type embed StepfunAsr
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*s),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*s = StepfunAsr(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *s)
+	if err != nil {
+		return err
+	}
+	s.ExtraProperties = extraProperties
+	s.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (s *StepfunAsr) MarshalJSON() ([]byte, error) {
+	type embed StepfunAsr
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*s),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, s.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, s.ExtraProperties)
+}
+
+func (s *StepfunAsr) String() string {
+	if len(s.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(s.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(s); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", s)
+}
+
+// StepFun ASR configuration parameters.
+var (
+	stepfunAsrParamsFieldAPIKey = big.NewInt(1 << 0)
+)
+
+type StepfunAsrParams struct {
+	// StepFun API key.
+	APIKey string `json:"api_key" url:"api_key"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (s *StepfunAsrParams) GetAPIKey() string {
+	if s == nil {
+		return ""
+	}
+	return s.APIKey
+}
+
+func (s *StepfunAsrParams) GetExtraProperties() map[string]interface{} {
+	return s.ExtraProperties
+}
+
+func (s *StepfunAsrParams) require(field *big.Int) {
+	if s.explicitFields == nil {
+		s.explicitFields = big.NewInt(0)
+	}
+	s.explicitFields.Or(s.explicitFields, field)
+}
+
+// SetAPIKey sets the APIKey field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (s *StepfunAsrParams) SetAPIKey(apiKey string) {
+	s.APIKey = apiKey
+	s.require(stepfunAsrParamsFieldAPIKey)
+}
+
+func (s *StepfunAsrParams) UnmarshalJSON(data []byte) error {
+	type embed StepfunAsrParams
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*s),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*s = StepfunAsrParams(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *s)
+	if err != nil {
+		return err
+	}
+	s.ExtraProperties = extraProperties
+	s.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (s *StepfunAsrParams) MarshalJSON() ([]byte, error) {
+	type embed StepfunAsrParams
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*s),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, s.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, s.ExtraProperties)
+}
+
+func (s *StepfunAsrParams) String() string {
 	if len(s.rawJSON) > 0 {
 		if value, err := internal.StringifyJSON(s.rawJSON); err == nil {
 			return value
@@ -15016,6 +16449,7 @@ type Tts struct {
 	Microsoft       *MicrosoftTts
 	Elevenlabs      *ElevenLabsTts
 	Minimax         *MinimaxTts
+	MinimaxDuplex   *MinimaxDuplexTts
 	Murf            *MurfTts
 	Cartesia        *CartesiaTts
 	Openai          *OpenAiTts
@@ -15036,6 +16470,7 @@ type Tts struct {
 	Mistral         *MistralTts
 	Typecast        *TypecastTts
 	Smallestai      *SmallestAiTts
+	Soniox          *SonioxTts
 }
 
 func (t *Tts) GetVendor() string {
@@ -15078,6 +16513,13 @@ func (t *Tts) GetMinimax() *MinimaxTts {
 		return nil
 	}
 	return t.Minimax
+}
+
+func (t *Tts) GetMinimaxDuplex() *MinimaxDuplexTts {
+	if t == nil {
+		return nil
+	}
+	return t.MinimaxDuplex
 }
 
 func (t *Tts) GetMurf() *MurfTts {
@@ -15220,6 +16662,13 @@ func (t *Tts) GetSmallestai() *SmallestAiTts {
 	return t.Smallestai
 }
 
+func (t *Tts) GetSoniox() *SonioxTts {
+	if t == nil {
+		return nil
+	}
+	return t.Soniox
+}
+
 func (t *Tts) UnmarshalJSON(data []byte) error {
 	var unmarshaler struct {
 		Vendor string `json:"vendor"`
@@ -15262,6 +16711,12 @@ func (t *Tts) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		t.Minimax = value
+	case "minimax_duplex":
+		value := new(MinimaxDuplexTts)
+		if err := json.Unmarshal(data, &value); err != nil {
+			return err
+		}
+		t.MinimaxDuplex = value
 	case "murf":
 		value := new(MurfTts)
 		if err := json.Unmarshal(data, &value); err != nil {
@@ -15382,6 +16837,12 @@ func (t *Tts) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		t.Smallestai = value
+	case "soniox":
+		value := new(SonioxTts)
+		if err := json.Unmarshal(data, &value); err != nil {
+			return err
+		}
+		t.Soniox = value
 	}
 	return nil
 }
@@ -15404,6 +16865,9 @@ func (t Tts) MarshalJSON() ([]byte, error) {
 	}
 	if t.Minimax != nil {
 		return internal.MarshalJSONWithExtraProperty(t.Minimax, "vendor", "minimax")
+	}
+	if t.MinimaxDuplex != nil {
+		return internal.MarshalJSONWithExtraProperty(t.MinimaxDuplex, "vendor", "minimax_duplex")
 	}
 	if t.Murf != nil {
 		return internal.MarshalJSONWithExtraProperty(t.Murf, "vendor", "murf")
@@ -15465,6 +16929,9 @@ func (t Tts) MarshalJSON() ([]byte, error) {
 	if t.Smallestai != nil {
 		return internal.MarshalJSONWithExtraProperty(t.Smallestai, "vendor", "smallestai")
 	}
+	if t.Soniox != nil {
+		return internal.MarshalJSONWithExtraProperty(t.Soniox, "vendor", "soniox")
+	}
 	return nil, fmt.Errorf("type %T does not define a non-empty union type", t)
 }
 
@@ -15474,6 +16941,7 @@ type TtsVisitor interface {
 	VisitMicrosoft(*MicrosoftTts) error
 	VisitElevenlabs(*ElevenLabsTts) error
 	VisitMinimax(*MinimaxTts) error
+	VisitMinimaxDuplex(*MinimaxDuplexTts) error
 	VisitMurf(*MurfTts) error
 	VisitCartesia(*CartesiaTts) error
 	VisitOpenai(*OpenAiTts) error
@@ -15493,10 +16961,8 @@ type TtsVisitor interface {
 	VisitGradium(*GradiumTts) error
 	VisitMistral(*MistralTts) error
 	VisitTypecast(*TypecastTts) error
-}
-
-type SmallestAiTtsVisitor interface {
 	VisitSmallestai(*SmallestAiTts) error
+	VisitSoniox(*SonioxTts) error
 }
 
 func (t *Tts) Accept(visitor TtsVisitor) error {
@@ -15514,6 +16980,9 @@ func (t *Tts) Accept(visitor TtsVisitor) error {
 	}
 	if t.Minimax != nil {
 		return visitor.VisitMinimax(t.Minimax)
+	}
+	if t.MinimaxDuplex != nil {
+		return visitor.VisitMinimaxDuplex(t.MinimaxDuplex)
 	}
 	if t.Murf != nil {
 		return visitor.VisitMurf(t.Murf)
@@ -15573,11 +17042,10 @@ func (t *Tts) Accept(visitor TtsVisitor) error {
 		return visitor.VisitTypecast(t.Typecast)
 	}
 	if t.Smallestai != nil {
-		smallestaiVisitor, ok := visitor.(SmallestAiTtsVisitor)
-		if !ok {
-			return fmt.Errorf("visitor %T does not support smallestai TTS", visitor)
-		}
-		return smallestaiVisitor.VisitSmallestai(t.Smallestai)
+		return visitor.VisitSmallestai(t.Smallestai)
+	}
+	if t.Soniox != nil {
+		return visitor.VisitSoniox(t.Soniox)
 	}
 	return fmt.Errorf("type %T does not define a non-empty union type", t)
 }
@@ -15601,6 +17069,9 @@ func (t *Tts) validate() error {
 	}
 	if t.Minimax != nil {
 		fields = append(fields, "minimax")
+	}
+	if t.MinimaxDuplex != nil {
+		fields = append(fields, "minimax_duplex")
 	}
 	if t.Murf != nil {
 		fields = append(fields, "murf")
@@ -15661,6 +17132,9 @@ func (t *Tts) validate() error {
 	}
 	if t.Smallestai != nil {
 		fields = append(fields, "smallestai")
+	}
+	if t.Soniox != nil {
+		fields = append(fields, "soniox")
 	}
 	if len(fields) == 0 {
 		if t.Vendor != "" {
@@ -19997,7 +21471,7 @@ type StartAgentsRequestPropertiesAdvancedFeatures struct {
 	EnableRtm *bool `json:"enable_rtm,omitempty" url:"enable_rtm,omitempty"`
 	// Enable Selective Attention Locking (SAL). When enabled, configure the `sal` field to set up speaker recognition or locking modes.
 	EnableSal *bool `json:"enable_sal,omitempty" url:"enable_sal,omitempty"`
-	// Enable invocation for MCP servers and inline REST tools.
+	// Enable tool invocation. When enabled, the agent can invoke tools provided by the MCP server to implement advanced functionality.
 	EnableTools *bool `json:"enable_tools,omitempty" url:"enable_tools,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
@@ -20530,7 +22004,7 @@ type StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig struct {
 	// System prompt used to generate a short filler phrase based on recent conversation context. The generated text should be conversational and must not answer the user's question.
 	Prompt *string `json:"prompt,omitempty" url:"prompt,omitempty"`
 	// Fallback strategy when generated filler text is not ready, fails, or returns empty text. Phase 1 only supports `static`.
-	FallbackStrategy *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy `json:"fallback_strategy,omitempty" url:"fallback_strategy,omitempty"`
+	FallbackStrategy *string `json:"fallback_strategy,omitempty" url:"fallback_strategy,omitempty"`
 	// Maximum number of recent conversation messages used to generate a filler word.
 	ContextMessageLimit *int `json:"context_message_limit,omitempty" url:"context_message_limit,omitempty"`
 	// Maximum number of characters from conversation history used to generate a filler word.
@@ -20598,20 +22072,9 @@ func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetPromp
 
 // SetFallbackStrategy sets the FallbackStrategy field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetFallbackStrategy(fallbackStrategy *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy) {
+func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetFallbackStrategy(fallbackStrategy *string) {
 	s.FallbackStrategy = fallbackStrategy
 	s.require(startAgentsRequestPropertiesFillerWordsContentGeneratedConfigFieldFallbackStrategy)
-}
-
-// StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy controls fallback behavior for generated filler words.
-type StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy string
-
-const (
-	StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategyStatic StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy = "static"
-)
-
-func (s StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy) Ptr() *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy {
-	return &s
 }
 
 // SetContextMessageLimit sets the ContextMessageLimit field and marks it as non-optional;
