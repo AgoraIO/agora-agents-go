@@ -916,7 +916,7 @@ type SarvamTTSOptions struct {
 	SampleRate *int
 	// EnablePreprocessing normalizes English words and numeric entities.
 	EnablePreprocessing *bool
-	// Model is the Sarvam TTS model; the service defaults to bulbul:v3.
+	// Model is the Sarvam TTS model; the SDK defaults to bulbul:v3.
 	Model string
 	// AdditionalParams are flattened into params. Explicit options take precedence.
 	AdditionalParams map[string]interface{}
@@ -981,6 +981,8 @@ func (s *SarvamTTS) ToConfig() map[string]interface{} {
 	}
 	if s.options.Model != "" {
 		params["model"] = s.options.Model
+	} else if _, exists := params["model"]; !exists {
+		params["model"] = "bulbul:v3"
 	}
 
 	config := map[string]interface{}{

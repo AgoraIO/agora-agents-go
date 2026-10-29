@@ -550,7 +550,7 @@ Panics if `Key`, `Speaker`, or `TargetLanguageCode` is empty.
 | `SpeechSampleRate`   | `*int` | No | Output sample rate in Hz; service default is `24000` |
 | `SampleRate`         | `*int` | No | Deprecated alias for `SpeechSampleRate` |
 | `EnablePreprocessing` | `*bool` | No | Normalize English words and numeric entities |
-| `Model`             | `string` | No | TTS model; service default is `bulbul:v3` |
+| `Model`             | `string` | No | TTS model; SDK sends `bulbul:v3` by default |
 | `AdditionalParams`  | `map[string]interface{}` | No | Additional vendor parameters, flattened into `tts.params` |
 | `SkipPatterns`       | `[]int`  | No       | Patterns to skip     |
 

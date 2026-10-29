@@ -149,10 +149,10 @@ func GenerateRtcTokenWithAccount(opts GenerateRtcTokenWithAccountOptions) (strin
 	)
 }
 
-// GenerateConvoAIToken builds a combined RTC + RTM token for ConvoAI REST API authentication.
+// GenerateConvoAIToken builds a combined ConvoAI + RTC + RTM token for ConvoAI REST API authentication.
 // Use the result as: Authorization: agora token=<token>
 //
-// Uses github.com/AgoraIO-Community/go-tokenbuilder (BuildTokenWithRtm).
+// Uses github.com/AgoraIO-Community/go-tokenbuilder (convoaitokenbuilder.BuildToken).
 func GenerateConvoAIToken(opts GenerateConvoAITokenOptions) (string, error) {
 	if opts.AppID == "" {
 		return "", fmt.Errorf("app_id is required")

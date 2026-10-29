@@ -8,6 +8,8 @@ description: Configure the Go SDK with the app-credentials flow and understand t
 
 Use app credentials mode for production session integrations.
 
+Generated REST tokens include the ConvoAI product service plus RTC and RTM services. Platform session routes require the ConvoAI service; an RTC/RTM-only token is insufficient.
+
 Create `AgoraClient` with `AppID` and `AppCertificate`, then let `AgentSession` generate the ConvoAI REST auth token and the RTC join token automatically.
 
 ## Recommended: app credentials

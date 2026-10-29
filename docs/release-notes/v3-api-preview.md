@@ -13,3 +13,9 @@ The preview rollout is currently US-only. The SDK does not enforce a region rest
 Added explicit ephemeral sessions and outbound `Call` helpers; fixed LLM vendor defaults, managed-model gating, Gemini credentials, ARES keywords/default language, Deepgram credentials and ASR language/endpoint mapping. MiniMax has typed voice/audio options and preserves additional nested settings. Saved-number assignment supports inbound end-call policy. Optional session analysis and both secret-key metadata response shapes are decoded. Platform RTC tokens are generated when an explicit UID and certificate permit it; otherwise server token defaults apply. AgentKit now exposes secret-key types, interruption sub-configs, VAD/semantic constants, and pointer helpers.
 
 Install the slashless `v3-api-preview` branch or pin its resolved pseudo-version. The Go module remains `/v2`, so a v3 tag is not a compatible module release.
+
+## Session authentication and provider corrections (2026-10-29)
+
+Generated REST authorization tokens now use the official ConvoAI builder and include ConvoAI, RTC, and RTM services. The ConvoAI service is required for Platform session routes. Prebuilt tokens remain unchanged; callers must supply the required service themselves. The token dependency and both checksums are committed.
+
+AssemblyAI, Google, Microsoft, Sarvam, and Speechmatics retain provider `params.language` alongside the pipeline language. Sarvam TTS sends `params.model: bulbul:v3` by default; an explicit `Model` or additional model parameter overrides that default.

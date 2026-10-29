@@ -469,7 +469,7 @@ func TestSarvamTTSSampleRateCompatibility(t *testing.T) {
 			params, ok := vendor.ToConfig()["params"].(map[string]any)
 			require.True(t, ok)
 			assert.NotContains(t, params, "sample_rate")
-			assert.NotContains(t, params, "model")
+			assert.Equal(t, "bulbul:v3", params["model"])
 			assert.NotContains(t, params, "enable_preprocessing")
 			if tt.expected == nil {
 				assert.NotContains(t, params, "speech_sample_rate")

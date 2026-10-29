@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Fixed
+
+- Generated ConvoAI REST tokens include the ConvoAI product service using the official token builder; regression tests decode signatures, services, identities, expiration, and session request authorization.
+- Required provider ASR language parameters survive Platform conversion for AssemblyAI, Google, Microsoft, Sarvam, and Speechmatics.
+- Sarvam TTS sends the required `bulbul:v3` model by default, preserving explicit overrides.
+
 ## [v3.0.0-alpha.2] — 2026-10-29
 
 ### Changed

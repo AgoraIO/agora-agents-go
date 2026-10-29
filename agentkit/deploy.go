@@ -442,6 +442,16 @@ func (a *Agent) toV3(name string) (v3.AgentCreate, error) {
 			language = "en-US"
 		}
 		pipe.ASR["language"] = language
+		if vendor, _ := pipe.ASR["vendor"].(string); asrNeedsParameterLanguage(vendor) {
+			params, _ := pipe.ASR["params"].(map[string]any)
+			if params == nil {
+				params = map[string]any{}
+				pipe.ASR["params"] = params
+			}
+			if _, exists := params["language"]; !exists {
+				params["language"] = language
+			}
+		}
 	}
 	if turn != nil {
 		td, bad := convertTurnDetection(turn, b.Interruption)
@@ -753,7 +763,15 @@ func convertModule(name string, input map[string]interface{}) (map[string]any, [
 				out["language"] = "en-US"
 			}
 		}
-		delete(params, "language")
+		if asrNeedsParameterLanguage(vendor) {
+			if _, exists := params["language"]; !exists {
+				if language, ok := out["language"]; ok {
+					params["language"] = language
+				}
+			}
+		} else {
+			delete(params, "language")
+		}
 		for _, alias := range []string{"ws_url", "uri"} {
 			if endpoint, ok := params[alias]; ok {
 				if _, exists := out["url"]; !exists {
@@ -1151,4 +1169,14 @@ func joinPath(a, b string) string {
 		return b
 	}
 	return a + "." + b
+}
+
+// These ASR providers require their own language parameter in addition to the pipeline language.
+func asrNeedsParameterLanguage(vendor string) bool {
+	switch vendor {
+	case "assemblyai", "google", "microsoft", "sarvam", "speechmatics":
+		return true
+	default:
+		return false
+	}
 }

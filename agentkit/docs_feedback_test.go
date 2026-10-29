@@ -33,7 +33,7 @@ func TestPlatformProviderMappingsFromDocs(t *testing.T) {
 				t.Fatal(fields)
 			}
 			params, _ := got["params"].(map[string]any)
-			if _, ok := params["language"]; ok {
+			if _, ok := params["language"]; ok && tc.name == "deepgram" {
 				t.Fatal("duplicate language")
 			}
 			if tc.name == "deepgram" && got["language"] != "fr" {
