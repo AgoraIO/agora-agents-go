@@ -4,13 +4,28 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [v2.13.0] — 2026-10-09
+## [v2.13.0] — 2026-10-29
+
+### Added
+
+- **RTZR STT** — Added the global `NewRTZRSTT` provider with typed options and `RtzrAsr`/`RtzrAsrParams` aliases.
+- **Speak configuration** — Added `SpeakConfig` and `ParametersSpeak` aliases for `WithParameters` support of `parameters.speak.batch` in the global and CN facades.
+- **Sarvam TTS options** — Added `SpeechSampleRate`, `EnablePreprocessing`, `Model`, flattened `AdditionalParams`, and `SarvamTTSLanguage` constants.
 
 ### Changed
+
+- **Turn end playback metadata** — Turn analytics now expose optional `IntendedPlaybackDurationMs` for interrupted turns. `PlaybackDurationMs` reports actual playback for both normal and interrupted turns. Session documentation and regression tests cover missing values, zero durations, and pagination.
+- **Gemini TTS production routing** — `NewGeminiTTS` and raw `tts.vendor = "gemini"` configurations now use the configured regional production endpoint without the `gemini-live` preview gate for the full session lifecycle. The v2.11.0 constructor, model constant, defaults, validation, and `tts.params` wire fields remain compatible; preview routing helpers and constants remain exported.
+- **Deepgram STT credentials** — `APIKey` now serializes as `asr.params.api_key`. Legacy raw `key` configurations are normalized before sending, and both credential fields prevent managed ASR preset inference.
+- **Sarvam TTS sample rate** — The deprecated `SampleRate` alias now serializes as `speech_sample_rate`; `SpeechSampleRate` takes precedence. Avatar validation recognizes the configured speech sample rate, including custom TTS configs.
 
 - Tavus, Protoface, and LemonSlice are minimal provider wrappers with default API endpoints, explicit URL overrides, and shared GenericAvatar serialization, session defaults, and token handling.
 - LemonSlice defaults AvatarID to the vendor-recommended fixed `lemonslice`; explicit overrides remain supported. Typed optional selector and aspect-ratio fields serialize directly in avatar.params and override AdditionalParams without mutating caller input.
 - **Source compatibility:** these providers are no longer exact aliases of GenericAvatar, and LemonSliceOptions is now a superset rather than an exact GenericAvatarOptions alias. TavusOptions and ProtofaceOptions retain their GenericAvatarOptions aliases. LemonSlice now requires exactly one nonempty string selector (agent_id, agent_image_url, or agent_image_base64) in the effective merged parameters. Malformed supplied selectors are rejected. Optional aspect_ratio accepts only 2x3, 9x16, or 1x1; omission retains the provider default 2x3.
+
+### Fixed
+
+- **Credential redaction** — Debug logging now redacts RTZR client credentials and Sarvam subscription keys.
 
 ## [v2.12.0] — 2026-10-07
 

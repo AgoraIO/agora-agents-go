@@ -1,5 +1,7 @@
 github.com/AgoraIO-Community/go-tokenbuilder v1.4.0 h1:2zwmhpoAtqVZnZeNxltU0DBXqOtyDniGT4LBTbZETBg=
 github.com/AgoraIO-Community/go-tokenbuilder v1.4.0/go.mod h1:xqPdaiFG00M1hNN/CCYh8j+NTmkiJsQtqYdf4YAlncA=
+github.com/AgoraIO-Community/go-tokenbuilder v1.5.0 h1:gyotOgbd5lv6xxpw2TgJfrEO/ah1LmOGLC39X1fD29U=
+github.com/AgoraIO-Community/go-tokenbuilder v1.5.0/go.mod h1:xqPdaiFG00M1hNN/CCYh8j+NTmkiJsQtqYdf4YAlncA=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=

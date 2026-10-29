@@ -256,6 +256,10 @@ type GetAllTurnsOptions struct {
 
 Retrieves turn-by-turn analytics for the session. `PageIndex` starts at 1. Use `GetAllTurns` to iterate through every page with a default page size of 50 and return the final response with aggregated `Turns`.
 
+In each turn's `End.Metadata`, `PlaybackDurationMs` is the actual audio playback duration in milliseconds for `ok` and `interrupted` turns. `IntendedPlaybackDurationMs` is the intended playback duration and is included only for `interrupted` turns. For example, actual playback of `120` with an intended duration of `300` means playback was interrupted before the intended duration elapsed.
+
+Both fields are optional `*int` values. Check for `nil` before using them, including for older responses that omit playback metadata; a returned `0` is a valid duration. `GetTurns` and `GetAllTurns` preserve both fields.
+
 - **Requires:** Valid agent ID
 
 When you consume server notifications, event `112` means all turns for the session have finished and are ready to query.
