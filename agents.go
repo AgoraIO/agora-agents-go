@@ -1490,6 +1490,10 @@ type AsrVisitor interface {
 
 type SmallestAiAsrVisitor interface {
 	VisitSmallestai(*SmallestAiAsr) error
+}
+
+// StepfunAsrVisitor optionally extends AsrVisitor with StepFun ASR support.
+type StepfunAsrVisitor interface {
 	VisitStepfun(*StepfunAsr) error
 }
 
@@ -1553,7 +1557,11 @@ func (a *Asr) Accept(visitor AsrVisitor) error {
 		return smallestaiVisitor.VisitSmallestai(a.Smallestai)
 	}
 	if a.Stepfun != nil {
-		return visitor.VisitStepfun(a.Stepfun)
+		stepfunVisitor, ok := visitor.(StepfunAsrVisitor)
+		if !ok {
+			return fmt.Errorf("visitor %T does not support stepfun ASR", visitor)
+		}
+		return stepfunVisitor.VisitStepfun(a.Stepfun)
 	}
 	return fmt.Errorf("type %T does not define a non-empty union type", a)
 }
@@ -15635,12 +15643,6 @@ func (s *StepfunAsr) MarshalJSON() ([]byte, error) {
 		}
 	}
 	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, extraProperties)
-	for key, value := range s.ExtraProperties {
-		if key != "api_key" {
-			extraProperties[key] = value
-		}
-	}
-	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, extraProperties)
 }
 
 func (s *StepfunAsr) String() string {
@@ -17007,7 +17009,6 @@ type TtsVisitor interface {
 	VisitMicrosoft(*MicrosoftTts) error
 	VisitElevenlabs(*ElevenLabsTts) error
 	VisitMinimax(*MinimaxTts) error
-	VisitMinimaxDuplex(*MinimaxDuplexTts) error
 	VisitMurf(*MurfTts) error
 	VisitCartesia(*CartesiaTts) error
 	VisitOpenai(*OpenAiTts) error
@@ -17031,6 +17032,15 @@ type TtsVisitor interface {
 
 type SmallestAiTtsVisitor interface {
 	VisitSmallestai(*SmallestAiTts) error
+}
+
+// MinimaxDuplexTtsVisitor optionally extends TtsVisitor with MiniMax duplex TTS support.
+type MinimaxDuplexTtsVisitor interface {
+	VisitMinimaxDuplex(*MinimaxDuplexTts) error
+}
+
+// SonioxTtsVisitor optionally extends TtsVisitor with Soniox TTS support.
+type SonioxTtsVisitor interface {
 	VisitSoniox(*SonioxTts) error
 }
 
@@ -17051,7 +17061,11 @@ func (t *Tts) Accept(visitor TtsVisitor) error {
 		return visitor.VisitMinimax(t.Minimax)
 	}
 	if t.MinimaxDuplex != nil {
-		return visitor.VisitMinimaxDuplex(t.MinimaxDuplex)
+		minimaxDuplexVisitor, ok := visitor.(MinimaxDuplexTtsVisitor)
+		if !ok {
+			return fmt.Errorf("visitor %T does not support minimax_duplex TTS", visitor)
+		}
+		return minimaxDuplexVisitor.VisitMinimaxDuplex(t.MinimaxDuplex)
 	}
 	if t.Murf != nil {
 		return visitor.VisitMurf(t.Murf)
@@ -17118,7 +17132,11 @@ func (t *Tts) Accept(visitor TtsVisitor) error {
 		return smallestaiVisitor.VisitSmallestai(t.Smallestai)
 	}
 	if t.Soniox != nil {
-		return visitor.VisitSoniox(t.Soniox)
+		sonioxVisitor, ok := visitor.(SonioxTtsVisitor)
+		if !ok {
+			return fmt.Errorf("visitor %T does not support soniox TTS", visitor)
+		}
+		return sonioxVisitor.VisitSoniox(t.Soniox)
 	}
 	return fmt.Errorf("type %T does not define a non-empty union type", t)
 }
