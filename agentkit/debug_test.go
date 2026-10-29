@@ -58,6 +58,30 @@ func TestRedactSecretsLeavesEmptyValuesVisible(t *testing.T) {
 	assertJSONEqual(t, redacted, `{"params": {"api_key": ""}}`)
 }
 
+func TestRedactSecretsCoversRTZRAndSarvamCredentials(t *testing.T) {
+	t.Parallel()
+	redacted := RedactSecrets(map[string]interface{}{
+		"asr": map[string]interface{}{
+			"vendor": "rtzr",
+			"params": map[string]interface{}{
+				"client_id": "client-id", "client_secret": "client-secret", "model_name": "general",
+			},
+		},
+		"tts": map[string]interface{}{
+			"vendor": "sarvam", "params": map[string]interface{}{"api_subscription_key": "sarvam-key"},
+		},
+		"custom": map[string]interface{}{
+			"clientId": "client-id", "clientSecret": "client-secret", "apiSubscriptionKey": "sarvam-key",
+		},
+	})
+	assertJSONEqual(t, redacted, `{
+		"asr":{"vendor":"rtzr","params":{
+			"client_id":"[REDACTED]","client_secret":"[REDACTED]","model_name":"general"}},
+		"tts":{"vendor":"sarvam","params":{"api_subscription_key":"[REDACTED]"}},
+		"custom":{"clientId":"[REDACTED]","clientSecret":"[REDACTED]","apiSubscriptionKey":"[REDACTED]"}
+	}`)
+}
+
 func TestRedactSecretsDoesNotMutateInput(t *testing.T) {
 	params := map[string]interface{}{"api_key": debugTestAPIKey}
 	original := map[string]interface{}{"asr": map[string]interface{}{"params": params}}

@@ -69,7 +69,7 @@ func TestRequestBodyScenario1BYOKPropertiesShape(t *testing.T) {
 	asr := props["asr"].(map[string]interface{})
 	assert.Equal(t, "deepgram", asr["vendor"])
 	asrParams := asr["params"].(map[string]interface{})
-	assert.Equal(t, "dg-key", asrParams["key"])
+	assert.Equal(t, "dg-key", asrParams["api_key"])
 	assert.Equal(t, "en", asrParams["language"])
 
 	// LLM
@@ -488,7 +488,7 @@ func TestRequestBodyScenario6bBYOKASRManagedLLMBYOKTTS(t *testing.T) {
 	// ASR is BYOK — key and model both retained (nothing stripped)
 	asr := properties["asr"].(map[string]interface{})
 	asrParams := asr["params"].(map[string]interface{})
-	assert.Equal(t, "byok-asr-key", asrParams["key"])
+	assert.Equal(t, "byok-asr-key", asrParams["api_key"])
 	assert.Equal(t, "nova-2", asrParams["model"])
 
 	// LLM is managed — no api_key
@@ -674,13 +674,13 @@ func TestBYOKASRVendorShapes(t *testing.T) {
 		asr := props["asr"].(map[string]interface{})
 		assert.Equal(t, "deepgram", asr["vendor"])
 		p := asr["params"].(map[string]interface{})
-		assert.Equal(t, "dg-key", p["key"])
+		assert.Equal(t, "dg-key", p["api_key"])
 		assert.Equal(t, "nova-2", p["model"])
 		assert.Equal(t, "en", p["language"])
 	})
 
 	t.Run("Deepgram/keyterm", func(t *testing.T) {
-		// APIKey → wire key "key"; keyterm passes through unchanged
+		// APIKey serializes as api_key; keyterm passes through unchanged.
 		config := vendors.NewDeepgramSTT(vendors.DeepgramSTTOptions{
 			APIKey:   "dg-key",
 			Model:    "nova-3",
@@ -688,7 +688,7 @@ func TestBYOKASRVendorShapes(t *testing.T) {
 			Keyterm:  "term",
 		}).ToConfig()
 		p := config["params"].(map[string]interface{})
-		assert.Equal(t, "dg-key", p["key"])
+		assert.Equal(t, "dg-key", p["api_key"])
 		assert.Equal(t, "nova-3", p["model"])
 		assert.Equal(t, "en", p["language"])
 		assert.Equal(t, "term", p["keyterm"])
@@ -1537,6 +1537,7 @@ func TestPresetCoverageMatrix(t *testing.T) {
 		asr := props["asr"].(map[string]interface{})
 		asrParams, hasParams := asr["params"].(map[string]interface{})
 		if hasParams {
+			assert.NotContains(t, asrParams, "api_key")
 			assert.NotContains(t, asrParams, "key")
 			assert.NotContains(t, asrParams, "model")
 		}

@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	Agora "github.com/AgoraIO/agora-agents-go/v2"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestTTSVendorParamsMatchGeneratedCoreShapes(t *testing.T) {
@@ -396,6 +398,83 @@ func TestTTSVendorParamsMatchGeneratedCoreShapes(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			if !reflect.DeepEqual(tc.params, tc.want) {
 				t.Fatalf("params mismatch\nwant: %#v\n got: %#v", tc.want, tc.params)
+			}
+		})
+	}
+}
+
+func TestSarvamTTSMatchesGeneratedSchema(t *testing.T) {
+	t.Parallel()
+	additional := map[string]any{
+		"api_subscription_key": "ignored", "speaker": "ignored", "target_language_code": "hi-IN",
+		"speech_sample_rate": 16000, "enable_preprocessing": true, "model": "ignored",
+		"custom_option": "value",
+	}
+	config := NewSarvamTTS(SarvamTTSOptions{
+		Key: "sarvam-key", Speaker: "anushka", TargetLanguageCode: SarvamTTSLanguageEnIN,
+		Pitch: Agora.Float64(0), Pace: Agora.Float64(1), Loudness: Agora.Float64(1),
+		SpeechSampleRate: Agora.Int(24000), EnablePreprocessing: Agora.Bool(false), Model: "bulbul:v3",
+		AdditionalParams: additional, SkipPatterns: []int{1},
+	}).ToConfig()
+	expected := `{
+		"vendor":"sarvam","skip_patterns":[1],
+		"params":{
+			"api_subscription_key":"sarvam-key","speaker":"anushka","target_language_code":"en-IN",
+			"pitch":0,"pace":1,"loudness":1,"speech_sample_rate":24000,
+			"enable_preprocessing":false,"model":"bulbul:v3","custom_option":"value"
+		}
+	}`
+	payload, err := json.Marshal(config)
+	require.NoError(t, err)
+	assert.JSONEq(t, expected, string(payload))
+	assert.Equal(t, "ignored", additional["model"])
+
+	var generated Agora.Tts
+	require.NoError(t, json.Unmarshal(payload, &generated))
+	require.NotNil(t, generated.Sarvam)
+	require.NotNil(t, generated.Sarvam.Params)
+	assert.Equal(t, Agora.Int(24000), generated.Sarvam.Params.SpeechSampleRate)
+	assert.Equal(t, Agora.Bool(false), generated.Sarvam.Params.EnablePreprocessing)
+	assert.Equal(t, Agora.String("bulbul:v3"), generated.Sarvam.Params.Model)
+	payload, err = json.Marshal(generated)
+	require.NoError(t, err)
+	assert.JSONEq(t, expected, string(payload))
+}
+
+func TestSarvamTTSSampleRateCompatibility(t *testing.T) {
+	t.Parallel()
+	rate24 := SampleRate24kHz
+	rate16 := SampleRate16kHz
+	tests := []struct {
+		name       string
+		speechRate *int
+		legacyRate *int
+		expected   *SampleRate
+	}{
+		{name: "omitted leaves service defaults"},
+		{name: "new field", speechRate: Agora.Int(24000), expected: &rate24},
+		{name: "legacy alias", legacyRate: Agora.Int(16000), expected: &rate16},
+		{
+			name: "new field wins", speechRate: Agora.Int(24000), legacyRate: Agora.Int(16000),
+			expected: &rate24,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vendor := NewSarvamTTS(SarvamTTSOptions{
+				Key: "key", Speaker: "anushka", TargetLanguageCode: "en-IN",
+				SpeechSampleRate: tt.speechRate, SampleRate: tt.legacyRate,
+			})
+			assert.Equal(t, tt.expected, vendor.GetSampleRate())
+			params, ok := vendor.ToConfig()["params"].(map[string]any)
+			require.True(t, ok)
+			assert.NotContains(t, params, "sample_rate")
+			assert.NotContains(t, params, "model")
+			assert.NotContains(t, params, "enable_preprocessing")
+			if tt.expected == nil {
+				assert.NotContains(t, params, "speech_sample_rate")
+			} else {
+				assert.Equal(t, int(*tt.expected), params["speech_sample_rate"])
 			}
 		})
 	}
