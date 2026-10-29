@@ -72,7 +72,7 @@ type GenerateConvoAITokenOptions struct {
 	ChannelName     string
 	UID             int // Numeric ConvoAI participant UID for a user, agent, or avatar.
 	TokenExpire     int // Seconds until expiry (default 86400)
-	PrivilegeExpire int // 0 means same as TokenExpire
+	PrivilegeExpire int // RTC privilege lifetime; 0 means TokenExpire. RTM always uses TokenExpire.
 }
 
 // GenerateRtcToken builds an RTC token for channel access.
@@ -187,7 +187,7 @@ func GenerateConvoAIToken(opts GenerateConvoAITokenOptions) (string, error) {
 		uint32(privExpire),
 		uint32(privExpire),
 		account,
-		uint32(privExpire),
+		uint32(opts.TokenExpire),
 	)
 }
 

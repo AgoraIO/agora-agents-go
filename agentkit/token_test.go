@@ -51,7 +51,7 @@ func assertConvoAIToken(t *testing.T, value, appID, certificate, channel, accoun
 		}
 	}
 	rtm, ok := decoded.Services[accesstoken2.ServiceTypeRtm].(*accesstoken2.ServiceRtm)
-	if !ok || rtm.UserId != account || len(rtm.Privileges) != 1 || rtm.Privileges[accesstoken2.PrivilegeLogin] != privilegeTTL {
+	if !ok || rtm.UserId != account || len(rtm.Privileges) != 1 || rtm.Privileges[accesstoken2.PrivilegeLogin] != tokenTTL {
 		t.Fatal("RTM identity/privilege mismatch")
 	}
 }
@@ -63,7 +63,8 @@ func TestGenerateConvoAITokenServicesAndExpiration(t *testing.T) {
 	}{
 		{"defaults and UID zero", 0, 0, 0, 86400, 86400},
 		{"custom lifetime", 42, 3600, 0, 3600, 3600},
-		{"independent privilege lifetime", 17, 7200, 900, 7200, 900},
+		{"shorter RTC privilege lifetime", 17, 7200, 900, 7200, 900},
+		{"longer RTC privilege lifetime", 18, 900, 7200, 900, 7200},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			appID, certificate := strings.Repeat("a", 32), strings.Repeat("b", 32)

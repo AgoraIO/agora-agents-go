@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Preserved custom token expiration semantics: RTM login uses the whole-token lifetime, while `PrivilegeExpire` adjusts only RTC privileges.
 - Generated ConvoAI REST tokens include the ConvoAI product service using the official token builder; regression tests decode signatures, services, identities, expiration, and session request authorization.
 - Required provider ASR language parameters survive Platform conversion for AssemblyAI, Google, Microsoft, Sarvam, and Speechmatics.
 - Sarvam TTS sends the required `bulbul:v3` model by default, preserving explicit overrides.
