@@ -4,11 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [v3.0.0-alpha.1] — 2026-10-28
+## [v3.0.0-alpha.2] — 2026-10-29
 
 ### Changed
 
 - Corrected Platform provider serialization and documentation examples; added explicit ephemeral sessions, outbound call helpers, inbound end-call controls, optional extraction results, and compatible secret-key metadata decoding.
+
+### Fixed
+
+- Preserved Gemini URL credentials during Platform configuration normalization. SDK-generated RTC tokens are retained across failed-start retries and refreshed for new unkeyed session lifecycles after a successful start; caller-provided tokens remain unchanged.
+
+## [v3.0.0-alpha.1] — 2026-10-28
+
+### Changed
 
 - **Conversational AI v3 preview availability** — The current preview rollout is available in the US region only. This describes preview availability; the SDK keeps its existing regional routing behavior for other areas.
 
