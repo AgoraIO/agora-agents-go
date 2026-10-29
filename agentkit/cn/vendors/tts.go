@@ -128,6 +128,158 @@ func (m *MiniMaxTTS) ToConfig() map[string]interface{} {
 	return config
 }
 
+// MiniMaxDuplexVoiceSetting configures the duplex voice using fractional multipliers.
+type MiniMaxDuplexVoiceSetting struct {
+	VoiceID   string
+	Speed     *float64
+	Volume    *float64
+	Pitch     *float64
+	Emotion   string
+	LatexRead *bool
+}
+
+type MiniMaxDuplexAudioSetting struct {
+	SampleRate int
+	Format     string
+	Channels   int
+}
+
+type MiniMaxDuplexVoiceModify struct {
+	Pitch        *float64
+	Intensity    *float64
+	Timbre       *float64
+	SoundEffects string
+}
+
+type MiniMaxDuplexTTSOptions struct {
+	Key                   string
+	Model                 string
+	URL                   string
+	VoiceSetting          *MiniMaxDuplexVoiceSetting
+	AudioSetting          *MiniMaxDuplexAudioSetting
+	PronunciationDict     *MiniMaxPronunciationDict
+	VoiceModify           *MiniMaxDuplexVoiceModify
+	LanguageBoost         string
+	TextNormalizationMode string
+	SubtitleEnable        *bool
+	SubtitleType          string
+	ContinuousSound       *bool
+	SessionID             string
+	AdditionalParams      map[string]interface{}
+	SkipPatterns          []int
+}
+
+// MiniMaxDuplexTTS is the mainland China MiniMax duplex streaming provider.
+type MiniMaxDuplexTTS struct {
+	options MiniMaxDuplexTTSOptions
+}
+
+func NewMiniMaxDuplexTTS(opts MiniMaxDuplexTTSOptions) *MiniMaxDuplexTTS {
+	if opts.Key == "" {
+		panic("MiniMaxDuplexTTS requires Key")
+	}
+	if opts.Model == "" {
+		panic("MiniMaxDuplexTTS requires Model")
+	}
+	if opts.VoiceSetting == nil || opts.VoiceSetting.VoiceID == "" {
+		panic("MiniMaxDuplexTTS requires VoiceSetting.VoiceID")
+	}
+	return &MiniMaxDuplexTTS{options: opts}
+}
+
+func (m *MiniMaxDuplexTTS) GetSampleRate() *SampleRate {
+	if m.options.AudioSetting == nil || m.options.AudioSetting.SampleRate == 0 {
+		return nil
+	}
+	rate := SampleRate(m.options.AudioSetting.SampleRate)
+	return &rate
+}
+
+func (m *MiniMaxDuplexTTS) ToConfig() map[string]interface{} {
+	params := map[string]interface{}{}
+	for key, value := range m.options.AdditionalParams {
+		params[key] = value
+	}
+	params["key"] = m.options.Key
+	params["model"] = m.options.Model
+	voice := m.options.VoiceSetting
+	voiceSetting := map[string]interface{}{"voice_id": voice.VoiceID}
+	if voice.Speed != nil {
+		voiceSetting["speed"] = *voice.Speed
+	}
+	if voice.Volume != nil {
+		voiceSetting["vol"] = *voice.Volume
+	}
+	if voice.Pitch != nil {
+		voiceSetting["pitch"] = *voice.Pitch
+	}
+	if voice.Emotion != "" {
+		voiceSetting["emotion"] = voice.Emotion
+	}
+	if voice.LatexRead != nil {
+		voiceSetting["latex_read"] = *voice.LatexRead
+	}
+	params["voice_setting"] = voiceSetting
+	if audio := m.options.AudioSetting; audio != nil {
+		audioSetting := map[string]interface{}{}
+		if audio.SampleRate != 0 {
+			audioSetting["sample_rate"] = audio.SampleRate
+		}
+		if audio.Format != "" {
+			audioSetting["format"] = audio.Format
+		}
+		if audio.Channels != 0 {
+			audioSetting["channels"] = audio.Channels
+		}
+		params["audio_setting"] = audioSetting
+	}
+	if m.options.PronunciationDict != nil {
+		params["pronunciation_dict"] = map[string]interface{}{"tone": m.options.PronunciationDict.Tone}
+	}
+	if modify := m.options.VoiceModify; modify != nil {
+		voiceModify := map[string]interface{}{}
+		if modify.Pitch != nil {
+			voiceModify["pitch"] = *modify.Pitch
+		}
+		if modify.Intensity != nil {
+			voiceModify["intensity"] = *modify.Intensity
+		}
+		if modify.Timbre != nil {
+			voiceModify["timbre"] = *modify.Timbre
+		}
+		if modify.SoundEffects != "" {
+			voiceModify["sound_effects"] = modify.SoundEffects
+		}
+		params["voice_modify"] = voiceModify
+	}
+	if m.options.URL != "" {
+		params["url"] = m.options.URL
+	}
+	if m.options.LanguageBoost != "" {
+		params["language_boost"] = m.options.LanguageBoost
+	}
+	if m.options.TextNormalizationMode != "" {
+		params["text_normalization_mode"] = m.options.TextNormalizationMode
+	}
+	if m.options.SubtitleEnable != nil {
+		params["subtitle_enable"] = *m.options.SubtitleEnable
+	}
+	if m.options.SubtitleType != "" {
+		params["subtitle_type"] = m.options.SubtitleType
+	}
+	if m.options.ContinuousSound != nil {
+		params["continuous_sound"] = *m.options.ContinuousSound
+	}
+	if m.options.SessionID != "" {
+		params["session_id"] = m.options.SessionID
+	}
+	config := map[string]interface{}{"vendor": "minimax_duplex", "params": params}
+	if m.options.SkipPatterns != nil {
+		config["skip_patterns"] = m.options.SkipPatterns
+	}
+	return config
+}
+
 type TencentTTSOptions struct {
 	AppID            string
 	SecretID         string

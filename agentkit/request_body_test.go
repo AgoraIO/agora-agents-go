@@ -4,7 +4,9 @@ import (
 	"testing"
 
 	Agora "github.com/AgoraIO/agora-agents-go/v2"
+	cnvendors "github.com/AgoraIO/agora-agents-go/v2/agentkit/cn/vendors"
 	"github.com/AgoraIO/agora-agents-go/v2/agentkit/vendors"
+	"github.com/AgoraIO/agora-agents-go/v2/option"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -1697,4 +1699,29 @@ func ptrInt(v int) *int {
 
 func ptrFloat(v float64) *float64 {
 	return &v
+}
+
+func TestMiniMaxDuplexAndStepFunProperties(t *testing.T) {
+	t.Parallel()
+	tts := cnvendors.NewMiniMaxDuplexTTS(cnvendors.MiniMaxDuplexTTSOptions{
+		Key: "k", Model: "speech-2.8-turbo", VoiceSetting: &cnvendors.MiniMaxDuplexVoiceSetting{VoiceID: "v"},
+	})
+	client := NewAgoraClient(AgoraClientOptions{
+		Area: option.AreaCN, AppID: "test-app-id", AppCertificate: "test-certificate",
+	})
+	agent := NewAgent(client).
+		WithStt(cnvendors.NewStepFunSTT(cnvendors.StepFunSTTOptions{APIKey: "step-key"})).
+		WithLlm(vendors.NewOpenAI(vendors.OpenAIOptions{Model: "gpt-4o-mini"})).
+		WithTts(tts)
+	props, err := agent.ToProperties(basePropertiesOpts())
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertJSONEqual(t, props.Tts, `{
+		"vendor":"minimax_duplex","params":{"key":"k","model":"speech-2.8-turbo","voice_setting":{"voice_id":"v"}}
+	}`)
+	assertJSONEqual(t, props.Asr, `{"vendor":"stepfun","language":"en-US","params":{"api_key":"step-key"}}`)
+	if props.Asr.Stepfun == nil || props.Tts.MinimaxDuplex == nil {
+		t.Fatal("new vendors were not decoded into their generated union variants")
+	}
 }

@@ -88,6 +88,7 @@ agent := agentkit.NewAgent(client).WithLlm(llm)
 | `NewMistralTTS` | `MistralTTSOptions` | `APIKey` |
 | `NewTypecastTTS` | `TypecastTTSOptions` | `APIKey`, `VoiceID`, `Model` |
 | `NewSmallestAITTS` | `SmallestAITTSOptions` | `APIKey` |
+| `NewSonioxTTS` | `SonioxTTSOptions` | `APIKey` |
 
 `NewGenericTTS` is available in both `agentkit/vendors` and `agentkit/cn/vendors`. The required `URL` must be an absolute HTTP or HTTPS URL; other schemes are currently rejected. Supported URLs serialize with `vendor: "generic_http"`. All other fields are optional, and `AdditionalParams` forwards provider-specific values under `tts.params`; explicitly set named fields take precedence over matching additional parameters.
 
@@ -225,6 +226,7 @@ REST `asr.language` comes from `TurnDetectionConfig.Language` (default `en-US`),
 |---|---|---|
 | `NewFengmingSTT()` / `NewFengmingSTT(FengmingSTTOptions)` | `fengming` | none; optional `Keywords` and `AdditionalParams` |
 | `NewTencentSTT` | `tencent` | `Key`, `AppID`, `Secret` |
+| `NewStepFunSTT` | `stepfun` | `APIKey` |
 | `NewMicrosoftSTT` | `microsoft` | `Key`, `Region`, `Language` (in `params.language`) |
 | `NewXfyunSTT` | `xfyun` | `APIKey`, `AppID`, `APISecret`; `Language` optional in `params` |
 | `NewXfyunBigModelSTT` | `xfyun_bigmodel` | `APIKey`, `AppID`, `APISecret`; `Language` / `LanguageName` optional in `params` |
@@ -239,6 +241,7 @@ All CN TTS option structs support `AdditionalParams` and `SkipPatterns`.
 | Constructor | Wire `vendor` |
 |---|---|
 | `NewMiniMaxTTS` | `minimax` |
+| `NewMiniMaxDuplexTTS` | `minimax_duplex` (CN only; requires `Key`, `Model`, `VoiceSetting.VoiceID`) |
 | `NewTencentTTS` | `tencent` |
 | `NewMicrosoftTTS` | `microsoft` |
 | `NewGenericTTS` | `generic_http` |
