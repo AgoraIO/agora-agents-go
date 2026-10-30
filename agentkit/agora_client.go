@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"strings"
 
 	Agora "github.com/AgoraIO/agora-agents-go/v2"
 	"github.com/AgoraIO/agora-agents-go/v2/agentmanagement"
@@ -14,6 +16,7 @@ import (
 	"github.com/AgoraIO/agora-agents-go/v2/option"
 	"github.com/AgoraIO/agora-agents-go/v2/phonenumbers"
 	"github.com/AgoraIO/agora-agents-go/v2/telephony"
+	"github.com/AgoraIO/agora-agents-go/v2/v3"
 )
 
 // AuthMode represents the authentication mode for the Agora client.
@@ -23,10 +26,10 @@ const (
 	// AuthModeAppCredentials uses AppID + AppCertificate to auto-generate a
 	// short-lived ConvoAI token per API call — no Customer Secret required.
 	AuthModeAppCredentials AuthMode = "app-credentials"
-	// AuthModeBasic uses HTTP Basic Auth with a Customer ID and Customer Secret.
-	AuthModeBasic AuthMode = "basic"
 	// AuthModeToken uses a pre-built Agora token passed as the Authorization header.
 	AuthModeToken AuthMode = "token"
+	// AuthModeBasic uses a Customer ID and Customer Secret.
+	AuthModeBasic AuthMode = "basic"
 )
 
 // AgoraClientOptions contains configuration for creating an AgoraClient.
@@ -37,16 +40,21 @@ type AgoraClientOptions struct {
 	AppID string
 	// AppCertificate is used to sign tokens. Keep this value secret.
 	AppCertificate string
-	// CustomerID and CustomerSecret are used for Basic auth (from Agora Console).
-	// Mutually exclusive with Token.
-	CustomerID     string
-	CustomerSecret string
 	// Token is a pre-built raw Agora token for REST API authentication.
 	// The SDK sets "Authorization: agora token=<Token>" automatically.
-	// Mutually exclusive with CustomerID/CustomerSecret.
 	Token string
+	// CustomerID and CustomerSecret select Basic auth. Both are required and cannot be combined with Token.
+	// AppCertificate may still be supplied to generate RTC transport tokens.
+	CustomerID     string
+	CustomerSecret string
 	// HTTPClient overrides the transport used for requests.
 	HTTPClient core.HTTPClient
+	// V3 configures the v3 origin and staging gateway headers independently.
+	V3 *V3Options
+}
+
+type V3Options struct {
+	BaseURL string
 }
 
 // AgoraClient wraps the Fern-generated client with AppID, AppCertificate, and
@@ -55,14 +63,22 @@ type AgoraClientOptions struct {
 // Agents, AgentManagement, Telephony, and PhoneNumbers expose the underlying
 // REST clients for advanced usage.
 type AgoraClient struct {
+	Area            option.Area
 	Agents          *agents.Client
 	AgentManagement *agentmanagement.Client
 	Telephony       *telephony.Client
 	PhoneNumbers    *phonenumbers.Client
-	appID           string
-	appCertificate  string
-	AuthMode        AuthMode
-	httpClient      core.HTTPClient
+	// Secrets and Numbers are the version-neutral AgentKit accessors for the
+	// same project-scoped resources exposed under V3.
+	Secrets   *v3.SecretsClient
+	Numbers   *v3.NumbersClient
+	Campaigns *v3.CampaignsClient
+	// V3 exposes the complete low-level API, including sessions and raw CRUD.
+	V3             *v3.Client
+	appID          string
+	appCertificate string
+	AuthMode       AuthMode
+	httpClient     core.HTTPClient
 }
 
 func (c *AgoraClient) AgentsClient() *agents.Client {
@@ -99,16 +115,6 @@ func (c *AgoraClient) HTTPClient() core.HTTPClient {
 //	    AppCertificate: "your-app-certificate",
 //	})
 //
-// Basic auth mode:
-//
-//	c := agentkit.NewAgoraClient(agentkit.AgoraClientOptions{
-//	    Area:           option.AreaUS,
-//	    AppID:          "your-app-id",
-//	    AppCertificate: "your-app-certificate",
-//	    CustomerID:     "your-customer-id",
-//	    CustomerSecret: "your-customer-secret",
-//	})
-//
 // Token auth mode (pre-built token):
 //
 //	c := agentkit.NewAgoraClient(agentkit.AgoraClientOptions{
@@ -123,26 +129,90 @@ func NewAgoraClient(opts AgoraClientOptions) *AgoraClient {
 		reqOpts = append(reqOpts, option.WithHTTPClient(opts.HTTPClient))
 	}
 
+	if (opts.CustomerID != "" || opts.CustomerSecret != "") && (strings.TrimSpace(opts.CustomerID) == "" || strings.TrimSpace(opts.CustomerSecret) == "") {
+		panic("CustomerID and CustomerSecret must both be supplied")
+	}
+	if strings.Contains(opts.CustomerID, ":") {
+		panic("CustomerID cannot contain a colon")
+	}
+	if opts.CustomerID != "" && opts.Token != "" {
+		panic("Basic authentication and Token are mutually exclusive")
+	}
 	authMode := AuthModeAppCredentials
 	if opts.CustomerID != "" {
 		authMode = AuthModeBasic
 		reqOpts = append(reqOpts, option.WithBasicAuth(opts.CustomerID, opts.CustomerSecret))
-	} else if opts.Token != "" {
+	}
+	if opts.Token != "" {
 		authMode = AuthModeToken
 		reqOpts = append(reqOpts, option.WithToken(opts.Token))
 	}
 
+	if authMode == AuthModeAppCredentials && opts.AppCertificate != "" {
+		transport := opts.HTTPClient
+		if transport == nil {
+			transport = http.DefaultClient
+		}
+		reqOpts = append(reqOpts, option.WithHTTPClient(&appCredentialsHTTPClient{transport: transport, appID: opts.AppID, appCertificate: opts.AppCertificate}))
+	}
 	c := client.NewClient(reqOpts...)
+	v3Opts := append([]option.RequestOption(nil), reqOpts...)
+	if opts.V3 != nil {
+		if opts.V3.BaseURL != "" {
+			v3Opts = append(v3Opts, option.WithBaseURL(opts.V3.BaseURL))
+		}
+	}
+	if opts.V3 == nil || opts.V3.BaseURL == "" {
+		// Area options set the legacy v2 gateway URL. V3 uses its own public
+		// origin unless the environment override is configured.
+		baseURL := os.Getenv("AGORA_AGENTS_V3_BASE_URL")
+		if baseURL == "" {
+			baseURL = "https://preview.ai.agora.io"
+		}
+		v3Opts = append(v3Opts, option.WithBaseURL(baseURL))
+	}
+	v3Client := v3.NewClient(opts.AppID, v3Opts...)
 	return &AgoraClient{
+		Area:            opts.Area,
 		Agents:          c.Agents,
 		AgentManagement: c.AgentManagement,
 		Telephony:       c.Telephony,
 		PhoneNumbers:    c.PhoneNumbers,
+		Secrets:         v3Client.Secrets,
+		Numbers:         v3Client.Numbers,
+		Campaigns:       v3Client.Campaigns,
+		V3:              v3Client,
 		appID:           opts.AppID,
 		appCertificate:  opts.AppCertificate,
 		AuthMode:        authMode,
 		httpClient:      opts.HTTPClient,
 	}
+}
+
+// appCredentialsHTTPClient signs requests without an explicit token. Both
+// legacy and preview resources share the existing ConvoAI token system.
+type appCredentialsHTTPClient struct {
+	transport             core.HTTPClient
+	appID, appCertificate string
+}
+
+func (c *appCredentialsHTTPClient) Do(req *http.Request) (*http.Response, error) {
+	for name, values := range req.Header {
+		if strings.EqualFold(name, "Authorization") {
+			for _, value := range values {
+				if value != "" {
+					return c.transport.Do(req)
+				}
+			}
+		}
+	}
+	token, err := GenerateConvoAIToken(GenerateConvoAITokenOptions{AppID: c.appID, AppCertificate: c.appCertificate, ChannelName: "v3", UID: 0})
+	if err != nil {
+		return nil, err
+	}
+	clone := req.Clone(req.Context())
+	clone.Header.Set("Authorization", "agora token="+token)
+	return c.transport.Do(clone)
 }
 
 // StopAgent stops an agent by its ID without requiring an AgentSession reference.

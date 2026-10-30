@@ -103,7 +103,7 @@ func (r *Retrier) run(
 		return nil, err
 	}
 
-	if r.shouldRetry(response) {
+	if retryAttempt+1 < maxRetryAttempts && r.shouldRetry(response) {
 		defer response.Body.Close()
 
 		delay, err := r.retryDelay(response, retryAttempt)

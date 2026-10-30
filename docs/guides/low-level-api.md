@@ -6,6 +6,8 @@ description: Use generated clients for advanced operations while keeping app-cre
 
 # Low-Level API
 
+For stored Conversational AI v3 configurations, secrets, project-scoped numbers, and sessions, see the [v3 preview guide](./v3-preview.md). That client is handwritten against the staging schema; the clients below are generated for v2.
+
 For starting and managing realtime agent sessions, prefer the AgentKit builder:
 
 - create `agentkit.NewAgoraClient` with `AppID` and `AppCertificate`

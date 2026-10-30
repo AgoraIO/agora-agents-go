@@ -10,6 +10,7 @@ import (
 	option "github.com/AgoraIO/agora-agents-go/v2/option"
 	phonenumbers "github.com/AgoraIO/agora-agents-go/v2/phonenumbers"
 	telephony "github.com/AgoraIO/agora-agents-go/v2/telephony"
+	v3 "github.com/AgoraIO/agora-agents-go/v2/v3"
 )
 
 type Client struct {
@@ -17,6 +18,7 @@ type Client struct {
 	AgentManagement *agentmanagement.Client
 	Telephony       *telephony.Client
 	PhoneNumbers    *phonenumbers.Client
+	V3              *v3.Client
 
 	options *core.RequestOptions
 	baseURL string
@@ -30,6 +32,7 @@ func NewClient(opts ...option.RequestOption) *Client {
 		AgentManagement: agentmanagement.NewClient(options),
 		Telephony:       telephony.NewClient(options),
 		PhoneNumbers:    phonenumbers.NewClient(options),
+		V3:              v3.NewClient("", opts...),
 		options:         options,
 		baseURL:         options.BaseURL,
 		caller: internal.NewCaller(

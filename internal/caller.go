@@ -72,6 +72,15 @@ type CallResponse struct {
 
 // Call issues an API call according to the given call parameters.
 func (c *Caller) Call(ctx context.Context, params *CallParams) (*CallResponse, error) {
+	if err := core.ValidatePublicAuthorization(params.Headers); err != nil {
+		return nil, err
+	}
+	for name := range params.Headers {
+		lowerName := strings.ToLower(name)
+		if strings.HasPrefix(lowerName, "x-studio-") || lowerName == "x-consumer-username" {
+			return nil, fmt.Errorf("header %q is reserved for internal routing and cannot be sent by the SDK", name)
+		}
+	}
 	url := buildURL(params.URL, params.QueryParameters)
 	req, err := newRequest(
 		ctx,

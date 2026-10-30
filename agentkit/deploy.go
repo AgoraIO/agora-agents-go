@@ -1,0 +1,1182 @@
+package agentkit
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"math/big"
+	"net/http"
+	"net/url"
+	"regexp"
+	"sort"
+	"strings"
+	"time"
+	"unicode/utf8"
+
+	agentcore "github.com/AgoraIO/agora-agents-go/v2/agentkit/core"
+	"github.com/AgoraIO/agora-agents-go/v2/core"
+	"github.com/AgoraIO/agora-agents-go/v2/v3"
+)
+
+var (
+	ErrUnsupportedField      = errors.New("agentkit: fields cannot be mapped to v3")
+	ErrPreconditionFailed    = errors.New("agentkit: precondition failed; fetch a fresh ETag")
+	ErrNumberNotFound        = errors.New("agentkit: number not found in this project")
+	ErrSecretRefNotSupported = agentcore.ErrSecretRefNotSupported
+)
+
+var variableNameRE = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
+var secretPartRE = regexp.MustCompile(`^[A-Za-z0-9_]{1,64}$`)
+
+// SecretRef returns a reference accepted by v3 provider credentials.
+// Invalid components panic because the returned string has no error channel.
+func SecretRef(set, key string) string {
+	if !secretPartRE.MatchString(set) || !secretPartRE.MatchString(key) {
+		panic("agentkit: invalid secret reference component")
+	}
+	return "$secrets." + set + "." + key
+}
+
+type VariableDefinition = v3.VariableDefinition
+
+// Project resource aliases let AgentKit users provision secrets and numbers
+// without importing the versioned low-level package.
+type SecretCreate = v3.SecretCreate
+type SecretSet = v3.SecretSet
+type SecretUpdate = v3.SecretUpdate
+type SecretReplace = v3.SecretReplace
+type SecretKeyWrite = v3.SecretKeyWrite
+type SecretKeyOptions = v3.SecretKeyOptions
+type SecretKey = v3.SecretKey
+type NumberCreate = v3.NumberCreate
+type Number = v3.Number
+type SipTrunk = v3.SipTrunk
+type SipAuth = v3.SipAuth
+type Inbound = v3.Inbound
+type InboundCallPolicy = v3.InboundCallPolicy
+type InboundEndCallPolicy = v3.InboundEndCallPolicy
+
+func shouldStartEphemeralV3(base *agentcore.BaseAgent, opts CreateSessionOptions) bool {
+	if base == nil {
+		return false
+	}
+	if len(base.Variables) > 0 || opts.ClientReference != "" || opts.MaxDuration != nil || opts.Labels != nil || opts.Values != nil || opts.Encryption != nil || opts.Geofence != nil || opts.AudioScenario != "" || opts.GracefulStop != nil || opts.DataPolicy != nil || opts.IdempotencyKey != "" || base.Geofence != nil || base.AudioScenario != nil || (base.Parameters != nil && (base.Parameters.FarewellConfig != nil || base.Parameters.OptOut != nil)) {
+		return true
+	}
+	for _, module := range []map[string]interface{}{base.STT, base.LLM, base.TTS, base.MLLM, base.Avatar} {
+		if containsSecretReference(module) {
+			return true
+		}
+	}
+	return false
+}
+
+// toV3Session removes legacy agent-level fields that the session API carries
+// in transport, lifecycle, or data_policy instead.
+func (a *Agent) toV3Session() (v3.AgentCreate, error) {
+	if a == nil || a.base == nil {
+		return v3.AgentCreate{}, errors.New("agentkit: agent config is required")
+	}
+	copyAgent := *a
+	copyBase := *a.base
+	copyBase.Geofence = nil
+	copyBase.AudioScenario = nil
+	copyBase.Labels = nil
+	if copyBase.Parameters != nil {
+		parameters := *copyBase.Parameters
+		parameters.FarewellConfig = nil
+		parameters.OptOut = nil
+		copyBase.Parameters = &parameters
+	}
+	copyAgent.base = &copyBase
+	return copyAgent.toV3("")
+}
+
+func containsSecretReference(value any) bool {
+	switch item := value.(type) {
+	case string:
+		return strings.HasPrefix(strings.TrimSpace(item), "$secrets.")
+	case map[string]interface{}:
+		for _, child := range item {
+			if containsSecretReference(child) {
+				return true
+			}
+		}
+	case []interface{}:
+		for _, child := range item {
+			if containsSecretReference(child) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func WithVariable(name string, def VariableDefinition) AgentOption {
+	if err := validateVariable(name, def); err != nil {
+		panic(err)
+	}
+	// Capture caller-owned slices now, then copy again for each application.
+	// Reusing an option must not alias builders or mutate this closure.
+	def.Options = append([]any(nil), def.Options...)
+	return func(a *agentcore.BaseAgent) {
+		if a.Variables == nil {
+			a.Variables = map[string]VariableDefinition{}
+		}
+		value := def
+		value.Options = append([]any(nil), def.Options...)
+		a.Variables[name] = value
+	}
+}
+
+func (a *Agent) WithVariable(name string, def VariableDefinition) *Agent {
+	if err := validateVariable(name, def); err != nil {
+		panic(err)
+	}
+	clone := a.base.Clone()
+	if clone.Variables == nil {
+		clone.Variables = map[string]VariableDefinition{}
+	}
+	def.Options = append([]any(nil), def.Options...)
+	clone.Variables[name] = def
+	return &Agent{base: clone}
+}
+func validateVariable(name string, def VariableDefinition) error {
+	if !variableNameRE.MatchString(name) {
+		return fmt.Errorf("agentkit: invalid variable name %q", name)
+	}
+	switch def.Type {
+	case "str", "int", "float", "bool", "date", "datetime":
+	default:
+		return fmt.Errorf("agentkit: invalid variable type for %s", name)
+	}
+	if def.Extract && strings.TrimSpace(def.Description) == "" {
+		return fmt.Errorf("agentkit: extracted variable %s requires description", name)
+	}
+	if utf8.RuneCountInString(def.Description) > 2000 {
+		return fmt.Errorf("agentkit: variable %s description exceeds 2000 characters", name)
+	}
+	if def.Options != nil {
+		if len(def.Options) < 1 || len(def.Options) > 100 {
+			return fmt.Errorf("agentkit: variable %s options must contain 1-100 scalars", name)
+		}
+		seen := make(map[string]bool, len(def.Options))
+		for _, v := range def.Options {
+			var kind string
+			switch v.(type) {
+			case string:
+				kind = "string:"
+			case bool:
+				kind = "bool:"
+			case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64:
+				kind = "number:"
+			default:
+				return fmt.Errorf("agentkit: variable %s option is not a scalar", name)
+			}
+			encoded, err := json.Marshal(v)
+			if err != nil {
+				return fmt.Errorf("agentkit: variable %s option is not a JSON scalar: %w", name, err)
+			}
+			value := string(encoded)
+			if kind == "number:" {
+				// Compare the numbers actually sent as JSON, including integral
+				// floats and signed zero, without rounding large integer values.
+				number, ok := new(big.Rat).SetString(value)
+				if !ok {
+					return fmt.Errorf("agentkit: variable %s option is not a JSON number", name)
+				}
+				value = number.RatString()
+			}
+			key := kind + value
+			if seen[key] {
+				return fmt.Errorf("agentkit: variable %s options must be unique", name)
+			}
+			seen[key] = true
+		}
+	}
+	return nil
+}
+
+// SaveOptions identifies the stored configuration to create or update.
+// Leave AgentID empty to create a new saved agent.
+type SaveOptions struct {
+	Name    string
+	AgentID string
+}
+
+// DeployOptions is retained for source compatibility. New code should use SaveOptions.
+type DeployOptions = SaveOptions
+
+// SavedAgent represents a stored agent. Raw exposes the low-level client.
+type SavedAgent struct {
+	ID     string
+	ETag   string
+	Name   string
+	Raw    *v3.AgentsClient
+	client *AgoraClient
+}
+
+// DeployedAgent is retained as a source-compatible name for SavedAgent.
+type DeployedAgent = SavedAgent
+
+// Save creates a stored configuration, or updates the saved agent identified
+// by opts.AgentID. It does not start a running session.
+func (a *Agent) Save(ctx context.Context, opts SaveOptions) (*SavedAgent, error) {
+	return a.save(ctx, opts.Name, opts.AgentID)
+}
+
+// Deploy is retained for source compatibility. New code should use Save.
+func (a *Agent) Deploy(ctx context.Context, opts DeployOptions) (*DeployedAgent, error) {
+	return a.save(ctx, opts.Name, opts.AgentID)
+}
+
+func (a *Agent) save(ctx context.Context, name, id string) (*SavedAgent, error) {
+	if a == nil || a.base == nil {
+		return nil, errors.New("agentkit: agent is required")
+	}
+	c, ok := a.base.Client.(*AgoraClient)
+	if !ok || c == nil {
+		return nil, errors.New("agentkit: save requires AgoraClient")
+	}
+	if name == "" {
+		name = fmt.Sprintf("agent-%d", time.Now().Unix())
+	}
+	body, err := a.toV3(name)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateSavedCredentials(body.Pipeline); err != nil {
+		return nil, err
+	}
+	if id == "" {
+		r, err := c.V3.Agents.Create(ctx, body)
+		if err != nil {
+			return nil, err
+		}
+		return &DeployedAgent{ID: r.Body.AgentID, ETag: r.ETag, Name: r.Body.AgentName, Raw: c.V3.Agents, client: c}, nil
+	}
+	current, err := c.V3.Agents.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	patch, err := deployPatch(current.Body, body)
+	if err != nil {
+		return nil, err
+	}
+	r, err := c.V3.Agents.Update(ctx, id, current.ETag, patch)
+	if err != nil {
+		return nil, translatePrecondition(err)
+	}
+	return &SavedAgent{ID: r.Body.AgentID, ETag: r.ETag, Name: r.Body.AgentName, Raw: c.V3.Agents, client: c}, nil
+}
+
+func validateSavedCredentials(pipeline *v3.Pipeline) error {
+	if pipeline == nil {
+		return nil
+	}
+	for _, module := range []map[string]any{pipeline.ASR, pipeline.LLM, pipeline.TTS, pipeline.Avatar} {
+		credential, _ := module["credential"].(map[string]any)
+		fields, _ := credential["fields"].(map[string]string)
+		for name, value := range fields {
+			if !strings.HasPrefix(value, "$secrets.") || !validSecretReference(value) {
+				return fmt.Errorf("agentkit: saved-agent credential %s must use SecretRef(set, key); direct credentials are allowed only in ephemeral session configs", name)
+			}
+		}
+	}
+	return nil
+}
+
+func validSecretReference(value string) bool {
+	parts := strings.Split(value, ".")
+	return len(parts) == 3 && parts[0] == "$secrets" && secretPartRE.MatchString(parts[1]) && secretPartRE.MatchString(parts[2])
+}
+
+// GetSavedAgent loads a stored configuration by ID.
+func GetSavedAgent(ctx context.Context, c *AgoraClient, id string) (*SavedAgent, error) {
+	if c == nil {
+		return nil, errors.New("agentkit: client is required")
+	}
+	r, err := c.V3.Agents.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return &SavedAgent{ID: r.Body.AgentID, ETag: r.ETag, Name: r.Body.AgentName, Raw: c.V3.Agents, client: c}, nil
+}
+
+// GetDeployedAgent is retained for source compatibility. New code should use GetSavedAgent.
+func GetDeployedAgent(ctx context.Context, c *AgoraClient, id string) (*DeployedAgent, error) {
+	return GetSavedAgent(ctx, c, id)
+}
+
+// Update saves config over this stored agent and returns a handle with the new
+// ETag. Both handles must belong to the same AgoraClient instance.
+func (d *SavedAgent) Update(ctx context.Context, config *Agent) (*SavedAgent, error) {
+	if d == nil || d.client == nil || d.ID == "" {
+		return nil, errors.New("agentkit: saved agent with ID and client is required")
+	}
+	if config == nil || config.base == nil {
+		return nil, errors.New("agentkit: agent config is required")
+	}
+	c, ok := config.base.Client.(*AgoraClient)
+	if !ok || c != d.client {
+		return nil, errors.New("agentkit: saved agent update requires the same AgoraClient instance")
+	}
+	return config.Save(ctx, SaveOptions{Name: d.Name, AgentID: d.ID})
+}
+
+// CreateSession builds a v3 session that starts this saved agent. V3 session
+// objects have their own lifecycle; legacy actions such as Say are unsupported.
+func (d *SavedAgent) CreateSession(opts CreateSessionOptions) *AgentSession {
+	if d == nil || d.client == nil || d.ID == "" {
+		return &AgentSession{
+			backend:  sessionBackendV3Saved,
+			status:   StatusIdle,
+			handlers: make(map[string][]EventHandler),
+			initErr:  errors.New("agentkit: saved agent with ID and client is required"),
+		}
+	}
+	session := newV3AgentSession(NewAgent(d.client), d.client, opts, d.ID)
+	return session
+}
+
+func (d *SavedAgent) Delete(ctx context.Context) error {
+	_, err := d.Raw.Delete(ctx, d.ID)
+	return err
+}
+
+func translatePrecondition(err error) error {
+	var apiErr *core.APIError
+	if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusPreconditionFailed {
+		return errors.Join(ErrPreconditionFailed, err)
+	}
+	return err
+}
+
+func (a *Agent) toV3(name string) (v3.AgentCreate, error) {
+	b := a.base
+	if b.MLLM != nil {
+		return v3.AgentCreate{}, fmt.Errorf("%w: MLLM is not supported by the preview API", ErrUnsupportedField)
+	}
+	unsupported := []string{}
+	if b.PipelineID != "" {
+		unsupported = append(unsupported, "pipelineId")
+	}
+	if b.Sal != nil {
+		unsupported = append(unsupported, "sal")
+	}
+	if b.AdvancedFeatures != nil {
+		unsupported = append(unsupported, "advancedFeatures")
+	}
+	if b.Geofence != nil {
+		unsupported = append(unsupported, "geofence")
+	}
+	if len(b.Labels) > 0 {
+		unsupported = append(unsupported, "labels")
+	}
+	if b.RTC != nil {
+		unsupported = append(unsupported, "rtc")
+	}
+	if b.AudioScenario != nil {
+		unsupported = append(unsupported, "audioScenario")
+	}
+	if b.Parameters != nil {
+		m, _ := agentcore.StructToMap(b.Parameters)
+		for k, v := range m {
+			if k != "silence_config" && v != nil {
+				unsupported = append(unsupported, "parameters."+k)
+			}
+		}
+	}
+	for name, def := range b.Variables {
+		if err := validateVariable(name, def); err != nil {
+			unsupported = append(unsupported, fmt.Sprintf("variables.%s (%v)", name, err))
+		}
+	}
+	pipe := &v3.Pipeline{Mode: "cascaded"}
+	var modules []struct {
+		name   string
+		config map[string]interface{}
+		target *map[string]any
+	}
+	if b.STT != nil {
+		modules = append(modules, struct {
+			name   string
+			config map[string]interface{}
+			target *map[string]any
+		}{"asr", b.STT, &pipe.ASR})
+	}
+	if b.LLM != nil {
+		modules = append(modules, struct {
+			name   string
+			config map[string]interface{}
+			target *map[string]any
+		}{"llm", b.LLM, &pipe.LLM})
+	}
+	if b.TTS != nil {
+		modules = append(modules, struct {
+			name   string
+			config map[string]interface{}
+			target *map[string]any
+		}{"tts", b.TTS, &pipe.TTS})
+	}
+	if b.Avatar != nil {
+		modules = append(modules, struct {
+			name   string
+			config map[string]interface{}
+			target *map[string]any
+		}{"avatar", b.Avatar, &pipe.Avatar})
+	}
+	for _, m := range modules {
+		converted, bad := convertModule(m.name, m.config)
+		*m.target = converted
+		unsupported = append(unsupported, bad...)
+	}
+	turn := b.TurnDetection
+	if turn != nil && turn.Language != nil {
+		if pipe.ASR == nil {
+			pipe.ASR = map[string]any{"vendor": "ares", "credential": map[string]any{"mode": "managed"}}
+		}
+		language := string(*turn.Language)
+		if language == "" {
+			language = "en-US"
+		}
+		pipe.ASR["language"] = language
+		if vendor, _ := pipe.ASR["vendor"].(string); asrNeedsParameterLanguage(vendor) {
+			params, _ := pipe.ASR["params"].(map[string]any)
+			if params == nil {
+				params = map[string]any{}
+				pipe.ASR["params"] = params
+			}
+			if _, exists := params["language"]; !exists {
+				params["language"] = language
+			}
+		}
+	}
+	if turn != nil {
+		td, bad := convertTurnDetection(turn, b.Interruption)
+		pipe.TurnDetection = td
+		unsupported = append(unsupported, bad...)
+	} else if b.Interruption != nil {
+		m, _ := agentcore.StructToMap(b.Interruption)
+		pipe.TurnDetection = map[string]any{"interruption": convertInterruption(m)}
+	}
+	if b.Parameters != nil && b.Parameters.SilenceConfig != nil {
+		m, _ := agentcore.StructToMap(b.Parameters.SilenceConfig)
+		m["enabled"] = true
+		pipe.SilenceConfig = m
+	}
+	var out v3.AgentCreate
+	out.AgentName = name
+	out.Pipeline = pipe
+	out.Variables = b.Variables
+	llm := b.LLM
+	if llm != nil {
+		if x, ok := llm["template_variables"]; ok && x != nil && !emptyValue(x) {
+			unsupported = append(unsupported, "llm.template_variables")
+		}
+		if x, ok := llm["system_messages"]; ok && x != nil {
+			msgs, bad := convertMessages(x)
+			out.Instructions, out.Messages = splitMessages(msgs)
+			unsupported = append(unsupported, bad...)
+		}
+		if x, ok := llm["messages"]; ok && x != nil {
+			msgs, bad := convertMessages(x)
+			out.Instructions, out.Messages = splitMessages(msgs)
+			unsupported = append(unsupported, bad...)
+		}
+	}
+	if out.Instructions == nil && b.Instructions != "" {
+		out.Instructions = &b.Instructions
+	}
+	if pipe.LLM != nil {
+		if _, ok := pipe.LLM["max_history"]; !ok && b.MaxHistory != nil {
+			pipe.LLM["max_history"] = *b.MaxHistory
+		}
+		if _, ok := pipe.LLM["failure_message"]; !ok && b.FailureMessage != "" {
+			pipe.LLM["failure_message"] = b.FailureMessage
+		}
+	} else {
+		if b.MaxHistory != nil {
+			unsupported = append(unsupported, "maxHistory")
+		}
+		if b.FailureMessage != "" {
+			unsupported = append(unsupported, "failureMessage")
+		}
+	}
+	greetingText := b.Greeting
+	if llm != nil {
+		if s, ok := llm["greeting_message"].(string); ok && s != "" {
+			greetingText = s
+		}
+	}
+	var gc map[string]interface{}
+	if b.GreetingConfigs != nil {
+		gc = *b.GreetingConfigs
+	}
+	if llm != nil {
+		if x, ok := llm["greeting_configs"]; ok && x != nil {
+			if m, ok := x.(map[string]interface{}); ok {
+				gc = m
+			}
+		}
+	}
+	greet := map[string]any{}
+	if greetingText != "" {
+		greet["mode"] = "text"
+		greet["text"] = greetingText
+	}
+	if llm != nil {
+		if audio, ok := llm["greeting_audio_url"].(string); ok && audio != "" {
+			greet["mode"] = "audio"
+			greet["url"] = audio
+			greet["text"] = greetingText
+		}
+	}
+	if len(gc) > 0 && len(greet) == 0 {
+		unsupported = append(unsupported, "greetingConfigs without greeting")
+	}
+	if gc != nil {
+		if mode, exists := gc["mode"]; exists {
+			var on string
+			switch mode {
+			case "single_every":
+				on = "each_join"
+			case "single_first":
+				on = "first_join"
+			default:
+				unsupported = append(unsupported, "greetingConfigs.mode")
+			}
+			if _, explicit := gc["on"]; !explicit && on != "" {
+				greet["on"] = on
+			}
+		}
+		for k, v := range gc {
+			switch k {
+			case "mode": // Legacy aliases are normalized above; explicit on wins.
+			case "on", "delay_ms":
+				greet[k] = v
+			case "audio_download_timeout_ms", "audio_pcm_sample_rate":
+				if v == nil {
+					continue
+				}
+				if greet["mode"] != "audio" {
+					unsupported = append(unsupported, "greetingConfigs."+k+" requires audio greeting")
+					continue
+				}
+				field := "download_timeout_ms"
+				if k == "audio_pcm_sample_rate" {
+					field = "pcm_sample_rate"
+				}
+				greet[field] = v
+			default:
+				unsupported = append(unsupported, "greetingConfigs."+k)
+			}
+		}
+	}
+	if len(greet) > 0 {
+		out.Greeting = greet
+	}
+	if b.FillerWords != nil {
+		m, _ := agentcore.StructToMap(b.FillerWords)
+		fw, bad := convertFillerWords(m)
+		out.FillerWords = fw
+		unsupported = append(unsupported, bad...)
+	}
+	if len(unsupported) > 0 {
+		sort.Strings(unsupported)
+		return v3.AgentCreate{}, fmt.Errorf("%w: %s", ErrUnsupportedField, strings.Join(unsupported, ", "))
+	}
+	return out, nil
+}
+
+func convertMessages(x any) ([]v3.Message, []string) {
+	b, err := json.Marshal(x)
+	if err != nil {
+		return nil, []string{"messages"}
+	}
+	// Pointer content distinguishes a valid empty string from an absent or
+	// null required field, which decoding directly into v3.Message cannot do.
+	var decoded []struct {
+		Role    string  `json:"role"`
+		Content *string `json:"content"`
+	}
+	decoder := json.NewDecoder(strings.NewReader(string(b)))
+	decoder.DisallowUnknownFields()
+	if err = decoder.Decode(&decoded); err != nil {
+		return nil, []string{"messages"}
+	}
+	out := make([]v3.Message, 0, len(decoded))
+	for _, m := range decoded {
+		if (m.Role != "system" && m.Role != "user" && m.Role != "assistant") || m.Content == nil {
+			return nil, []string{"messages"}
+		}
+		out = append(out, v3.Message{Role: m.Role, Content: *m.Content})
+	}
+	return out, nil
+}
+
+func splitMessages(messages []v3.Message) (*string, []v3.Message) {
+	system := []string{}
+	other := []v3.Message{}
+	for _, m := range messages {
+		if m.Role == "system" {
+			system = append(system, m.Content)
+		} else {
+			other = append(other, m)
+		}
+	}
+	if len(system) == 0 {
+		return nil, other
+	}
+	s := strings.Join(system, "\n")
+	return &s, other
+}
+func emptyValue(x any) bool {
+	switch v := x.(type) {
+	case map[string]any:
+		return len(v) == 0
+	case []any:
+		return len(v) == 0
+	}
+	return false
+}
+
+func convertFillerWords(f map[string]interface{}) (map[string]any, []string) {
+	out := map[string]any{}
+	bad := []string{}
+	for k, v := range f {
+		switch k {
+		case "enable":
+			out["enable"] = v
+		case "trigger":
+			m, ok := v.(map[string]interface{})
+			if !ok {
+				bad = append(bad, "fillerWords.trigger")
+				continue
+			}
+			t := map[string]any{}
+			if x, ok := m["mode"]; ok {
+				t["mode"] = x
+			}
+			for key, val := range m {
+				switch key {
+				case "mode":
+				case "fixed_time_config":
+					if sub, ok := val.(map[string]interface{}); ok {
+						for sk, sv := range sub {
+							t[sk] = sv
+						}
+					} else {
+						bad = append(bad, "fillerWords.trigger.fixed_time_config")
+					}
+				default:
+					bad = append(bad, "fillerWords.trigger."+key)
+				}
+			}
+			out["trigger"] = t
+		case "content":
+			m, ok := v.(map[string]interface{})
+			if !ok {
+				bad = append(bad, "fillerWords.content")
+				continue
+			}
+			c := map[string]any{}
+			mode, _ := m["mode"].(string)
+			c["mode"] = mode
+			if mode == "static" {
+				if sub, ok := m["static_config"].(map[string]interface{}); ok {
+					for sk, sv := range sub {
+						c[sk] = sv
+					}
+				}
+			} else if mode == "generated" {
+				if sub, ok := m["generated_config"].(map[string]interface{}); ok {
+					for sk, sv := range sub {
+						switch sk {
+						case "prompt":
+							c["instructions"] = sv
+						case "fallback_strategy":
+							c[sk] = sv
+						default:
+							bad = append(bad, "fillerWords.content.generated_config."+sk)
+						}
+					}
+				}
+			} else {
+				bad = append(bad, "fillerWords.content.mode")
+			}
+			for key := range m {
+				if key != "mode" && key != "static_config" && key != "generated_config" {
+					bad = append(bad, "fillerWords.content."+key)
+				}
+			}
+			out["content"] = c
+		default:
+			bad = append(bad, "fillerWords."+k)
+		}
+	}
+	return out, bad
+}
+
+func convertModule(name string, input map[string]interface{}) (map[string]any, []string) {
+	bedrockStyle := name == "llm" && input["style"] == "bedrock"
+	allowed := map[string]bool{"vendor": true, "params": true, "url": true}
+	for _, key := range map[string][]string{"asr": {"language", "model"}, "llm": {"style", "model", "input_modalities", "output_modalities", "max_history", "failure_message", "mcp_servers", "tools", "headers"}, "tts": {"headers", "skip_patterns"}}[name] {
+		allowed[key] = true
+	}
+	consumed := map[string]bool{"api_key": true, "system_messages": true, "messages": true, "greeting_message": true, "greeting_audio_url": true, "template_variables": true, "greeting_configs": true, "turn_detection": true, "enable": true, "_minimax_preset_model": true, "keywords": name == "asr"}
+	out := map[string]any{}
+	bad := []string{}
+	for k, v := range input {
+		if bedrockStyle && (k == "region" || k == "access_key" || k == "secret_key") {
+			continue
+		}
+		if allowed[k] {
+			out[k] = agentcore.CloneValue(v)
+		} else if !consumed[k] && v != nil {
+			bad = append(bad, name+"."+k)
+		}
+	}
+	params, _ := out["params"].(map[string]interface{})
+	if params == nil {
+		params = map[string]interface{}{}
+	}
+	vendor, _ := input["vendor"].(string)
+	if bedrockStyle {
+		if vendor == "" {
+			vendor = "amazon"
+		}
+		out["vendor"] = vendor
+		if region, ok := input["region"]; ok {
+			params["region"] = agentcore.CloneValue(region)
+		}
+	}
+	if name == "asr" {
+		if keywords, ok := input["keywords"]; ok {
+			params["keywords"] = agentcore.CloneValue(keywords)
+		}
+		if _, exists := out["language"]; !exists {
+			if language, ok := params["language"]; ok {
+				out["language"] = language
+			} else if vendor == "ares" {
+				out["language"] = "en-US"
+			}
+		}
+		if asrNeedsParameterLanguage(vendor) {
+			if _, exists := params["language"]; !exists {
+				if language, ok := out["language"]; ok {
+					params["language"] = language
+				}
+			}
+		} else {
+			delete(params, "language")
+		}
+		for _, alias := range []string{"ws_url", "uri"} {
+			if endpoint, ok := params[alias]; ok {
+				if _, exists := out["url"]; !exists {
+					out["url"] = endpoint
+				}
+				delete(params, alias)
+			}
+		}
+	}
+	var urlCredential string
+	if name == "llm" && (input["style"] == "gemini" || vendor == "gemini") {
+		if endpoint, ok := out["url"].(string); ok {
+			parsed, err := url.Parse(endpoint)
+			if err != nil {
+				bad = append(bad, "llm.url")
+			} else {
+				query := parsed.Query()
+				urlCredential = query.Get("key")
+				query.Del("key")
+				parsed.RawQuery = query.Encode()
+				out["url"] = parsed.String()
+			}
+		}
+	}
+	if name == "avatar" && vendor == "heygen" {
+		vendor = "liveavatar"
+		out["vendor"] = vendor
+	}
+	fields := map[string]string{}
+	if key, _ := input["api_key"].(string); key == "" && urlCredential != "" {
+		fields["api_key"] = urlCredential
+	}
+	if bedrockStyle {
+		for _, field := range []string{"access_key", "secret_key"} {
+			if value, ok := input[field].(string); ok && value != "" {
+				fields[field] = value
+			}
+		}
+	}
+	if key, _ := input["api_key"].(string); key != "" {
+		fields[credentialFieldName(name, vendor, "api_key")] = key
+	}
+	for _, k := range []string{"api_key", "key", "api_subscription_key", "app_key", "spatius_api_key"} {
+		if s, ok := params[k].(string); ok && s != "" {
+			fieldName := credentialFieldName(name, vendor, k)
+			if prior := fields[fieldName]; prior != "" && prior != s {
+				bad = append(bad, name+".params."+k+" (ambiguous credential)")
+			} else {
+				fields[fieldName] = s
+			}
+			delete(params, k)
+		}
+	}
+	for _, k := range []string{"access_key_id", "secret_access_key", "aws_access_key_id", "aws_secret_access_key", "access_key", "secret_key", "adc_credentials_string", "credentials"} {
+		if value, ok := params[k].(string); ok && value != "" {
+			fieldName := credentialFieldName(name, vendor, k)
+			fields[fieldName] = value
+			delete(params, k)
+		}
+	}
+	for _, k := range []string{"credentials", "access_key_id", "secret_access_key", "aws_access_key_id", "aws_secret_access_key", "access_key", "secret_key", "adc_credentials_string"} {
+		if v, ok := params[k]; ok && v != nil && v != "" {
+			bad = append(bad, name+".params."+k)
+		}
+	}
+	for _, k := range []string{"url", "base_url"} {
+		if _, ok := out["url"]; !ok {
+			if v, ok := params[k]; ok {
+				out["url"] = v
+			}
+		}
+		delete(params, k)
+	}
+	if name == "llm" || name == "asr" {
+		if _, ok := out["model"]; !ok {
+			if v, ok := params["model"]; ok {
+				out["model"] = v
+			}
+		}
+		delete(params, "model")
+	}
+	if name == "tts" {
+		if v, ok := input["_minimax_preset_model"]; ok {
+			params["model"] = v
+		}
+	}
+	if name == "tts" && vendor == "minimax" {
+		voice, _ := params["voice_setting"].(map[string]any)
+		if voice == nil {
+			voice = map[string]any{}
+		}
+		if _, ok := voice["speed"]; !ok {
+			voice["speed"] = 1.0
+		}
+		params["voice_setting"] = voice
+	}
+	if name == "avatar" {
+		vendor, _ := out["vendor"].(string)
+		switch vendor {
+		case "akool", "liveavatar", "anam", "sensetime", "spatius", "generic":
+		default:
+			bad = append(bad, name+".vendor")
+		}
+		if v, ok := input["enable"]; ok {
+			out["enabled"] = v
+		} else {
+			out["enabled"] = true
+		}
+	} else if v, ok := input["enable"].(bool); ok && !v {
+		bad = append(bad, name+".enable")
+	}
+	if name == "tts" {
+		if v, ok := out["skip_patterns"]; ok && !emptyValue(v) {
+			bad = append(bad, name+".skip_patterns")
+		}
+	}
+	if len(params) > 0 {
+		out["params"] = params
+	} else {
+		delete(out, "params")
+	}
+	if len(fields) > 0 {
+		out["credential"] = map[string]any{"mode": "byok", "fields": fields}
+	} else {
+		out["credential"] = map[string]any{"mode": "managed"}
+		delete(out, "url")
+	}
+	return out, bad
+}
+
+func credentialFieldName(module, vendor, field string) string {
+	// Legacy providers use key while Platform uses provider-specific field names.
+	if field == "key" {
+		field = "api_key"
+	}
+	switch module {
+	case "asr":
+		switch vendor {
+		case "microsoft", "speechmatics":
+			if field == "api_key" {
+				return "key"
+			}
+		case "google":
+			if field == "api_key" {
+				return "adc_credentials_string"
+			}
+		}
+	case "tts":
+		switch vendor {
+		case "elevenlabs", "humeai", "microsoft", "minimax":
+			if field == "api_key" {
+				return "key"
+			}
+		case "google":
+			if field == "api_key" {
+				return "credentials"
+			}
+		case "sarvam":
+			if field == "api_key" {
+				return "api_subscription_key"
+			}
+		case "amazon":
+			if field == "access_key_id" {
+				return "aws_access_key_id"
+			}
+			if field == "secret_access_key" {
+				return "aws_secret_access_key"
+			}
+		}
+	}
+	return field
+}
+
+func convertTurnDetection(td *TurnDetectionConfig, interruption *InterruptionConfig) (map[string]any, []string) {
+	m, err := agentcore.StructToMap(td)
+	if err != nil {
+		return nil, []string{"turnDetection"}
+	}
+	return convertTurnMap(m, interruption)
+}
+func convertTurnMap(m map[string]interface{}, interruption *InterruptionConfig) (map[string]any, []string) {
+	bad := []string{}
+	out := map[string]any{}
+	if threshold, ok := m["threshold"]; ok {
+		bad = append(bad, "turnDetection.threshold")
+		_ = threshold
+	}
+	if config, ok := m["config"].(map[string]interface{}); ok {
+		if threshold, ok := config["speech_threshold"]; ok {
+			out["speech_threshold"] = threshold
+		}
+		for _, key := range []string{"start_of_speech", "end_of_speech"} {
+			if value, ok := config[key].(map[string]interface{}); ok {
+				mode, _ := value["mode"].(string)
+				if mode == "keywords" || mode == "disabled" {
+					out["interruption"] = convertInterruption(value)
+					continue
+				}
+				part := map[string]any{}
+				part["type"] = mode
+				if nested, ok := value[mode+"_config"].(map[string]interface{}); ok {
+					for nk, nv := range nested {
+						part[nk] = nv
+					}
+				}
+				for k, v := range value {
+					if k != "mode" && k != mode+"_config" && v != nil {
+						bad = append(bad, "turnDetection.config."+key+"."+k)
+					}
+				}
+				if wait, ok := part["max_wait_ms"].(float64); ok && wait < 500 {
+					bad = append(bad, "turnDetection.config."+key+".max_wait_ms")
+				}
+				out[key] = part
+			}
+		}
+		for k, v := range config {
+			if k != "speech_threshold" && k != "start_of_speech" && k != "end_of_speech" && v != nil {
+				bad = append(bad, "turnDetection.config."+k)
+			}
+		}
+	}
+	for k, v := range m {
+		if k != "config" && k != "language" && !(k == "mode" && v == "default") && v != nil {
+			bad = append(bad, "turnDetection."+k)
+		}
+	}
+	if interruption != nil {
+		im, _ := agentcore.StructToMap(interruption)
+		out["interruption"] = convertInterruption(im)
+	}
+	return out, bad
+}
+func convertInterruption(m map[string]interface{}) map[string]any {
+	mode, _ := m["mode"].(string)
+	if enable, ok := m["enable"].(bool); ok && !enable || mode == "disabled" {
+		out := map[string]any{"mode": "off"}
+		if c, ok := m["disabled_config"].(map[string]interface{}); ok {
+			out["when_off"] = c["strategy"]
+		}
+		return out
+	}
+	if mode == "keywords" {
+		out := map[string]any{"mode": "keywords"}
+		if c, ok := m["keywords_config"].(map[string]interface{}); ok {
+			if v, ok := c["trigger_keywords"]; ok {
+				out["keywords"] = v
+			} else {
+				out["keywords"] = c["triggered_keywords"]
+			}
+		}
+		return out
+	}
+	return map[string]any{"mode": "start_of_speech"}
+}
+
+func deployPatch(old v3.Agent, new v3.AgentCreate) (v3.AgentPatch, error) {
+	b, err := json.Marshal(new)
+	if err != nil {
+		return nil, err
+	}
+	var fresh map[string]any
+	if err = json.Unmarshal(b, &fresh); err != nil {
+		return nil, err
+	}
+	oldMap := map[string]any{}
+	for k, v := range map[string]any{"agent_name": old.AgentName, "instructions": old.Instructions, "messages": old.Messages, "greeting": old.Greeting, "variables": old.Variables, "pipeline": old.Pipeline, "filler_words": old.FillerWords} {
+		if raw, ok := v.(json.RawMessage); ok {
+			if len(raw) > 0 {
+				var decoded any
+				if json.Unmarshal(raw, &decoded) == nil {
+					oldMap[k] = decoded
+				}
+			}
+		} else if v != nil {
+			encoded, _ := json.Marshal(v)
+			var decoded any
+			if json.Unmarshal(encoded, &decoded) == nil {
+				oldMap[k] = decoded
+			}
+		}
+	}
+	return clearMissing(oldMap, fresh, ""), nil
+}
+
+func clearMissing(old, new map[string]any, path string) map[string]any {
+	allowed := map[string]map[string]bool{
+		"":         {"agent_name": true, "instructions": true, "messages": true, "greeting": true, "variables": true, "pipeline": true, "filler_words": true},
+		"pipeline": {"mode": true, "asr": true, "llm": true, "tts": true, "avatar": true, "turn_detection": true, "silence_config": true},
+	}
+	moduleAllowed := map[string]bool{"credential": true, "vendor": true, "model": true, "style": true, "language": true, "enabled": true, "params": true, "url": true, "headers": true, "input_modalities": true, "output_modalities": true, "max_history": true, "failure_message": true, "mcp_servers": true, "tools": true, "skip_patterns": true}
+	for k, ov := range old {
+		if path == "" && !allowed[""][k] {
+			continue
+		}
+		if path == "pipeline" && !allowed["pipeline"][k] {
+			continue
+		}
+		isModule := path == "pipeline.asr" || path == "pipeline.llm" || path == "pipeline.tts" || path == "pipeline.avatar"
+		if isModule && !moduleAllowed[k] {
+			continue
+		}
+		if isModule && k == "credential" {
+			vendor, _ := old["vendor"].(string)
+			new[k] = credentialMergePatch(new[k], path[strings.LastIndex(path, ".")+1:], vendor)
+			continue // resolved credentials can contain server-owned metadata
+		}
+		if nv, ok := new[k]; !ok {
+			new[k] = nil
+		} else if nm, ok := nv.(map[string]any); ok {
+			if om, ok := ov.(map[string]any); ok {
+				new[k] = clearMissing(om, nm, joinPath(path, k))
+			}
+		}
+	}
+	return new
+}
+
+func credentialMergePatch(value any, module, oldVendor string) any {
+	credential, ok := value.(map[string]any)
+	if !ok {
+		return value
+	}
+	if credential["mode"] == "managed" {
+		credential["fields"] = nil
+		return credential
+	}
+	fields, ok := credential["fields"].(map[string]any)
+	if !ok {
+		if typed, typedOK := credential["fields"].(map[string]string); typedOK {
+			fields = make(map[string]any, len(typed))
+			for key, field := range typed {
+				fields[key] = field
+			}
+			credential["fields"] = fields
+		}
+	}
+	if fields != nil {
+		// Credential values are write-only in GET responses. Remove stale
+		// provider keys before overlaying the caller's current SecretRefs.
+		for _, key := range knownCredentialFields(module, oldVendor) {
+			if _, exists := fields[key]; !exists {
+				fields[key] = nil
+			}
+		}
+	}
+	return credential
+}
+
+func knownCredentialFields(module, vendor string) []string {
+	switch module {
+	case "asr":
+		switch vendor {
+		case "amazon":
+			return []string{"api_key", "access_key_id", "secret_access_key"}
+		case "assemblyai", "deepgram", "gemini", "openai", "sarvam", "smallestai", "xai":
+			return []string{"api_key"}
+		case "google":
+			return []string{"adc_credentials_string"}
+		case "microsoft", "speechmatics":
+			return []string{"key"}
+		}
+	case "tts":
+		switch vendor {
+		case "amazon":
+			return []string{"aws_access_key_id", "aws_secret_access_key"}
+		case "elevenlabs", "humeai", "microsoft", "minimax":
+			return []string{"key"}
+		case "google":
+			return []string{"credentials"}
+		case "sarvam":
+			return []string{"api_subscription_key"}
+		default:
+			return []string{"api_key"}
+		}
+	case "llm":
+		if vendor == "amazon" {
+			return []string{"api_key", "access_key", "secret_key"}
+		}
+		return []string{"api_key"}
+	case "avatar":
+		switch vendor {
+		case "sensetime":
+			return []string{"app_key"}
+		case "spatius":
+			return []string{"spatius_api_key"}
+		default:
+			return []string{"api_key"}
+		}
+	}
+	return nil
+}
+func joinPath(a, b string) string {
+	if a == "" {
+		return b
+	}
+	return a + "." + b
+}
+
+// These ASR providers require their own language parameter in addition to the pipeline language.
+func asrNeedsParameterLanguage(vendor string) bool {
+	switch vendor {
+	case "assemblyai", "google", "microsoft", "sarvam", "speechmatics":
+		return true
+	default:
+		return false
+	}
+}

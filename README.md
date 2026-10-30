@@ -1,5 +1,7 @@
 # Agora Agents Go
 
+Conversational AI v3 P1 preview: [stored agents, secrets, numbers, and sessions](docs/guides/v3-preview.md). The Go module's `/v2` suffix is its semantic major version, not the REST API version.
+
 [![fern shield](https://img.shields.io/badge/%F0%9F%8C%BF-Built%20with%20Fern-brightgreen)](https://buildwithfern.com?utm_source=github&utm_medium=github&utm_campaign=readme&utm_source=https%3A%2F%2Fgithub.com%2FAgoraIO%2Fagora-agents-go)
 [![Go Reference](https://pkg.go.dev/badge/github.com/AgoraIO/agora-agents-go/v2.svg)](https://pkg.go.dev/github.com/AgoraIO/agora-agents-go/v2)
 [![Go Report Card](https://goreportcard.com/badge/github.com/AgoraIO/agora-agents-go)](https://goreportcard.com/report/github.com/AgoraIO/agora-agents-go)
@@ -19,10 +21,25 @@ go get github.com/AgoraIO/agora-agents-go/v2@latest
 
 - Go 1.21+
 
+## Agent workflows
+
+Use the same immutable `Agent` configuration to start an existing session or save a reusable configuration. See [Configure, run, and save agents](docs/guides/saving-agents.md) for the version-neutral workflow. The [Conversational AI v3 P1 preview guide](docs/guides/v3-preview.md) covers staging-specific details.
+
+## Conversational AI v3 P1 preview
+
+This checkout includes a handwritten client for the Conversational AI API v1 path used by the v3 preview. Install these features with `go get github.com/AgoraIO/agora-agents-go/v2@v2.14.0-alpha.3`; the `@latest` installation command above does not select prereleases. This checkout prepares alpha.3; the versioned command is available after publication. Before publication, use `@v3-api-preview`. The module path remains `/v2` because that suffix is the Go module's semantic major version, not the REST API version. Use `Agent.CreateEphemeralSession(...).Start(ctx)` for an explicit unsaved Platform session, or `SavedAgent.CreateSession` for a saved agent. `Agent.Call` and `SavedAgent.Call` configure outbound calls. Existing `Agent.CreateSession` automatic routing remains available.
+
+- `Agent.Save` creates a stored configuration, and `SavedAgent.Update` updates it with an ETag guarded patch. `WithVariable` adds typed template or extraction variables.
+- `AgoraClient.Secrets` and `AgoraClient.Numbers` provide project setup. `agentkit.SecretRef("set", "key")` stores a `$secrets.set.key` reference in the agent configuration; secret values are write-only.
+- `SavedAgent.AssignNumber`, `UnassignNumber`, and `ListNumbers` manage project-scoped number assignments. E.164 lookup and `ListNumbers` scan project number pages, so the scan cost grows with the project.
+- `c.V3` exposes the 32 operations in the checked-in OpenAPI snapshot. Lists use cursor pagination; resource updates use ETags, and sessions support the documented limited PATCH. AgentKit starts sessions from saved agents or ephemeral configs that use variables, secret references, or inline credentials. Saved-agent BYOK credentials must use secret references. Campaign create accepts up to 50,000 contacts and a data policy; this preview does not provide contacts/events APIs or a dialing state machine.
+
+Campaign create and lifecycle actions accept an optional idempotency key with a 24-hour server window. Agent updates remain conditional merge PATCHes. See the [v3 preview guide](docs/guides/v3-preview.md) for staging setup, examples, and limits.
+
 ## Quick Start
 
 Start with the `Agent` builder: create a client with app credentials, pass it to `NewAgent(client, ...)` (required; `nil` panics), choose your ASR, LLM, and TTS providers, then start a session. Omit vendor API keys for supported Agora-managed global models, or provide keys when you want BYOK.
-Set Agora interaction language with `TurnDetectionConfig.Language`; provider-specific STT language values remain under `asr.params`. Ares uses only the REST `asr.language` value sourced from `TurnDetectionConfig.Language`.
+Set Agora interaction language with `TurnDetectionConfig.Language`; the explicit interaction language takes precedence. The Platform adapter otherwise promotes vendor language to `pipeline.asr.language`, and defaults Ares to `en-US`; legacy session serialization retains its original shape.
 
 ```go
 package main
@@ -234,6 +251,19 @@ agent := agentkit.NewAgent(client).WithMllm(vendors.NewOpenAIRealtime(vendors.Op
 }))
 ```
 
+For Gemini 3.8 Live Extended Thinking, use the same single `GeminiLive` class as the regular Live model:
+
+```go
+geminiAgent := agentkit.NewAgent(client).WithMllm(vendors.NewGeminiLive(vendors.GeminiLiveOptions{
+    APIKey:        os.Getenv("GOOGLE_API_KEY"),
+    Model:         "models/gemini-3.8-live-extended-thinking",
+    ThinkingLevel: "medium",
+    GreetingMessage: "Hello! Ready to chat.",
+}))
+```
+
+Use `models/gemini-3.8-live` without `ThinkingLevel` for the lower-latency model. Gemini sessions use the preview gateway and `agora-feature: gemini-live`; the Google key is sent as `mllm.api_key`. See the [Preview Endpoint guide](./docs/guides/preview-endpoint.md).
+
 See the [MLLM Flow guide](./docs/guides/mllm-flow.md) for full examples with Gemini Live, Vertex AI, and xAI Grok.
 
 > Avatars are not supported with MLLM. The avatar publisher requires the cascading ASR + LLM + TTS pipeline; combining `WithMllm()` with `WithAvatar()` returns an error from `Agent.ToProperties()` and `AgentSession.Start()`.
@@ -251,9 +281,11 @@ See the [Avatar Integration guide](./docs/guides/avatars.md) for sample-rate req
 - [Quick Start](./docs/getting-started/quick-start.md)
 - [CN AgentKit](./docs/guides/cn-agentkit.md)
 - [BYOK Guide](./docs/guides/byok.md)
+- [Configure, run, and save agents](./docs/guides/saving-agents.md)
 - [Regional Routing](./docs/guides/regional-routing.md)
 - [MLLM Flow](./docs/guides/mllm-flow.md)
 - [Low-Level API](./docs/guides/low-level-api.md)
+- [Conversational AI v3 preview](./docs/guides/v3-preview.md)
 
 ## Reference
 
@@ -269,3 +301,5 @@ a proof of concept, but know that we will not be able to merge it as-is. We sugg
 an issue first to discuss with us!
 
 On the other hand, contributions to the README are always very welcome!
+
+REST authentication supports generated ConvoAI Token007 tokens, supplied `Token` values, or a complete `CustomerID` / `CustomerSecret` Basic-auth pair. See [Authentication](docs/getting-started/authentication.md).

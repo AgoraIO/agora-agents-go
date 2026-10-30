@@ -928,7 +928,7 @@ func TestBYOKLLMVendorShapes(t *testing.T) {
 		llm := props["llm"].(map[string]interface{})
 		assert.Equal(t, "gemini", llm["style"])
 		assert.Equal(t, "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:streamGenerateContent?alt=sse&key=gem-key", llm["url"])
-		assert.NotContains(t, llm, "api_key")
+		assert.Equal(t, "gem-key", llm["api_key"])
 		assert.Equal(t, "gemini-1.5-flash", llm["params"].(map[string]interface{})["model"])
 	})
 

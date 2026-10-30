@@ -290,7 +290,7 @@ func TestTTSVendorParamsMatchGeneratedCoreShapes(t *testing.T) {
 				"key":           "minimax-key",
 				"group_id":      "group",
 				"model":         "speech-02-turbo",
-				"voice_setting": map[string]interface{}{"voice_id": "shortcut-voice"},
+				"voice_setting": map[string]interface{}{"voice_id": "shortcut-voice", "speed": 1},
 				"url":           "wss://api-uw.minimax.io/ws/v1/t2a_v2",
 			},
 		},
@@ -469,7 +469,7 @@ func TestSarvamTTSSampleRateCompatibility(t *testing.T) {
 			params, ok := vendor.ToConfig()["params"].(map[string]any)
 			require.True(t, ok)
 			assert.NotContains(t, params, "sample_rate")
-			assert.NotContains(t, params, "model")
+			assert.Equal(t, "bulbul:v3", params["model"])
 			assert.NotContains(t, params, "enable_preprocessing")
 			if tt.expected == nil {
 				assert.NotContains(t, params, "speech_sample_rate")

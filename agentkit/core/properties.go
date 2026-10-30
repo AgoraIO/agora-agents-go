@@ -3,11 +3,53 @@ package core
 import (
 	"fmt"
 	"log"
+	"reflect"
+	"strings"
 )
+
+// ErrSecretRefNotSupported prevents v3 secret references from reaching v2 join.
+var ErrSecretRefNotSupported = fmt.Errorf("secret references are only supported by v3 deploy")
+
+func hasSecretRef(v any) bool {
+	if v == nil {
+		return false
+	}
+	if s, ok := v.(string); ok {
+		return strings.HasPrefix(s, "$secrets.")
+	}
+	r := reflect.ValueOf(v)
+	for r.IsValid() && (r.Kind() == reflect.Interface || r.Kind() == reflect.Pointer) {
+		if r.IsNil() {
+			return false
+		}
+		r = r.Elem()
+	}
+	if !r.IsValid() {
+		return false
+	}
+	switch r.Kind() {
+	case reflect.Map:
+		for _, k := range r.MapKeys() {
+			if hasSecretRef(r.MapIndex(k).Interface()) {
+				return true
+			}
+		}
+	case reflect.Slice, reflect.Array:
+		for i := 0; i < r.Len(); i++ {
+			if hasSecretRef(r.Index(i).Interface()) {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 func BuildPropertiesMap(profile Profile, base *BaseAgent, opts ToPropertiesOptions, tokenFactory TokenFactory) (map[string]interface{}, error) {
 	if base == nil {
 		return nil, fmt.Errorf("agent is required")
+	}
+	if hasSecretRef(base.LLM) || hasSecretRef(base.TTS) || hasSecretRef(base.STT) || hasSecretRef(base.MLLM) || hasSecretRef(base.Avatar) {
+		return nil, ErrSecretRefNotSupported
 	}
 	if base.MLLM != nil && hasEnabledAvatar(base) {
 		return nil, fmt.Errorf("avatar is only supported with cascading ASR/LLM/TTS sessions; remove the avatar configuration when using MLLM")

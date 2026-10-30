@@ -762,6 +762,14 @@ func (f *FishAudioTTS) ToConfig() map[string]interface{} {
 }
 
 type MiniMaxTTSOptions struct {
+	Speed            *float64
+	Volume           *float64
+	Pitch            *int
+	Emotion          string
+	SampleRate       *int
+	Bitrate          *int
+	Format           string
+	Channel          *int
 	Key              string
 	GroupID          string
 	Model            string
@@ -797,7 +805,11 @@ func NewMiniMaxTTS(opts MiniMaxTTSOptions) *MiniMaxTTS {
 }
 
 func (m *MiniMaxTTS) GetSampleRate() *SampleRate {
-	return nil
+	if m.options.SampleRate == nil {
+		return nil
+	}
+	value := SampleRate(*m.options.SampleRate)
+	return &value
 }
 
 func (m *MiniMaxTTS) ToConfig() map[string]interface{} {
@@ -811,8 +823,50 @@ func (m *MiniMaxTTS) ToConfig() map[string]interface{} {
 		params["model"] = m.options.Model
 		params["url"] = m.options.URL
 	}
+	voice := map[string]interface{}{}
+	if existing, ok := params["voice_setting"].(map[string]interface{}); ok {
+		for k, v := range existing {
+			voice[k] = v
+		}
+	}
 	if m.options.VoiceID != "" {
-		params["voice_setting"] = map[string]interface{}{"voice_id": m.options.VoiceID}
+		voice["voice_id"] = m.options.VoiceID
+	}
+	if m.options.Speed != nil {
+		voice["speed"] = *m.options.Speed
+	}
+	if m.options.Volume != nil {
+		voice["vol"] = *m.options.Volume
+	}
+	if m.options.Pitch != nil {
+		voice["pitch"] = *m.options.Pitch
+	}
+	if m.options.Emotion != "" {
+		voice["emotion"] = m.options.Emotion
+	}
+	if len(voice) > 0 {
+		params["voice_setting"] = voice
+	}
+	audio := map[string]interface{}{}
+	if existing, ok := params["audio_setting"].(map[string]interface{}); ok {
+		for k, v := range existing {
+			audio[k] = v
+		}
+	}
+	if m.options.SampleRate != nil {
+		audio["sample_rate"] = *m.options.SampleRate
+	}
+	if m.options.Bitrate != nil {
+		audio["bitrate"] = *m.options.Bitrate
+	}
+	if m.options.Format != "" {
+		audio["format"] = m.options.Format
+	}
+	if m.options.Channel != nil {
+		audio["channel"] = *m.options.Channel
+	}
+	if len(audio) > 0 {
+		params["audio_setting"] = audio
 	}
 
 	config := map[string]interface{}{
@@ -862,7 +916,7 @@ type SarvamTTSOptions struct {
 	SampleRate *int
 	// EnablePreprocessing normalizes English words and numeric entities.
 	EnablePreprocessing *bool
-	// Model is the Sarvam TTS model; the service defaults to bulbul:v3.
+	// Model is the Sarvam TTS model; the SDK defaults to bulbul:v3.
 	Model string
 	// AdditionalParams are flattened into params. Explicit options take precedence.
 	AdditionalParams map[string]interface{}
@@ -927,6 +981,8 @@ func (s *SarvamTTS) ToConfig() map[string]interface{} {
 	}
 	if s.options.Model != "" {
 		params["model"] = s.options.Model
+	} else if _, exists := params["model"]; !exists {
+		params["model"] = "bulbul:v3"
 	}
 
 	config := map[string]interface{}{

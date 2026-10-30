@@ -34,3 +34,8 @@ func WithArea(area core.Area) *core.AreaRequestOption {
 func WithPool(pool *core.Pool) *core.AreaRequestOption {
 	return &core.AreaRequestOption{Pool: pool}
 }
+
+// WithBasicAuth authenticates REST requests using an Agora Customer ID and Customer Secret.
+func WithBasicAuth(customerID, customerSecret string) *core.BasicAuthOption {
+	return &core.BasicAuthOption{Username: customerID, Password: customerSecret}
+}

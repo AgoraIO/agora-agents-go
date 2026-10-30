@@ -3,10 +3,12 @@
 package core
 
 import (
-	base64 "encoding/base64"
-	fmt "fmt"
+	"encoding/base64"
+	"errors"
 	http "net/http"
 	url "net/url"
+	"regexp"
+	strings "strings"
 )
 
 // RequestOption adapts the behavior of the client or an individual request.
@@ -19,15 +21,85 @@ type RequestOption interface {
 // This type is primarily used by the generated code and is not meant
 // to be used directly; use the option package instead.
 type RequestOptions struct {
-	BaseURL         string
-	HTTPClient      HTTPClient
-	HTTPHeader      http.Header
-	BodyProperties  map[string]interface{}
-	QueryParameters url.Values
-	MaxAttempts     uint
-	Username        string
-	Password        string
-	Authorization   string
+	BaseURL            string
+	HTTPClient         HTTPClient
+	HTTPHeader         http.Header
+	BodyProperties     map[string]interface{}
+	QueryParameters    url.Values
+	MaxAttempts        uint
+	Username           string
+	Password           string
+	BasicAuthAttempted bool
+	Authorization      string
+	AuthorizationSet   bool
+}
+
+// BasicAuthRejectedHeader is an internal signal used by request callers to
+// reject incomplete or conflicting Basic authentication before sending HTTP.
+const BasicAuthRejectedHeader = "X-Agora-SDK-Basic-Auth-Rejected"
+
+// PublicAuthRejectedHeader preserves invalid authorization across option merging.
+const PublicAuthRejectedHeader = "X-Agora-SDK-Public-Auth-Rejected"
+
+var publicAuthorizationPattern = regexp.MustCompile(`(?i)^agora token=\S+$`)
+
+// ValidatePublicAuthorization checks every value and casing. Empty values are
+// generated placeholders, left for the app-credential signer to populate.
+func validPublicAuthorization(value string) bool {
+	if publicAuthorizationPattern.MatchString(value) {
+		return true
+	}
+	parts := strings.SplitN(value, " ", 2)
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "Basic") {
+		return false
+	}
+	decoded, err := base64.StdEncoding.DecodeString(parts[1])
+	if err != nil {
+		return false
+	}
+	pair := strings.SplitN(string(decoded), ":", 2)
+	return len(pair) == 2 && strings.TrimSpace(pair[0]) != "" && strings.TrimSpace(pair[1]) != ""
+}
+
+func ValidatePublicAuthorization(headers http.Header) error {
+	if headers.Get(PublicAuthRejectedHeader) != "" || headers.Get(BasicAuthRejectedHeader) != "" {
+		return errors.New("use one valid Agora token or complete Basic authentication credential pair")
+	}
+	count := 0
+	for name, values := range headers {
+		if !strings.EqualFold(name, "Authorization") {
+			continue
+		}
+		for _, value := range values {
+			if value == "" {
+				continue
+			}
+			count++
+			if !validPublicAuthorization(value) {
+				return errors.New("only Agora token or valid Basic authorization is supported")
+			}
+		}
+	}
+	if count > 1 {
+		return errors.New("multiple Authorization values are not supported")
+	}
+	return nil
+}
+
+// HasBasicAuthorization reports whether any case-variant Authorization header
+// value requests Basic authentication.
+func HasBasicAuthorization(headers http.Header) bool {
+	for name, values := range headers {
+		if !strings.EqualFold(name, "Authorization") {
+			continue
+		}
+		for _, value := range values {
+			if strings.HasPrefix(strings.ToLower(strings.TrimSpace(value)), "basic ") {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // NewRequestOptions returns a new *RequestOptions value.
@@ -50,19 +122,47 @@ func NewRequestOptions(opts ...RequestOption) *RequestOptions {
 // for the request(s).
 func (r *RequestOptions) ToHeader() http.Header {
 	header := r.cloneHeader()
-	if r.Username != "" && r.Password != "" {
-		header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(r.Username+":"+r.Password)))
+	for name, values := range r.HTTPHeader {
+		if strings.EqualFold(name, "Authorization") {
+			for _, value := range values {
+				if value == "" {
+					header.Set(PublicAuthRejectedHeader, "true")
+				}
+			}
+		}
 	}
-	header.Set("Authorization", fmt.Sprintf("%v", r.Authorization))
+	if ValidatePublicAuthorization(header) != nil {
+		header.Set(PublicAuthRejectedHeader, "true")
+	}
+	authorization := r.Authorization
+	if r.AuthorizationSet && !validPublicAuthorization(authorization) {
+		header.Set(PublicAuthRejectedHeader, "true")
+	}
+	basic := r.BasicAuthAttempted || r.Username != "" || r.Password != ""
+	if basic {
+		if strings.TrimSpace(r.Username) == "" || strings.TrimSpace(r.Password) == "" || strings.Contains(r.Username, ":") || authorization != "" || header.Get("Authorization") != "" {
+			header.Set(BasicAuthRejectedHeader, "true")
+		} else {
+			authorization = "Basic " + base64.StdEncoding.EncodeToString([]byte(r.Username+":"+r.Password))
+		}
+	}
+	if authorization == "" {
+		authorization = header.Get("Authorization")
+	}
+	header.Set("Authorization", authorization)
 	return header
 }
 
 func (r *RequestOptions) cloneHeader() http.Header {
-	headers := r.HTTPHeader.Clone()
+	headers := make(http.Header, len(r.HTTPHeader)+4)
+	for name, values := range r.HTTPHeader {
+		canonical := http.CanonicalHeaderKey(name)
+		headers[canonical] = append(headers[canonical], values...)
+	}
 	headers.Set("X-Fern-Language", "Go")
 	headers.Set("X-Fern-SDK-Name", "github.com/AgoraIO/agora-agents-go/v2")
-	headers.Set("X-Fern-SDK-Version", "v2.13.0")
-	headers.Set("User-Agent", "github.com/AgoraIO/agora-agents-go/v2.13.0")
+	headers.Set("X-Fern-SDK-Version", "v2.14.0-alpha.3")
+	headers.Set("User-Agent", "github.com/AgoraIO/agora-agents-go/v2.14.0-alpha.3")
 	return headers
 }
 
@@ -127,6 +227,7 @@ type BasicAuthOption struct {
 }
 
 func (b *BasicAuthOption) applyRequestOptions(opts *RequestOptions) {
+	opts.BasicAuthAttempted = true
 	opts.Username = b.Username
 	opts.Password = b.Password
 }
@@ -138,4 +239,5 @@ type AuthorizationOption struct {
 
 func (a *AuthorizationOption) applyRequestOptions(opts *RequestOptions) {
 	opts.Authorization = a.Authorization
+	opts.AuthorizationSet = true
 }
