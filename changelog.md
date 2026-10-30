@@ -4,7 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [v3.0.0-alpha.3] — 2026-10-30
+
+### Changed
+
+- Updated the Conversational AI v3 preview with Basic/Token007 authentication, ConvoAI service grants, independent RTM expiration, preserved ASR provider languages, and the Sarvam `bulbul:v3` default. The module-compatible Go SDK version remains `v2.14.0-alpha.3`; see its notes below.
 
 ## [v2.14.0-alpha.3] — 2026-10-29
 
