@@ -22,7 +22,7 @@ type AssignNumberOptions struct {
 // project's total number count. It does not make per-number GET requests.
 func (d *SavedAgent) ListNumbers(ctx context.Context) ([]v3.Number, error) {
 	if d == nil || d.client == nil || d.ID == "" {
-		return nil, errors.New("agentkit: saved agent with ID and client is required")
+		return nil, invalidV3("agentkit: saved agent with ID and client is required")
 	}
 	out := []v3.Number{}
 	cursor := ""
@@ -40,7 +40,7 @@ func (d *SavedAgent) ListNumbers(ctx context.Context) ([]v3.Number, error) {
 				Agent *string `json:"agent"`
 			}
 			if err := json.Unmarshal(number.Inbound, &inbound); err != nil {
-				return nil, fmt.Errorf("agentkit: invalid inbound value for number %s: %w", number.NumberID, err)
+				return nil, v3.ContractViolation(page, fmt.Errorf("invalid inbound value for number %s: %w", number.NumberID, err))
 			}
 			if inbound.Agent != nil && *inbound.Agent == d.ID {
 				out = append(out, number)
@@ -49,8 +49,8 @@ func (d *SavedAgent) ListNumbers(ctx context.Context) ([]v3.Number, error) {
 		if !page.Body.HasMore {
 			return out, nil
 		}
-		if page.Body.NextCursor == nil || *page.Body.NextCursor == "" || seen[*page.Body.NextCursor] {
-			return nil, errors.New("agentkit: number pagination ended without a usable next cursor")
+		if err := nextCursorProblem(page, seen); err != nil {
+			return nil, err
 		}
 		cursor = *page.Body.NextCursor
 		seen[cursor] = true
@@ -73,21 +73,21 @@ func (d *SavedAgent) AssignNumber(ctx context.Context, number any, opts AssignNu
 			return nil, err
 		}
 		if opts.CallPolicy.MaxCallDurationSeconds != nil && *opts.CallPolicy.MaxCallDurationSeconds < 1 {
-			return nil, errors.New("agentkit: max call duration must be positive")
+			return nil, invalidV3("agentkit: max call duration must be positive")
 		}
 		if opts.CallPolicy.MaxSilenceDurationMS != nil && *opts.CallPolicy.MaxSilenceDurationMS < 1 {
-			return nil, errors.New("agentkit: max silence duration must be positive")
+			return nil, invalidV3("agentkit: max silence duration must be positive")
 		}
 	}
 	if opts.MaxCallDurationSeconds != nil {
 		if *opts.MaxCallDurationSeconds < 1 {
-			return nil, errors.New("agentkit: max call duration must be positive")
+			return nil, invalidV3("agentkit: max call duration must be positive")
 		}
 		policy["max_call_duration_seconds"] = *opts.MaxCallDurationSeconds
 	}
 	if opts.MaxSilenceDurationMs != nil {
 		if *opts.MaxSilenceDurationMs < 1 {
-			return nil, errors.New("agentkit: max silence duration must be positive")
+			return nil, invalidV3("agentkit: max silence duration must be positive")
 		}
 		policy["max_silence_duration_ms"] = *opts.MaxSilenceDurationMs
 	}
@@ -107,6 +107,9 @@ func (d *SavedAgent) setNumber(ctx context.Context, number any, agent any, polic
 		inbound := map[string]any{"agent": agent}
 		if policy != nil {
 			inbound["call_policy"] = policy
+		}
+		if strings.TrimSpace(current.ETag) == "" {
+			return nil, v3.ContractViolation(current, errors.New("number response has no ETag"))
 		}
 		r, err := d.client.V3.Numbers.Update(ctx, current.Body.NumberID, current.ETag, v3.NumberPatch{"inbound": inbound})
 		if err == nil {
@@ -162,8 +165,11 @@ func (d *SavedAgent) resolveNumber(ctx context.Context, number any) (*v3.Respons
 				return d.client.V3.Numbers.Get(ctx, item.NumberID)
 			}
 		}
-		if !page.Body.HasMore || page.Body.NextCursor == nil || *page.Body.NextCursor == "" || seen[*page.Body.NextCursor] {
+		if !page.Body.HasMore {
 			break
+		}
+		if err := nextCursorProblem(page, seen); err != nil {
+			return nil, err
 		}
 		cursor = *page.Body.NextCursor
 		seen[cursor] = true
@@ -177,4 +183,18 @@ func normalizeNumber(s string) string {
 		}
 		return r
 	}, s)
+}
+
+// nextCursorProblem reports a has_more page whose next cursor is missing or
+// already seen: following it would stop early or loop, so it is an API
+// contract violation.
+func nextCursorProblem[T any](page *v3.Response[v3.Page[T]], seen map[string]bool) error {
+	next := page.Body.NextCursor
+	if next == nil || *next == "" {
+		return v3.ContractViolation(page, errors.New("number page has more results but no next cursor"))
+	}
+	if seen[*next] {
+		return v3.ContractViolation(page, fmt.Errorf("number page repeated next cursor %q", *next))
+	}
+	return nil
 }

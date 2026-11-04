@@ -544,7 +544,7 @@ func (a *SavedAgent) Call(opts CallOptions) *AgentSession {
 }
 func configureCall(session *AgentSession, opts CallOptions) *AgentSession {
 	if opts.Channel != "" || opts.Token != "" || opts.AgentUID != "" || len(opts.RemoteUIDs) > 0 || opts.Encryption != nil || opts.Geofence != nil || opts.AudioScenario != "" || opts.EnableStringUID != nil {
-		session.initErr = fmt.Errorf("agentkit: telephone calls do not accept RTC options")
+		session.initErr = invalidV3("agentkit: telephone calls do not accept RTC options")
 	}
 	transport := v3.SessionTransport{Type: "telephony", From: opts.From, To: opts.To, CallPolicy: opts.CallPolicy}
 	encoded, err := json.Marshal(transport)
@@ -558,7 +558,7 @@ func configureCall(session *AgentSession, opts CallOptions) *AgentSession {
 		return session
 	}
 	if session.geofence != nil || session.audioScenario != "" {
-		session.initErr = fmt.Errorf("agentkit: telephone calls do not accept RTC configuration")
+		session.initErr = invalidV3("agentkit: telephone calls do not accept RTC configuration")
 	}
 	session.telephony = &copied
 	return session

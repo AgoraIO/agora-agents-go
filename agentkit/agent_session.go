@@ -61,7 +61,8 @@ const (
 
 // ErrUnsupportedSessionOperation identifies lifecycle actions that the
 // current v3 session contract does not expose.
-var ErrUnsupportedSessionOperation = errors.New("agentkit: operation is not supported for v3 sessions")
+// It also matches v3.ErrValidation.
+var ErrUnsupportedSessionOperation error = &v3.ValidationError{Message: "agentkit: operation is not supported for v3 sessions"}
 
 type AgentSession struct {
 	client            *agents.Client
@@ -244,12 +245,12 @@ func newV3AgentSession(agent agentcore.AgentRuntime, client *AgoraClient, opts C
 		}
 	}
 	if client == nil || client.V3 == nil || client.V3.Sessions == nil {
-		session.initErr = errors.New("agentkit: v3 sessions client is required")
+		session.initErr = misconfiguredV3("agentkit: v3 sessions client is required")
 		return session
 	}
 	session.v3Sessions = client.V3.Sessions
 	if opts.ClientReference != "" {
-		session.initErr = errors.New("agentkit: ClientReference was removed from the v3 session contract")
+		session.initErr = invalidV3("agentkit: ClientReference was removed from the v3 session contract")
 	}
 	return session
 }
@@ -330,16 +331,16 @@ func (s *AgentSession) v3StartRequestParts() (v3.SessionTransport, *v3.SessionLi
 		return v3.SessionTransport{}, nil, nil, s.initErr
 	}
 	if s.telephony == nil && strings.TrimSpace(s.channel) == "" {
-		return v3.SessionTransport{}, nil, nil, errors.New("agentkit: v3 session channel is required")
+		return v3.SessionTransport{}, nil, nil, invalidV3("agentkit: v3 session channel is required")
 	}
 	if s.expiresIn != 0 {
-		return v3.SessionTransport{}, nil, nil, errors.New("agentkit: v3 sessions do not support ExpiresIn")
+		return v3.SessionTransport{}, nil, nil, invalidV3("agentkit: v3 sessions do not support ExpiresIn")
 	}
 	if len(s.preset) > 0 {
-		return v3.SessionTransport{}, nil, nil, errors.New("agentkit: v3 sessions do not support presets")
+		return v3.SessionTransport{}, nil, nil, invalidV3("agentkit: v3 sessions do not support presets")
 	}
 	if s.pipelineID != "" {
-		return v3.SessionTransport{}, nil, nil, errors.New("agentkit: v3 sessions do not support PipelineID overrides")
+		return v3.SessionTransport{}, nil, nil, invalidV3("agentkit: v3 sessions do not support PipelineID overrides")
 	}
 	transport := v3.SessionTransport{
 		Type: "rtc", Channel: s.channel, Token: s.token, UID: s.agentUID,
@@ -379,14 +380,14 @@ func (s *AgentSession) v3StartRequestParts() (v3.SessionTransport, *v3.SessionLi
 		lifecycle = &v3.SessionLifecycle{}
 		if s.idleTimeout != nil {
 			if *s.idleTimeout < 0 || *s.idleTimeout > 3600 {
-				return v3.SessionTransport{}, nil, nil, errors.New("agentkit: IdleTimeout must be between 0 and 3600 seconds")
+				return v3.SessionTransport{}, nil, nil, invalidV3("agentkit: IdleTimeout must be between 0 and 3600 seconds")
 			}
 			milliseconds := *s.idleTimeout * 1000
 			lifecycle.IdleTimeoutMS = &milliseconds
 		}
 		if s.maxDuration != nil {
 			if *s.maxDuration < 1 || *s.maxDuration > 3600 {
-				return v3.SessionTransport{}, nil, nil, errors.New("agentkit: MaxDuration must be between 1 and 3600 seconds")
+				return v3.SessionTransport{}, nil, nil, invalidV3("agentkit: MaxDuration must be between 1 and 3600 seconds")
 			}
 			milliseconds := *s.maxDuration * 1000
 			lifecycle.MaxDurationMS = &milliseconds
@@ -396,7 +397,7 @@ func (s *AgentSession) v3StartRequestParts() (v3.SessionTransport, *v3.SessionLi
 		}
 	}
 	if s.audioScenario != "" && s.audioScenario != "aiserver" && s.audioScenario != "chorus" {
-		return v3.SessionTransport{}, nil, nil, errors.New("agentkit: AudioScenario must be aiserver or chorus")
+		return v3.SessionTransport{}, nil, nil, invalidV3("agentkit: AudioScenario must be aiserver or chorus")
 	}
 	return transport, lifecycle, cloneDataPolicy(s.dataPolicy), nil
 }
@@ -405,12 +406,12 @@ func (s *AgentSession) startV3(ctx context.Context) (string, error) {
 	s.mu.Lock()
 	if s.idempotencyKey != "" && s.startSucceeded {
 		s.mu.Unlock()
-		return "", errors.New("agentkit: a session handle cannot reuse its IdempotencyKey after a successful start; create a new handle with a new key")
+		return "", invalidV3("agentkit: a session handle cannot reuse its IdempotencyKey after a successful start; create a new handle with a new key")
 	}
 	if s.status != StatusIdle && s.status != StatusStopped && s.status != StatusError {
 		status := s.status
 		s.mu.Unlock()
-		return "", fmt.Errorf("cannot start session in %s state", status)
+		return "", invalidV3f("cannot start session in %s state", status)
 	}
 	if s.generatedRTCToken && s.refreshRTCToken && s.idempotencyKey == "" {
 		s.token = ""
@@ -427,7 +428,7 @@ func (s *AgentSession) startV3(ctx context.Context) (string, error) {
 		return "", err
 	}
 	if s.v3Sessions == nil {
-		err = errors.New("agentkit: v3 sessions client is required")
+		err = misconfiguredV3("agentkit: v3 sessions client is required")
 		s.setV3StartFailure(err)
 		return "", err
 	}
@@ -440,7 +441,7 @@ func (s *AgentSession) startV3(ctx context.Context) (string, error) {
 	} else {
 		config, ok := s.agent.(*Agent)
 		if !ok || config == nil {
-			err = errors.New("agentkit: ephemeral v3 sessions require an Agent config")
+			err = invalidV3("agentkit: ephemeral v3 sessions require an Agent config")
 		} else {
 			storedShape, mapErr := config.toV3Session()
 			if mapErr != nil {
@@ -466,7 +467,7 @@ func (s *AgentSession) startV3(ctx context.Context) (string, error) {
 		return "", err
 	}
 	if response == nil || response.Body.AgentSessionID == "" {
-		err = errors.New("agentkit: v3 session response has no agent_session_id")
+		err = v3.ContractViolation(response, errors.New("session response has no agent_session_id"))
 		s.setV3StartFailure(err)
 		return "", err
 	}
@@ -905,12 +906,12 @@ func (s *AgentSession) stopV3(ctx context.Context) error {
 	if s.status != StatusRunning && s.status != StatusStarting {
 		status := s.status
 		s.mu.Unlock()
-		return fmt.Errorf("cannot stop session in %s state", status)
+		return invalidV3f("cannot stop session in %s state", status)
 	}
 
 	if s.agentID == "" {
 		s.mu.Unlock()
-		return errors.New("no agent_session_id available")
+		return invalidV3("no agent_session_id available")
 	}
 	s.status = StatusStopping
 	s.v3Revision++
@@ -919,7 +920,7 @@ func (s *AgentSession) stopV3(ctx context.Context) error {
 	id := s.agentID
 	s.mu.Unlock()
 	if s.v3Sessions == nil {
-		err := errors.New("agentkit: v3 sessions client is required")
+		err := misconfiguredV3("agentkit: v3 sessions client is required")
 		s.mu.Lock()
 		s.status = StatusError
 		s.v3WritePending = false
@@ -1115,7 +1116,7 @@ func (s *AgentSession) ThinkWithOptions(
 func (s *AgentSession) Update(ctx context.Context, properties *Agora.UpdateAgentsRequestProperties) error {
 	if s.backend != sessionBackendV2 {
 		if properties == nil {
-			return errors.New("agentkit: session Update properties are required")
+			return invalidV3("agentkit: session Update properties are required")
 		}
 		patch, err := sessionPatchFromLegacyProperties(properties)
 		if err != nil {
@@ -1125,10 +1126,10 @@ func (s *AgentSession) Update(ctx context.Context, properties *Agora.UpdateAgent
 		id, status := s.agentID, s.status
 		s.mu.RUnlock()
 		if status != StatusRunning || id == "" {
-			return fmt.Errorf("cannot update v3 session in %s state", status)
+			return invalidV3f("cannot update v3 session in %s state", status)
 		}
 		if s.v3Sessions == nil {
-			return errors.New("agentkit: v3 sessions client is required")
+			return misconfiguredV3("agentkit: v3 sessions client is required")
 		}
 		_, err = s.v3Sessions.Update(ctx, id, patch)
 		return err
@@ -1159,14 +1160,14 @@ func (s *AgentSession) Update(ctx context.Context, properties *Agora.UpdateAgent
 func sessionPatchFromLegacyProperties(properties *Agora.UpdateAgentsRequestProperties) (v3.SessionPatch, error) {
 	var patch v3.SessionPatch
 	if len(properties.GetExtraProperties()) > 0 {
-		return patch, fmt.Errorf("agentkit: v3 session Update does not support extra properties")
+		return patch, invalidV3("agentkit: v3 session Update does not support extra properties")
 	}
 	if token := properties.GetToken(); token != nil {
 		patch.Transport = &v3.SessionTransportPatch{Token: *token}
 	}
 	if llm := properties.GetLlm(); llm != nil {
 		if len(llm.GetExtraProperties()) > 0 {
-			return patch, fmt.Errorf("agentkit: v3 session Update does not support extra LLM properties")
+			return patch, invalidV3("agentkit: v3 session Update does not support extra LLM properties")
 		}
 		overrides := &v3.SessionAgentOverridesPatch{}
 		if messages := llm.GetSystemMessages(); messages != nil {
@@ -1174,13 +1175,13 @@ func sessionPatchFromLegacyProperties(properties *Agora.UpdateAgentsRequestPrope
 			for i, message := range messages {
 				for key := range message {
 					if key != "role" && key != "content" {
-						return patch, fmt.Errorf("agentkit: v3 session Update message %d has unsupported field %q", i, key)
+						return patch, invalidV3f("agentkit: v3 session Update message %d has unsupported field %q", i, key)
 					}
 				}
 				role, roleOK := message["role"].(string)
 				content, contentOK := message["content"].(string)
 				if !roleOK || !contentOK || (role != "system" && role != "user" && role != "assistant") {
-					return patch, fmt.Errorf("agentkit: v3 session Update message %d requires a supported role and string content", i)
+					return patch, invalidV3f("agentkit: v3 session Update message %d requires a supported role and string content", i)
 				}
 				converted = append(converted, v3.Message{Role: role, Content: content})
 			}
@@ -1194,7 +1195,7 @@ func sessionPatchFromLegacyProperties(properties *Agora.UpdateAgentsRequestPrope
 		}
 	}
 	if properties.GetMllm() != nil {
-		return patch, fmt.Errorf("agentkit: MLLM updates are not supported by the preview API")
+		return patch, invalidV3("agentkit: MLLM updates are not supported by the preview API")
 	}
 	return patch, nil
 }
@@ -1229,10 +1230,10 @@ func (s *AgentSession) GetInfo(ctx context.Context) (*Agora.GetAgentsResponse, e
 		sequence := s.v3ReadSequence
 		s.mu.Unlock()
 		if id == "" {
-			return nil, errors.New("no agent_session_id available")
+			return nil, invalidV3("no agent_session_id available")
 		}
 		if s.v3Sessions == nil {
-			return nil, errors.New("agentkit: v3 sessions client is required")
+			return nil, misconfiguredV3("agentkit: v3 sessions client is required")
 		}
 		response, err := s.v3Sessions.Get(ctx, id)
 		if err != nil {

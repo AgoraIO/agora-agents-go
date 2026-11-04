@@ -2,7 +2,6 @@ package v3
 
 import (
 	"context"
-	"errors"
 	"net/http"
 )
 
@@ -125,7 +124,7 @@ type CampaignsClient struct{ t *transport }
 
 func campaignWriteHeaders(opts []CampaignWriteOptions) (http.Header, error) {
 	if len(opts) > 1 {
-		return nil, errors.New("v3: at most one campaign write options value is accepted")
+		return nil, invalid("v3: at most one campaign write options value is accepted")
 	}
 	headers := http.Header{}
 	if len(opts) == 1 && opts[0].IdempotencyKey != "" {
@@ -198,7 +197,7 @@ func (c *CampaignsClient) Update(ctx context.Context, id, ifMatch string, body C
 			if e != nil {
 				return nil, "", e
 			}
-			return r.Body, r.ETag, nil
+			return latest(r)
 		})
 	}
 	return response(raw, out), nil
