@@ -361,7 +361,9 @@ func (s *AgentSession) v3StartRequestParts() (v3.SessionTransport, *v3.SessionLi
 			s.generatedRTCToken = true
 			s.mu.Unlock()
 		} else if strings.Trim(transport.UID, "0123456789") != "" {
-			token, err := GenerateRtcTokenWithAccount(GenerateRtcTokenWithAccountOptions{AppID: s.appID, AppCertificate: s.appCertificate, Channel: transport.Channel, Account: transport.UID})
+			// String accounts get the same RTC + RTM + ConvoAI token as numeric
+			// UIDs: RTM is the session's only data channel.
+			token, err := generateConvoAITokenForAccount(GenerateConvoAITokenOptions{AppID: s.appID, AppCertificate: s.appCertificate, ChannelName: transport.Channel}, transport.UID)
 			if err != nil {
 				return v3.SessionTransport{}, nil, nil, err
 			}

@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+
+- `agentkit.GenerateClientToken` for front-end token routes. It grants RTC and RTM only, with no ConvoAI service, so client tokens cannot authenticate ConvoAI REST calls. `UID` takes the string form of a numeric UID or a user account.
+
+### Fixed
+
+- String-UID agents on Platform sessions now get an RTC + RTM + ConvoAI transport token instead of an RTC-only one, so they can log in to RTM, the session's data channel.
+
 ## [v3.0.0-alpha.3] — 2026-10-30
 
 ### Changed
