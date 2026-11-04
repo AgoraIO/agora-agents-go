@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 
 	Agora "github.com/AgoraIO/agora-agents-go/v2"
@@ -157,20 +156,13 @@ func NewAgoraClient(opts AgoraClientOptions) *AgoraClient {
 	}
 	c := client.NewClient(reqOpts...)
 	v3Opts := append([]option.RequestOption(nil), reqOpts...)
+	explicitV3BaseURL := ""
 	if opts.V3 != nil {
-		if opts.V3.BaseURL != "" {
-			v3Opts = append(v3Opts, option.WithBaseURL(opts.V3.BaseURL))
-		}
+		explicitV3BaseURL = opts.V3.BaseURL
 	}
-	if opts.V3 == nil || opts.V3.BaseURL == "" {
-		// Area options set the legacy v2 gateway URL. V3 uses its own public
-		// origin unless the environment override is configured.
-		baseURL := os.Getenv("AGORA_AGENTS_V3_BASE_URL")
-		if baseURL == "" {
-			baseURL = "https://preview.ai.agora.io"
-		}
-		v3Opts = append(v3Opts, option.WithBaseURL(baseURL))
-	}
+	// Area options set the legacy v2 gateway URL, so always pass the v3 origin
+	// explicitly: the configured value, the environment override, or the default.
+	v3Opts = append(v3Opts, option.WithBaseURL(v3.ResolveBaseURL(explicitV3BaseURL)))
 	v3Client := v3.NewClient(opts.AppID, v3Opts...)
 	return &AgoraClient{
 		Area:            opts.Area,

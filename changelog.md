@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 ### Fixed
 
 - String-UID agents on Platform sessions now get an RTC + RTM + ConvoAI transport token instead of an RTC-only one, so they can log in to RTM, the session's data channel.
+- A blank or whitespace-only v3 base URL (`V3Options.BaseURL`, `option.WithBaseURL`, or `AGORA_AGENTS_V3_BASE_URL`) now counts as unset instead of failing origin validation, and surrounding whitespace is ignored. The new `v3.ResolveBaseURL` is the single source of the v3 origin for both `v3.NewClient` and AgentKit.
 
 ## [v3.0.0-alpha.3] — 2026-10-30
 

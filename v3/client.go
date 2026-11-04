@@ -74,18 +74,25 @@ func precondition(ctx context.Context, err error, fetch func(context.Context) (a
 	return &PreconditionFailedError{Cause: err, fetch: fetch}
 }
 
+// ResolveBaseURL returns the v3 API origin to use: explicit when it is nonblank,
+// otherwise AGORA_AGENTS_V3_BASE_URL when it is nonblank, otherwise the public
+// preview origin. Surrounding whitespace is ignored, so a blank value (for
+// example `AGORA_AGENTS_V3_BASE_URL=` in a .env file) means "unset".
+func ResolveBaseURL(explicit string) string {
+	if value := strings.TrimSpace(explicit); value != "" {
+		return value
+	}
+	if value := strings.TrimSpace(os.Getenv("AGORA_AGENTS_V3_BASE_URL")); value != "" {
+		return value
+	}
+	return defaultHost
+}
+
 // NewClient takes the project App ID and standard SDK request options.
 // Base URL overrides are origins; the v3 project path is appended by this client.
 func NewClient(appID string, opts ...option.RequestOption) *Client {
 	o := core.NewRequestOptions(opts...)
-	base := o.BaseURL
-	if env := os.Getenv("AGORA_AGENTS_V3_BASE_URL"); env != "" && base == "" {
-		base = env
-	}
-	if base == "" {
-		base = defaultHost
-	}
-	base = strings.TrimRight(base, "/")
+	base := strings.TrimRight(ResolveBaseURL(o.BaseURL), "/")
 	parsedBase, parseErr := url.Parse(base)
 	var originErr error
 	if parseErr != nil || parsedBase == nil || (parsedBase.Scheme != "http" && parsedBase.Scheme != "https") || parsedBase.Host == "" || (parsedBase.Path != "" && parsedBase.Path != "/") || parsedBase.RawQuery != "" || parsedBase.ForceQuery || parsedBase.Fragment != "" || strings.Contains(base, "#") || parsedBase.User != nil {

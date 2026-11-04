@@ -1243,3 +1243,26 @@ func TestPreviewRejectsMLLMBeforeHTTPAndKeepsLegacyConfig(t *testing.T) {
 		t.Fatalf("legacy config changed: %v %#v", err, properties)
 	}
 }
+
+func TestBlankV3BaseURLUsesV3OriginNotAreaGateway(t *testing.T) {
+	for _, tc := range []struct{ name, option, env, wantHost string }{
+		{"blank option and env", "", "", "preview.ai.agora.io"},
+		{"whitespace option and env", "  ", " ", "preview.ai.agora.io"},
+		{"blank option with env override", " ", "https://env.example", "env.example"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("AGORA_AGENTS_V3_BASE_URL", tc.env)
+			var host string
+			c := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: "app", Token: "token", V3: &V3Options{BaseURL: tc.option}, HTTPClient: v3HTTPFunc(func(r *http.Request) (*http.Response, error) {
+				host = r.URL.Host
+				return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(`{"data":{"count":0,"list":[]},"has_more":false}`))}, nil
+			})})
+			if _, err := c.V3.Agents.List(context.Background(), v3.ListOptions{}); err != nil {
+				t.Fatal(err)
+			}
+			if host != tc.wantHost {
+				t.Fatalf("v3 request host = %q, want %q", host, tc.wantHost)
+			}
+		})
+	}
+}
