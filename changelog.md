@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [v3.0.0-alpha.4] — 2026-11-06
+
+### Changed
+
+- Updated the Conversational AI v3 preview with client tokens, string-UID RTM transport tokens, blank base URL handling, and structured error classification. The module-compatible Go SDK version remains `v2.14.0-alpha.4`; see its notes below.
+
 ### Added
 
 - `agentkit.GenerateClientToken` for front-end token routes. It grants RTC and RTM only, with no ConvoAI service, so client tokens cannot authenticate ConvoAI REST calls. `UID` takes the string form of a numeric UID or a user account.
@@ -22,6 +28,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 - String-UID agents on Platform sessions now get an RTC + RTM + ConvoAI transport token instead of an RTC-only one, so they can log in to RTM, the session's data channel.
 - A blank or whitespace-only v3 base URL (`V3Options.BaseURL`, `option.WithBaseURL`, or `AGORA_AGENTS_V3_BASE_URL`) now counts as unset instead of failing origin validation, and surrounding whitespace is ignored. The new `v3.ResolveBaseURL` is the single source of the v3 origin for both `v3.NewClient` and AgentKit.
+
+## [v2.14.0-alpha.4] — 2026-11-06
+
+### Changed
+
+- Updated the module-compatible Go SDK for the Conversational AI v3 alpha.4 preview; see the `v3.0.0-alpha.4` section above for client token, transport, base URL, and error taxonomy details.
 
 ## [v3.0.0-alpha.3] — 2026-10-30
 
