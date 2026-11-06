@@ -49,7 +49,7 @@ func main() {
 }
 ```
 
-A client can use an Agora REST `Token` or set `AppCertificate`; AgentKit signs a fresh ConvoAI token for each request in app-credentials mode. Alternatively, supply both `CustomerID` and `CustomerSecret` for Basic authentication; do not combine them with `Token`. `AppCertificate` may still generate RTC transport tokens in Basic mode. Internal `X-Studio-*` / `X-Consumer-Username` headers are rejected. The `AGORA_AGENTS_V3_BASE_URL` environment variable and `V3Options.BaseURL` override the default origin; the explicit option takes precedence. The SDK does not hard-code regional availability; follow the preview rollout guidance for the target project.
+A client can use an Agora REST `Token` or set `AppCertificate`; AgentKit signs a fresh ConvoAI token for each request in app-credentials mode. Alternatively, supply both `CustomerID` and `CustomerSecret` for Basic authentication; do not combine them with `Token`. `AppCertificate` may still generate RTC transport tokens in Basic mode. Internal `X-Studio-*` / `X-Consumer-Username` headers are rejected. The `AGORA_AGENTS_V3_BASE_URL` environment variable and `V3Options.BaseURL` override the default origin; the explicit option takes precedence. A blank or whitespace-only value counts as unset, and surrounding whitespace is ignored. The SDK does not hard-code regional availability; follow the preview rollout guidance for the target project.
 
 ## AgentKit workflows
 
@@ -80,7 +80,7 @@ if err != nil { return err }
 
 `WithVariable` also exists as `agent.WithVariable(name, def)`, returning a new immutable builder. Names match `^[a-z][a-z0-9_]{0,63}$`; types are `str`, `int`, `float`, `bool`, `date`, and `datetime`. `Options`, when provided, must contain 1–100 unique JSON scalar values. Descriptions are limited to 2000 Unicode characters; `Extract: true` requires a nonempty description. The no-error builder methods panic for invalid definitions. `agentkit.GetSavedAgent(ctx, c, id)` loads a handle; `saved.Delete(ctx)` deletes it. `saved.Update(ctx, config)` reuses its ID and name and returns a handle with the fresh ETag. Handles expose `ID`, `Name`, `ETag`, and `Raw` (`*v3.AgentsClient`). The old `Deploy`, `DeployOptions`, `DeployedAgent`, and `GetDeployedAgent` names remain available as compatibility aliases. Agent creation is not an upsert yet: repeated POSTs can create distinct agents. Agent PATCH uses JSON merge patch with conditional ETags.
 
-`Save` without an ID POSTs a new agent. Save its returned ID: names are not unique upsert keys and agent POST has no supported idempotency key. `SavedAgent.Update` GETs the current ETag, then PATCHes. It sends recursive `null`s to clear readable stale fields, omitting server-owned IDs, timestamps, and resolved credential metadata. A 412 becomes `ErrPreconditionFailed` and retains the underlying v3 error; save does not retry the conflict automatically.
+`Save` without an ID POSTs a new agent. Save its returned ID: names are not unique upsert keys and agent POST has no supported idempotency key. `SavedAgent.Update` GETs the current ETag, then PATCHes. It sends recursive `null`s to clear readable stale fields, omitting server-owned IDs, timestamps, and resolved credential metadata. A 412 becomes `ErrPreconditionFailed` joined with the underlying `*v3.PreconditionFailedError`, so `errors.Is(err, v3.ErrPreconditionFailed)` and `errors.As(err, &apiErr)` also match; save does not retry the conflict automatically. See [Errors](#errors).
 
 For cascaded saves, an explicit `TurnDetection.Language` is preserved as `pipeline.asr.language`, taking precedence over the ASR vendor language as on v2. Otherwise the ASR vendor language is promoted to the block-level field, and Ares defaults to `en-US`. Without an explicit STT vendor, it uses the existing global `ares` default with managed credentials; endpoint availability remains a backend concern. The preview API supports cascading pipelines only; MLLM configurations cannot be saved or used with preview session features. Existing MLLM sessions remain supported through the original session API.
 
@@ -190,6 +190,39 @@ return err
 ```
 
 `AgentPatch` and `NumberPatch` are map types; explicit `nil` sends a merge-patch `null`. PATCH uses `application/json`, matching staging. All v3 writes make one transport attempt; the caller decides whether retrying a failed write is safe.
+
+### Errors
+
+Every error from a `v3` operation, and from AgentKit paths that call v3, belongs to exactly one category. Match categories with `errors.Is` and inspect details with `errors.As`; every categorized error also implements the `v3.Error` interface, whose `Category()` returns the most specific sentinel.
+
+| Category | Sentinel (`errors.Is`) | Type (`errors.As`) | Meaning |
+|---|---|---|---|
+| Validation | `v3.ErrValidation` | `*v3.ValidationError` | Input rejected locally; no HTTP request was sent. |
+| Configuration | `v3.ErrConfiguration` | `*v3.ConfigurationError` | The client is misconfigured: invalid base URL, missing App ID, or missing, invalid, or conflicting credentials. |
+| Connection | `v3.ErrConnection` | `*v3.ConnectionError` | The request could not complete: DNS, refused or reset connections, TLS, cancellation, or a response body that could not be read. |
+| Timeout (connection subtype) | `v3.ErrTimeout` (also `v3.ErrConnection`) | `*v3.ConnectionError` with `Timeout() == true` | A context deadline or HTTP client timeout expired. |
+| API | `v3.ErrAPI` | `*v3.APIError` | Non-2xx responses and 2xx responses that violate the API contract: an undecodable or missing body, a missing required ETag or `agent_session_id`, an unusable pagination cursor, or an invalid number `inbound` value. |
+| Precondition failed (API subtype) | `v3.ErrPreconditionFailed` (also `v3.ErrAPI`) | `*v3.PreconditionFailedError` (also `*v3.APIError`) | The server returned 412; ETag-guarded writes can reload with `Latest(ctx)`. |
+
+`*v3.APIError` exposes `StatusCode`, `Header`, raw `Body []byte`, `ParsedBody` (decoded JSON, or `nil`), the body's `Detail` and `Reason` strings, and `RequestID` from `Agora-Request-Id`. For a 2xx contract violation these fields describe the real 2xx response and `Err` describes the violation (`v3: API error: status 200 (request ID ...): response has no ETag`); `v3.ContractViolation(resp, cause)` builds one from a `*v3.Response[T]`. `*v3.ConnectionError` unwraps to the transport error, so `errors.As(err, &netErr)` with a `net.Error` target and `errors.Is(err, context.DeadlineExceeded)` or `errors.Is(err, context.Canceled)` keep working. Validation and configuration errors carry the complete message in `Message` and any underlying cause in `Err`. Messages keep the `v3: ` (or `agentkit: `) prefix and never include credentials.
+
+```go
+_, err := c.V3.Agents.Get(ctx, agentID)
+var apiErr *v3.APIError
+switch {
+case err == nil:
+case errors.Is(err, v3.ErrValidation), errors.Is(err, v3.ErrConfiguration):
+    return err // fix the input or the client setup; retrying will not help
+case errors.Is(err, v3.ErrTimeout):
+    // retry with a longer deadline
+case errors.Is(err, v3.ErrConnection):
+    // network failure; retry reads, and writes only when that is safe
+case errors.As(err, &apiErr):
+    log.Printf("v3 %d %s (request %s): %s", apiErr.StatusCode, apiErr.Reason, apiErr.RequestID, apiErr.Detail)
+}
+```
+
+Existing checks keep working: for non-2xx responses `*v3.APIError` and `*v3.PreconditionFailedError` unwrap to the shared `*core.APIError`, so `errors.As(err, &coreErr)` still matches with the same `StatusCode` and `Header`. AgentKit's `ErrUnsupportedField`, `ErrNumberNotFound`, `ErrSecretRefNotSupported`, and `ErrUnsupportedSessionOperation` keep their identity and messages and also match `v3.ErrValidation`. AgentKit's `ErrPreconditionFailed` is joined with the underlying `*v3.PreconditionFailedError`, so `v3.ErrPreconditionFailed` and `*v3.APIError` also match.
 
 ## Session options and campaign limits
 

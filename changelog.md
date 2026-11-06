@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+
+- `agentkit.GenerateClientToken` for front-end token routes. It grants RTC and RTM only, with no ConvoAI service, so client tokens cannot authenticate ConvoAI REST calls. `UID` takes the string form of a numeric UID or a user account.
+- A structured v3 error taxonomy shared with the Python and TypeScript SDKs. Every error from the `v3` package and from AgentKit paths that call v3 is a validation, configuration, connection (with a timeout subtype), or API (with a 412 precondition subtype) error. API covers non-2xx responses and 2xx responses that violate the API contract. Match categories with the new `v3.ErrValidation`, `v3.ErrConfiguration`, `v3.ErrConnection`, `v3.ErrTimeout`, `v3.ErrAPI`, and `v3.ErrPreconditionFailed` sentinels via `errors.Is`, or the new `*v3.ValidationError`, `*v3.ConfigurationError`, `*v3.ConnectionError`, and `*v3.APIError` types via `errors.As`; all implement the new `v3.Error` interface. `*v3.APIError` exposes the status code, headers, raw and parsed JSON body, `Detail`, `Reason`, and `RequestID`; `v3.ContractViolation` builds one for an unusable 2xx `*v3.Response[T]`. Cause chains are preserved: connection errors unwrap to the `net`/`context` error, non-2xx API errors unwrap to `*core.APIError`, and contract violations unwrap to their cause.
+
+### Changed
+
+- v3 error messages changed. Local validation errors now say `v3: ...` as before but are `*v3.ValidationError` values instead of plain strings; the invalid-base-URL, missing-App-ID, and authorization errors are `*v3.ConfigurationError`; authorization messages gain a `v3: invalid authorization: ` prefix. API errors read `v3: API error: status 404 AgentNotFound (request ID ...): <detail>` instead of `404: <body>`, and `*v3.PreconditionFailedError` reads `v3: precondition failed: status 412 ...`. Transport and body-read failures read `v3: request failed: ...` or `v3: request timed out: ...`. Migration: match with `errors.Is`/`errors.As` instead of comparing strings; `errors.As(err, &coreErr)` with `*core.APIError`, `errors.As(err, &stale)` with `*v3.PreconditionFailedError`, `errors.Is(err, context.DeadlineExceeded)`, and the AgentKit sentinels keep working.
+- 2xx responses the SDK cannot use are now `*v3.APIError` contract violations carrying the real 2xx status, headers, body, and request ID: an undecodable or empty body (previously a plain decode error), a 412 reload without an ETag (`Latest` previously returned an empty ETag), and in AgentKit a saved agent or number GET without an ETag (previously sent as an invalid conditional write), a session start without `agent_session_id`, a has-more number page with a missing or repeated cursor (`AssignNumber` by E.164 previously reported `ErrNumberNotFound`), and an invalid number `inbound` value. Their messages change from `agentkit: ...` to `v3: API error: status 200 ...: <problem>`.
+- Every v3 412 is now a `*v3.PreconditionFailedError`, including operations without a reload; their `Latest(ctx)` returns a validation error. `PreconditionFailedError.Cause` is now the `*v3.APIError` (which unwraps to `*core.APIError`).
+- AgentKit's `ErrUnsupportedField`, `ErrNumberNotFound`, `ErrSecretRefNotSupported`, and `ErrUnsupportedSessionOperation` keep their names, identity, and messages and now also match `v3.ErrValidation`. Other AgentKit v3-path local errors (session option, state, and client checks) keep their messages and now match `v3.ErrValidation` or `v3.ErrConfiguration`.
+
+### Fixed
+
+- String-UID agents on Platform sessions now get an RTC + RTM + ConvoAI transport token instead of an RTC-only one, so they can log in to RTM, the session's data channel.
+- A blank or whitespace-only v3 base URL (`V3Options.BaseURL`, `option.WithBaseURL`, or `AGORA_AGENTS_V3_BASE_URL`) now counts as unset instead of failing origin validation, and surrounding whitespace is ignored. The new `v3.ResolveBaseURL` is the single source of the v3 origin for both `v3.NewClient` and AgentKit.
+
 ## [v3.0.0-alpha.3] — 2026-10-30
 
 ### Changed

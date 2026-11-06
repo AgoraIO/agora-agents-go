@@ -20,9 +20,17 @@ import (
 )
 
 var (
-	ErrUnsupportedField      = errors.New("agentkit: fields cannot be mapped to v3")
-	ErrPreconditionFailed    = errors.New("agentkit: precondition failed; fetch a fresh ETag")
-	ErrNumberNotFound        = errors.New("agentkit: number not found in this project")
+	// ErrUnsupportedField reports AgentKit configuration that has no v3
+	// equivalent. It also matches v3.ErrValidation and *v3.ValidationError.
+	ErrUnsupportedField error = &v3.ValidationError{Message: "agentkit: fields cannot be mapped to v3"}
+	// ErrPreconditionFailed is joined with the underlying
+	// *v3.PreconditionFailedError when a saved-agent or number write sees a
+	// stale ETag, so v3.ErrPreconditionFailed and *v3.APIError also match.
+	ErrPreconditionFailed = errors.New("agentkit: precondition failed; fetch a fresh ETag")
+	// ErrNumberNotFound reports a number that cannot be resolved in this
+	// project before any write is sent. It also matches v3.ErrValidation.
+	ErrNumberNotFound error = &v3.ValidationError{Message: "agentkit: number not found in this project"}
+	// ErrSecretRefNotSupported also matches v3.ErrValidation.
 	ErrSecretRefNotSupported = agentcore.ErrSecretRefNotSupported
 )
 
@@ -76,7 +84,7 @@ func shouldStartEphemeralV3(base *agentcore.BaseAgent, opts CreateSessionOptions
 // in transport, lifecycle, or data_policy instead.
 func (a *Agent) toV3Session() (v3.AgentCreate, error) {
 	if a == nil || a.base == nil {
-		return v3.AgentCreate{}, errors.New("agentkit: agent config is required")
+		return v3.AgentCreate{}, invalidV3("agentkit: agent config is required")
 	}
 	copyAgent := *a
 	copyBase := *a.base
@@ -144,22 +152,22 @@ func (a *Agent) WithVariable(name string, def VariableDefinition) *Agent {
 }
 func validateVariable(name string, def VariableDefinition) error {
 	if !variableNameRE.MatchString(name) {
-		return fmt.Errorf("agentkit: invalid variable name %q", name)
+		return invalidV3f("agentkit: invalid variable name %q", name)
 	}
 	switch def.Type {
 	case "str", "int", "float", "bool", "date", "datetime":
 	default:
-		return fmt.Errorf("agentkit: invalid variable type for %s", name)
+		return invalidV3f("agentkit: invalid variable type for %s", name)
 	}
 	if def.Extract && strings.TrimSpace(def.Description) == "" {
-		return fmt.Errorf("agentkit: extracted variable %s requires description", name)
+		return invalidV3f("agentkit: extracted variable %s requires description", name)
 	}
 	if utf8.RuneCountInString(def.Description) > 2000 {
-		return fmt.Errorf("agentkit: variable %s description exceeds 2000 characters", name)
+		return invalidV3f("agentkit: variable %s description exceeds 2000 characters", name)
 	}
 	if def.Options != nil {
 		if len(def.Options) < 1 || len(def.Options) > 100 {
-			return fmt.Errorf("agentkit: variable %s options must contain 1-100 scalars", name)
+			return invalidV3f("agentkit: variable %s options must contain 1-100 scalars", name)
 		}
 		seen := make(map[string]bool, len(def.Options))
 		for _, v := range def.Options {
@@ -172,11 +180,11 @@ func validateVariable(name string, def VariableDefinition) error {
 			case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64:
 				kind = "number:"
 			default:
-				return fmt.Errorf("agentkit: variable %s option is not a scalar", name)
+				return invalidV3f("agentkit: variable %s option is not a scalar", name)
 			}
 			encoded, err := json.Marshal(v)
 			if err != nil {
-				return fmt.Errorf("agentkit: variable %s option is not a JSON scalar: %w", name, err)
+				return invalidV3Cause(fmt.Sprintf("agentkit: variable %s option is not a JSON scalar", name), err)
 			}
 			value := string(encoded)
 			if kind == "number:" {
@@ -184,13 +192,13 @@ func validateVariable(name string, def VariableDefinition) error {
 				// floats and signed zero, without rounding large integer values.
 				number, ok := new(big.Rat).SetString(value)
 				if !ok {
-					return fmt.Errorf("agentkit: variable %s option is not a JSON number", name)
+					return invalidV3f("agentkit: variable %s option is not a JSON number", name)
 				}
 				value = number.RatString()
 			}
 			key := kind + value
 			if seen[key] {
-				return fmt.Errorf("agentkit: variable %s options must be unique", name)
+				return invalidV3f("agentkit: variable %s options must be unique", name)
 			}
 			seen[key] = true
 		}
@@ -233,11 +241,11 @@ func (a *Agent) Deploy(ctx context.Context, opts DeployOptions) (*DeployedAgent,
 
 func (a *Agent) save(ctx context.Context, name, id string) (*SavedAgent, error) {
 	if a == nil || a.base == nil {
-		return nil, errors.New("agentkit: agent is required")
+		return nil, invalidV3("agentkit: agent is required")
 	}
 	c, ok := a.base.Client.(*AgoraClient)
 	if !ok || c == nil {
-		return nil, errors.New("agentkit: save requires AgoraClient")
+		return nil, misconfiguredV3("agentkit: save requires AgoraClient")
 	}
 	if name == "" {
 		name = fmt.Sprintf("agent-%d", time.Now().Unix())
@@ -260,6 +268,9 @@ func (a *Agent) save(ctx context.Context, name, id string) (*SavedAgent, error) 
 	if err != nil {
 		return nil, err
 	}
+	if strings.TrimSpace(current.ETag) == "" {
+		return nil, v3.ContractViolation(current, errors.New("agent response has no ETag"))
+	}
 	patch, err := deployPatch(current.Body, body)
 	if err != nil {
 		return nil, err
@@ -280,7 +291,7 @@ func validateSavedCredentials(pipeline *v3.Pipeline) error {
 		fields, _ := credential["fields"].(map[string]string)
 		for name, value := range fields {
 			if !strings.HasPrefix(value, "$secrets.") || !validSecretReference(value) {
-				return fmt.Errorf("agentkit: saved-agent credential %s must use SecretRef(set, key); direct credentials are allowed only in ephemeral session configs", name)
+				return invalidV3f("agentkit: saved-agent credential %s must use SecretRef(set, key); direct credentials are allowed only in ephemeral session configs", name)
 			}
 		}
 	}
@@ -295,7 +306,7 @@ func validSecretReference(value string) bool {
 // GetSavedAgent loads a stored configuration by ID.
 func GetSavedAgent(ctx context.Context, c *AgoraClient, id string) (*SavedAgent, error) {
 	if c == nil {
-		return nil, errors.New("agentkit: client is required")
+		return nil, misconfiguredV3("agentkit: client is required")
 	}
 	r, err := c.V3.Agents.Get(ctx, id)
 	if err != nil {
@@ -313,14 +324,14 @@ func GetDeployedAgent(ctx context.Context, c *AgoraClient, id string) (*Deployed
 // ETag. Both handles must belong to the same AgoraClient instance.
 func (d *SavedAgent) Update(ctx context.Context, config *Agent) (*SavedAgent, error) {
 	if d == nil || d.client == nil || d.ID == "" {
-		return nil, errors.New("agentkit: saved agent with ID and client is required")
+		return nil, invalidV3("agentkit: saved agent with ID and client is required")
 	}
 	if config == nil || config.base == nil {
-		return nil, errors.New("agentkit: agent config is required")
+		return nil, invalidV3("agentkit: agent config is required")
 	}
 	c, ok := config.base.Client.(*AgoraClient)
 	if !ok || c != d.client {
-		return nil, errors.New("agentkit: saved agent update requires the same AgoraClient instance")
+		return nil, invalidV3("agentkit: saved agent update requires the same AgoraClient instance")
 	}
 	return config.Save(ctx, SaveOptions{Name: d.Name, AgentID: d.ID})
 }
@@ -333,7 +344,7 @@ func (d *SavedAgent) CreateSession(opts CreateSessionOptions) *AgentSession {
 			backend:  sessionBackendV3Saved,
 			status:   StatusIdle,
 			handlers: make(map[string][]EventHandler),
-			initErr:  errors.New("agentkit: saved agent with ID and client is required"),
+			initErr:  invalidV3("agentkit: saved agent with ID and client is required"),
 		}
 	}
 	session := newV3AgentSession(NewAgent(d.client), d.client, opts, d.ID)

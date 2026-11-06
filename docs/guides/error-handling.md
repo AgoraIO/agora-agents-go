@@ -88,3 +88,5 @@ if err != nil {
 ```
 
 Use this for both the agentkit layer (e.g. `session.Start()`, `session.Stop()`) and direct client calls (`client.Agents.Start(...)`).
+
+The v3 preview package has its own error categories (validation, configuration, connection, timeout, and API); see [v3 preview errors](v3-preview.md#errors).

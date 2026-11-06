@@ -410,3 +410,27 @@ func TestWriteDoesNotWaitRetryAfterWhenRetriesDisabled(t *testing.T) {
 		})
 	}
 }
+
+func TestBlankBaseURLValuesMeanUnset(t *testing.T) {
+	for _, tc := range []struct {
+		name, explicit, env, want string
+	}{
+		{"blank option and env use default", "", "", "https://preview.ai.agora.io"},
+		{"whitespace option and env use default", "  ", " \t", "https://preview.ai.agora.io"},
+		{"blank option falls back to env", " ", "https://env.example.test", "https://env.example.test"},
+		{"env is trimmed", "", "  https://env.example.test/  ", "https://env.example.test"},
+		{"explicit option wins and is trimmed", " https://opt.example.test ", "https://env.example.test", "https://opt.example.test"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("AGORA_AGENTS_V3_BASE_URL", tc.env)
+			var opts []option.RequestOption
+			if tc.explicit != "" {
+				opts = append(opts, option.WithBaseURL(tc.explicit))
+			}
+			client := NewClient("app", opts...)
+			if client.shared.originErr != nil || client.shared.baseURL != tc.want {
+				t.Fatalf("base URL = %q (err %v), want %q", client.shared.baseURL, client.shared.originErr, tc.want)
+			}
+		})
+	}
+}

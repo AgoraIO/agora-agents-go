@@ -5,10 +5,13 @@ import (
 	"log"
 	"reflect"
 	"strings"
+
+	"github.com/AgoraIO/agora-agents-go/v2/v3"
 )
 
 // ErrSecretRefNotSupported prevents v3 secret references from reaching v2 join.
-var ErrSecretRefNotSupported = fmt.Errorf("secret references are only supported by v3 deploy")
+// It also matches v3.ErrValidation.
+var ErrSecretRefNotSupported error = &v3.ValidationError{Message: "secret references are only supported by v3 deploy"}
 
 func hasSecretRef(v any) bool {
 	if v == nil {

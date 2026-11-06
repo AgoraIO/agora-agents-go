@@ -2,6 +2,7 @@ package agentkit
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
@@ -135,5 +136,81 @@ func TestPlatformPrebuiltAuthorizationIsPreserved(t *testing.T) {
 	}
 	if requests != 1 {
 		t.Fatalf("requests: %d", requests)
+	}
+}
+
+func TestGenerateConvoAITokenSignsStringAccountsLikeNumericUIDs(t *testing.T) {
+	appID, certificate := strings.Repeat("a", 32), strings.Repeat("b", 32)
+	for _, account := range []string{"42", "agent-a"} {
+		token, err := generateConvoAITokenForAccount(GenerateConvoAITokenOptions{AppID: appID, AppCertificate: certificate, ChannelName: "support", TokenExpire: 600}, account)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertConvoAIToken(t, token, appID, certificate, "support", account, 600, 600)
+	}
+}
+
+func TestStringUIDAgentTransportTokenIncludesRTM(t *testing.T) {
+	appID, certificate := strings.Repeat("a", 32), strings.Repeat("b", 32)
+	var transportToken string
+	client := NewAgoraClient(AgoraClientOptions{Area: option.AreaUS, AppID: appID, AppCertificate: certificate, HTTPClient: v3HTTPFunc(func(r *http.Request) (*http.Response, error) {
+		var body struct {
+			Transport struct {
+				Token string `json:"token"`
+			} `json:"transport"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		transportToken = body.Transport.Token
+		return v3Reply(200, `{"agent_session_id":"session","status":"RUNNING"}`, ""), nil
+	})})
+	config := NewAgent(client).WithLlm(vendors.NewOpenAI(vendors.OpenAIOptions{Model: "gpt-5.6-luna"}))
+	if _, err := config.CreateEphemeralSession(CreateSessionOptions{Channel: "room", AgentUID: "agent-a", RemoteUIDs: []string{"user-b"}}).Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	assertConvoAIToken(t, transportToken, appID, certificate, "room", "agent-a", 86400, 86400)
+}
+
+func TestGenerateClientTokenGrantsRTCAndRTMWithoutConvoAI(t *testing.T) {
+	appID, certificate := strings.Repeat("a", 32), strings.Repeat("b", 32)
+	for _, tc := range []struct {
+		uid                    string
+		privilegeTTL, expected uint32
+	}{{"42", 0, 600}, {"user-a", 120, 120}} {
+		token, err := GenerateClientToken(GenerateClientTokenOptions{AppID: appID, AppCertificate: certificate, ChannelName: "room", UID: tc.uid, TokenExpire: 600, PrivilegeExpire: int(tc.privilegeTTL)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		decoded := accesstoken2.CreateAccessToken()
+		if ok, err := decoded.Parse(token); err != nil || !ok {
+			t.Fatalf("parse token: ok=%v err=%v", ok, err)
+		}
+		if ok, err := decoded.VerifySignature(certificate); err != nil || !ok {
+			t.Fatalf("verify token: ok=%v err=%v", ok, err)
+		}
+		if decoded.Expire != 600 || len(decoded.Services) != 2 {
+			t.Fatalf("expected RTC and RTM only with 600s TTL, got %d services, TTL %d", len(decoded.Services), decoded.Expire)
+		}
+		if _, ok := decoded.Services[accesstoken2.ServiceTypeConvoAI]; ok {
+			t.Fatal("client token must not carry the ConvoAI service")
+		}
+		rtc, ok := decoded.Services[accesstoken2.ServiceTypeRtc].(*accesstoken2.ServiceRtc)
+		if !ok || rtc.ChannelName != "room" || rtc.Uid != tc.uid || len(rtc.Privileges) != 4 || rtc.Privileges[accesstoken2.PrivilegeJoinChannel] != tc.expected {
+			t.Fatalf("RTC identity/privileges mismatch: %+v", rtc)
+		}
+		rtm, ok := decoded.Services[accesstoken2.ServiceTypeRtm].(*accesstoken2.ServiceRtm)
+		if !ok || rtm.UserId != tc.uid || rtm.Privileges[accesstoken2.PrivilegeLogin] != 600 {
+			t.Fatalf("RTM identity/privilege mismatch: %+v", rtm)
+		}
+	}
+}
+
+func TestGenerateClientTokenRejectsUIDThatCannotBeRTMUserID(t *testing.T) {
+	for _, uid := range []string{"", "0", "000"} {
+		_, err := GenerateClientToken(GenerateClientTokenOptions{AppID: strings.Repeat("a", 32), AppCertificate: strings.Repeat("b", 32), ChannelName: "room", UID: uid})
+		if err == nil || !strings.Contains(err.Error(), "nonzero and nonempty") {
+			t.Fatalf("uid %q: %v", uid, err)
+		}
 	}
 }

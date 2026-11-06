@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 
 	"github.com/AgoraIO-Community/go-tokenbuilder/convoaitokenbuilder"
 	"github.com/AgoraIO-Community/go-tokenbuilder/rtctokenbuilder2"
@@ -73,6 +74,56 @@ type GenerateConvoAITokenOptions struct {
 	UID             int // Numeric ConvoAI participant UID for a user, agent, or avatar.
 	TokenExpire     int // Seconds until expiry (default 86400)
 	PrivilegeExpire int // RTC privilege lifetime; 0 means TokenExpire. RTM always uses TokenExpire.
+}
+
+// GenerateClientTokenOptions configures a front-end RTC + RTM token.
+type GenerateClientTokenOptions struct {
+	AppID          string
+	AppCertificate string
+	ChannelName    string
+	// UID is the client's RTC UID or user account in string form, e.g. "100" or
+	// "user-a". It is also the RTM user ID, so it must be nonzero and nonempty.
+	UID             string
+	TokenExpire     int // Seconds until expiry (default 86400)
+	PrivilegeExpire int // RTC privilege lifetime; 0 means TokenExpire. RTM always uses TokenExpire.
+}
+
+// GenerateClientToken builds an RTC + RTM token for a front-end client. Use it in
+// token routes that hand tokens to browsers or apps.
+//
+// The token joins the RTC channel as a publisher and logs in to RTM, the data
+// channel for agent transcripts and state. It carries no ConvoAI service, so it
+// cannot authenticate ConvoAI REST calls. Use GenerateConvoAIToken for
+// server-side REST authentication and agent tokens instead.
+func GenerateClientToken(opts GenerateClientTokenOptions) (string, error) {
+	if opts.AppID == "" {
+		return "", fmt.Errorf("app_id is required")
+	}
+	if opts.AppCertificate == "" {
+		return "", fmt.Errorf("app_certificate is required")
+	}
+	if opts.ChannelName == "" {
+		return "", fmt.Errorf("channel_name is required")
+	}
+	if strings.Trim(opts.UID, "0") == "" {
+		return "", fmt.Errorf("uid must be nonzero and nonempty: it is also the RTM user ID")
+	}
+	if opts.TokenExpire <= 0 {
+		opts.TokenExpire = DefaultExpirySeconds
+	}
+	privExpire := opts.PrivilegeExpire
+	if privExpire == 0 {
+		privExpire = opts.TokenExpire
+	}
+	return rtctokenbuilder2.BuildTokenWithRtm(
+		opts.AppID,
+		opts.AppCertificate,
+		opts.ChannelName,
+		opts.UID,
+		rtctokenbuilder2.RolePublisher,
+		uint32(opts.TokenExpire),
+		uint32(privExpire),
+	)
 }
 
 // GenerateRtcToken builds an RTC token for channel access.
@@ -163,7 +214,12 @@ func GenerateConvoAIToken(opts GenerateConvoAITokenOptions) (string, error) {
 	if opts.ChannelName == "" {
 		return "", fmt.Errorf("channel_name is required")
 	}
-	account := convoAIUIDToAccount(opts.UID)
+	return generateConvoAITokenForAccount(opts, convoAIUIDToAccount(opts.UID))
+}
+
+// generateConvoAITokenForAccount signs a ConvoAI token for a string account. A
+// numeric UID and its string form produce the same token.
+func generateConvoAITokenForAccount(opts GenerateConvoAITokenOptions, account string) (string, error) {
 	if account == "" {
 		return "", fmt.Errorf("uid is required")
 	}

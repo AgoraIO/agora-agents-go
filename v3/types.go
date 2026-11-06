@@ -17,6 +17,8 @@ type Response[T any] struct {
 	ETag       string
 	RequestID  string
 	StatusCode int
+
+	raw []byte // response body, kept for ContractViolation
 }
 
 type Page[T any] struct {
