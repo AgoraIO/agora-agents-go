@@ -10,7 +10,7 @@ The MLLM flow uses a single multimodal model to process audio input and generate
 
 ## Enabling MLLM Mode
 
-Call `WithMllm(vendor)` to enable MLLM mode. The builder sets `mllm.enable = true` automatically. Use `agentkit` plus `agentkit/vendors` for global providers, and `agentkit/cn` plus `agentkit/cn/vendors` for mainland China Qwen Omni.
+Call `WithMllm(vendor)` to enable MLLM mode. The SDK sends `advanced_features.enable_mllm = true` automatically, merged with any advanced features you set, and never sends `mllm.enable`: when `mllm.enable` is in the request, the agent does not publish RTM `message.metrics` (TTFB) events. An `enable` key in a hand-written MLLM config is dropped for the same reason. Use `agentkit` plus `agentkit/vendors` for global providers, and `agentkit/cn` plus `agentkit/cn/vendors` for mainland China Qwen Omni.
 
 Every MLLM vendor option accepts typed `Tools` and `McpServers`. They serialize at
 `mllm.tools` and `mllm.mcp_servers`; enable their execution with `WithTools(true)`.
@@ -184,4 +184,4 @@ These exist because Go does not allow taking the address of a literal value (`&t
 | Vendors required | LLM + TTS (STT optional) | MLLM only |
 | Audio processing | Three-step chain | Single model, end-to-end |
 | Latency | Higher (3 network hops) | Lower (1 network hop) |
-| `mllm.enable` | Not set or `false` | Must be `Agora.Bool(true)` |
+| `advanced_features.enable_mllm` | Not sent | Set to `true` by the SDK (`mllm.enable` is never sent) |

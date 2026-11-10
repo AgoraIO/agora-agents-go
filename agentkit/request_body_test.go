@@ -577,7 +577,8 @@ func TestRequestBodyScenario8aOpenAIRealtimeMLLM(t *testing.T) {
 
 	mllm := properties["mllm"].(map[string]interface{})
 	assert.Equal(t, "openai", mllm["vendor"])
-	assert.Equal(t, true, mllm["enable"])
+	assert.NotContains(t, mllm, "enable")
+	assert.Equal(t, map[string]interface{}{"enable_mllm": true}, properties["advanced_features"])
 	assert.Equal(t, "realtime-key", mllm["api_key"])
 	params := mllm["params"].(map[string]interface{})
 	assert.Equal(t, "gpt-4o-realtime-preview", params["model"])
@@ -1404,7 +1405,8 @@ func TestMLLMVendorShapes(t *testing.T) {
 		require.NoError(t, err)
 		mllm := props["mllm"].(map[string]interface{})
 		assert.Equal(t, "openai", mllm["vendor"])
-		assert.Equal(t, true, mllm["enable"])
+		assert.NotContains(t, mllm, "enable")
+		assert.Equal(t, map[string]interface{}{"enable_mllm": true}, props["advanced_features"])
 		assert.Equal(t, "rt-key", mllm["api_key"])
 		params := mllm["params"].(map[string]interface{})
 		assert.Equal(t, "gpt-4o-realtime-preview", params["model"])
@@ -1421,7 +1423,8 @@ func TestMLLMVendorShapes(t *testing.T) {
 		require.NoError(t, err)
 		mllm := props["mllm"].(map[string]interface{})
 		assert.Equal(t, "gemini", mllm["vendor"])
-		assert.Equal(t, true, mllm["enable"])
+		assert.NotContains(t, mllm, "enable")
+		assert.Equal(t, map[string]interface{}{"enable_mllm": true}, props["advanced_features"])
 		assert.Equal(t, "gl-key", mllm["api_key"])
 		assert.Equal(t, "", mllm["url"])
 		params := mllm["params"].(map[string]interface{})
@@ -1440,7 +1443,8 @@ func TestMLLMVendorShapes(t *testing.T) {
 		require.NoError(t, err)
 		mllm := props["mllm"].(map[string]interface{})
 		assert.Equal(t, "vertexai", mllm["vendor"])
-		assert.Equal(t, true, mllm["enable"])
+		assert.NotContains(t, mllm, "enable")
+		assert.Equal(t, map[string]interface{}{"enable_mllm": true}, props["advanced_features"])
 		assert.Equal(t, "", mllm["url"])
 		assert.NotContains(t, mllm, "project_id")
 		assert.NotContains(t, mllm, "location")
@@ -1461,7 +1465,8 @@ func TestMLLMVendorShapes(t *testing.T) {
 		require.NoError(t, err)
 		mllm := props["mllm"].(map[string]interface{})
 		assert.Equal(t, "xai", mllm["vendor"])
-		assert.Equal(t, true, mllm["enable"])
+		assert.NotContains(t, mllm, "enable")
+		assert.Equal(t, map[string]interface{}{"enable_mllm": true}, props["advanced_features"])
 		assert.Equal(t, "xai-key", mllm["api_key"])
 	})
 
@@ -1493,7 +1498,6 @@ func TestMLLMVendorShapes(t *testing.T) {
 		require.NoError(t, err)
 		mllm := props["mllm"].(map[string]interface{})
 		assert.Equal(t, map[string]interface{}{
-			"enable":   true,
 			"url":      "AZURE_URL",
 			"api_key":  "APIKEY",
 			"messages": messages,

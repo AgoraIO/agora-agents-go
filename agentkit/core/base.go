@@ -274,19 +274,28 @@ func (a *BaseAgent) ApplyTTSConfig(cfg map[string]interface{}, sr *SampleRate) *
 	return clone
 }
 
+// ApplyMLLMConfig sets the MLLM vendor config. It never adds mllm.enable and
+// drops one that the vendor config carries: MLLM mode is switched on by
+// advanced_features.enable_mllm, which BuildPropertiesMap sets whenever an MLLM
+// is configured. See StripMLLMEnable for why mllm.enable is never sent.
 func (a *BaseAgent) ApplyMLLMConfig(cfg map[string]interface{}) *BaseAgent {
 	clone := a.Clone()
 	clone.MLLM = CloneConfig(cfg)
-	if clone.MLLM != nil {
-		clone.MLLM["enable"] = true
-	}
-	if clone.AdvancedFeatures != nil {
-		clone.AdvancedFeatures.EnableMllm = nil
-		if clone.AdvancedFeatures.EnableRtm == nil && clone.AdvancedFeatures.EnableSal == nil && clone.AdvancedFeatures.EnableTools == nil {
-			clone.AdvancedFeatures = nil
-		}
-	}
+	StripMLLMEnable(clone.MLLM)
 	return clone
+}
+
+// StripMLLMEnable removes the legacy mllm.enable key from an mllm config map.
+//
+// MLLM mode is enabled with advanced_features.enable_mllm. When mllm.enable is
+// in the /join body, alone or together with advanced_features.enable_mllm, the
+// agent never publishes RTM message.metrics (TTFB) events, although audio and
+// transcripts still work. The SDK therefore never sends mllm.enable, and drops
+// it from caller-supplied configs too.
+func StripMLLMEnable(mllm map[string]interface{}) {
+	if mllm != nil {
+		delete(mllm, "enable")
+	}
 }
 
 func (a *BaseAgent) ApplyAvatarConfig(cfg map[string]interface{}, requiredSR *SampleRate) *BaseAgent {

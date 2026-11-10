@@ -85,6 +85,7 @@ func BuildPropertiesMap(profile Profile, base *BaseAgent, opts ToPropertiesOptio
 			return nil, err
 		}
 	}
+	applyMLLMEnableFlag(propsMap, base.MLLM != nil)
 	if base.Parameters != nil {
 		if err := SetStructMap(propsMap, "parameters", base.Parameters); err != nil {
 			return nil, err
@@ -261,6 +262,7 @@ func resolveTurnDetectionConfig(base *BaseAgent) (map[string]interface{}, error)
 // docs/guides/preview-endpoint.md#the-vendor-type-is-not-the-whole-wire-shape.
 func buildMllmConfigMap(base *BaseAgent) map[string]interface{} {
 	mllmConfig := CloneConfig(base.MLLM)
+	StripMLLMEnable(mllmConfig)
 	if base.Greeting != "" {
 		if _, exists := mllmConfig["greeting_message"]; !exists {
 			mllmConfig["greeting_message"] = base.Greeting
@@ -363,4 +365,31 @@ func enrichAvatarParams(base *BaseAgent, opts ToPropertiesOptions, tokenFactory 
 
 func hasEnabledAvatar(base *BaseAgent) bool {
 	return base != nil && base.Avatar != nil && AvatarConfigEnabled(base.Avatar)
+}
+
+// applyMLLMEnableFlag sets advanced_features.enable_mllm for MLLM sessions.
+//
+// MLLM mode is enabled only through advanced_features.enable_mllm, never
+// through mllm.enable (see StripMLLMEnable). The flag is merged into any
+// caller-supplied advanced_features, so keys such as enable_rtm and
+// enable_tools are kept. A cascading ASR/LLM/TTS session gets no enable_mllm:
+// one the caller set is dropped, and advanced_features is removed if that
+// leaves it empty.
+func applyMLLMEnableFlag(propsMap map[string]interface{}, hasMLLM bool) {
+	advancedFeatures, _ := propsMap["advanced_features"].(map[string]interface{})
+	if hasMLLM {
+		if advancedFeatures == nil {
+			advancedFeatures = map[string]interface{}{}
+			propsMap["advanced_features"] = advancedFeatures
+		}
+		advancedFeatures["enable_mllm"] = true
+		return
+	}
+	if advancedFeatures == nil {
+		return
+	}
+	delete(advancedFeatures, "enable_mllm")
+	if len(advancedFeatures) == 0 {
+		delete(propsMap, "advanced_features")
+	}
 }

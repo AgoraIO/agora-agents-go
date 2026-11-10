@@ -556,11 +556,11 @@ func TestGPTLiveV3SessionLifecycleUsesProductionRouting(t *testing.T) {
 	}
 	mllm := body["properties"].(map[string]interface{})["mllm"].(map[string]interface{})
 	advancedFeatures := body["properties"].(map[string]interface{})["advanced_features"].(map[string]interface{})
-	if mllm["enable"] != true || mllm["url"] != "wss://api.openai.com/v1/live/sessions" {
+	if _, exists := mllm["enable"]; exists || mllm["url"] != "wss://api.openai.com/v1/live/sessions" {
 		t.Fatalf("mllm = %#v", mllm)
 	}
-	if advancedFeatures["enable_tools"] != true {
-		t.Fatalf("advanced_features.enable_tools = %#v, want true", advancedFeatures["enable_tools"])
+	if advancedFeatures["enable_tools"] != true || advancedFeatures["enable_mllm"] != true {
+		t.Fatalf("advanced_features = %#v, want enable_tools and enable_mllm true", advancedFeatures)
 	}
 	assertJSONEqual(t, mllm["params"], `{"model":"gpt-live-1","prompt":"Be brief","output_idle_end_ms":0}`)
 	assertJSONEqual(
