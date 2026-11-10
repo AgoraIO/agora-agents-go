@@ -198,11 +198,14 @@ type InboundCallPolicy struct {
 	MaxSilenceDurationMS   *int                  `json:"max_silence_duration_ms,omitempty"`
 	EndCall                *InboundEndCallPolicy `json:"end_call,omitempty"`
 }
+
+// InboundEndCallPolicy selects the conditions that end an inbound call. Only
+// conditions set to true are sent; an omitted condition is off. Inbound numbers
+// reject on_conversation_complete and on_fax, so they are not offered here.
 type InboundEndCallPolicy struct {
-	OnConversationComplete bool `json:"on_conversation_complete"`
-	OnUserRequest          bool `json:"on_user_request"`
-	OnFax                  bool `json:"on_fax"`
-	OnAIAssistant          bool `json:"on_ai_assistant"`
+	OnUserRequest bool `json:"on_user_request,omitempty"`
+	OnAIAssistant bool `json:"on_ai_assistant,omitempty"`
+	OnVoicemail   bool `json:"on_voicemail,omitempty"`
 }
 
 type Inbound struct {

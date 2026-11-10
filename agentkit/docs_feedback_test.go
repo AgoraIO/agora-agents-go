@@ -176,12 +176,14 @@ func TestInboundEndCallPolicy(t *testing.T) {
 		var b map[string]any
 		json.NewDecoder(r.Body).Decode(&b)
 		p := b["inbound"].(map[string]any)["call_policy"].(map[string]any)["end_call"].(map[string]any)
-		if p["on_user_request"] != true || p["on_fax"] != false {
+		// Only enabled conditions are sent; inbound numbers reject
+		// on_conversation_complete and on_fax.
+		if len(p) != 2 || p["on_user_request"] != true || p["on_voicemail"] != true {
 			t.Fatal(p)
 		}
 		return v3Reply(200, `{"number_id":"number"}`, "next"), nil
 	})})
-	_, err := (&SavedAgent{ID: "saved", client: client}).AssignNumber(context.Background(), "number", AssignNumberOptions{CallPolicy: &InboundCallPolicy{EndCall: &InboundEndCallPolicy{OnUserRequest: true}}})
+	_, err := (&SavedAgent{ID: "saved", client: client}).AssignNumber(context.Background(), "number", AssignNumberOptions{CallPolicy: &InboundCallPolicy{EndCall: &InboundEndCallPolicy{OnUserRequest: true, OnVoicemail: true}}})
 	if err != nil || calls != 2 {
 		t.Fatal(err, calls)
 	}
