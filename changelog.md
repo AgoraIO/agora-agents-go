@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`AssignNumber` end-call policies are accepted by the API** — `InboundEndCallPolicy` always sent every condition, including `on_conversation_complete` and `on_fax`, which inbound numbers reject (`400 InvalidRequestBody: ... Field is not supported`). Those two fields are removed, the remaining conditions are sent only when `true`, and `OnVoicemail` is added. This matches the Python and TypeScript SDKs.
+
 ## [v3.0.0-alpha.4] — 2026-11-06
 
 ### Changed
