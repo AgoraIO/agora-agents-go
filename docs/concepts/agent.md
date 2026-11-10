@@ -191,7 +191,7 @@ if err != nil {
 
 If `Token` is empty, `ToProperties` generates one from `AppID` + `AppCertificate`. If both are empty, it returns an error.
 
-In cascading mode, `ToProperties` requires both LLM and TTS to be configured — it returns an error if either is missing. In MLLM mode (when `mllm.enable` is `true`), LLM and TTS are not required.
+In cascading mode, `ToProperties` requires both LLM and TTS to be configured — it returns an error if either is missing. In MLLM mode (when an MLLM vendor is set with `WithMllm`, which sends `advanced_features.enable_mllm: true`), LLM and TTS are not required.
 
 ## Type Aliases
 

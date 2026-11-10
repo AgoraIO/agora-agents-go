@@ -37,7 +37,6 @@ GPT Live places MCP at `properties.mllm.mcp_servers`, the tool gate at `properti
 {
   "properties": {
     "mllm": {
-      "enable": true,
       "vendor": "openai_gpt_live",
       "api_key": "<openai-api-key>",
       "url": "wss://api.openai.com/v1/live/sessions",
@@ -61,7 +60,7 @@ GPT Live places MCP at `properties.mllm.mcp_servers`, the tool gate at `properti
         "transport": "streamable_http"
       }]
     },
-    "advanced_features": {"enable_tools": true}
+    "advanced_features": {"enable_mllm": true, "enable_tools": true}
   }
 }
 ```

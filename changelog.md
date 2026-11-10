@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Fixed
+
+- **MLLM RTM metrics** — MLLM sessions now enable MLLM mode with `advanced_features.enable_mllm: true` and no longer send `mllm.enable`. With `mllm.enable` in the start body, alone or together with `enable_mllm`, the agent never published RTM `message.metrics` (TTFB) events, although audio and transcripts worked. This applies to every MLLM vendor (Gemini Live, OpenAI Realtime, GPT Live, Vertex AI, Azure, xAI, Qwen Omni) in every area. `enable_mllm` is merged into caller-supplied `advanced_features` without dropping keys such as `enable_rtm` or `enable_tools`; an `enable` key in a hand-written MLLM config is dropped; cascading sessions never receive `enable_mllm`. This reverses the v1.4.0 change that moved the flag to `mllm.enable`.
+
 ## [v2.13.1] — 2026-11-06
 
 ### Added

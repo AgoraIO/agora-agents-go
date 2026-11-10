@@ -62,8 +62,12 @@ func TestMLLMKeepsMCPOutsideVendorParams(t *testing.T) {
 			if exists {
 				t.Fatalf("unexpected llm = %#v", props["llm"])
 			}
-			if props["advanced_features"].(map[string]interface{})["enable_tools"] != true {
-				t.Fatal("lost tool gate")
+			advancedFeatures := props["advanced_features"].(map[string]interface{})
+			if advancedFeatures["enable_tools"] != true || advancedFeatures["enable_mllm"] != true {
+				t.Fatalf("advanced_features = %#v, want enable_tools and enable_mllm", advancedFeatures)
+			}
+			if _, exists := props["mllm"].(map[string]interface{})["enable"]; exists {
+				t.Fatal("raw mllm.enable was not dropped")
 			}
 			if props["mllm"].(map[string]interface{})["mcp_servers"] == nil {
 				t.Fatal("MCP missing from mllm")

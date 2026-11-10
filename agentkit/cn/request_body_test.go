@@ -100,7 +100,6 @@ func TestQwenOmniMLLMProperties(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, map[string]interface{}{
-		"enable":  true,
 		"vendor":  "qwen_omni",
 		"url":     "wss://dashscope.aliyuncs.com/api-ws/v1/realtime",
 		"api_key": "dashscope-key",
@@ -108,6 +107,7 @@ func TestQwenOmniMLLMProperties(t *testing.T) {
 			"model": "qwen3.5-omni-plus-realtime",
 		},
 	}, props["mllm"])
+	assert.Equal(t, map[string]interface{}{"enable_mllm": true}, props["advanced_features"])
 	assert.NotContains(t, props, "llm")
 	assert.NotContains(t, props, "tts")
 }
@@ -146,7 +146,6 @@ func TestQwenOmniStartRequestContainsRequiredMLLMFields(t *testing.T) {
 	require.NoError(t, json.Unmarshal(httpClient.body, &payload))
 	properties := payload["properties"].(map[string]interface{})
 	assert.Equal(t, map[string]interface{}{
-		"enable":  true,
 		"vendor":  "qwen_omni",
 		"url":     "wss://dashscope.aliyuncs.com/api-ws/v1/realtime",
 		"api_key": "dashscope-key",
@@ -154,4 +153,5 @@ func TestQwenOmniStartRequestContainsRequiredMLLMFields(t *testing.T) {
 			"model": "qwen3.5-omni-plus-realtime",
 		},
 	}, properties["mllm"])
+	assert.Equal(t, map[string]interface{}{"enable_mllm": true}, properties["advanced_features"])
 }
