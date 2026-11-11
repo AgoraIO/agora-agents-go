@@ -15,6 +15,41 @@ This reference describes the default/global vendor package. Mainland China vendo
 - Global/default package: `github.com/AgoraIO/agora-agents-go/v2/agentkit/vendors`
 - CN package: `github.com/AgoraIO/agora-agents-go/v2/agentkit/cn/vendors`
 
+## Engine v2.15 vendors
+
+| Constructor | Package | Required options | Wire vendor |
+|---|---|---|---|
+| `NewMiniMaxDuplexTTS` | `agentkit/cn/vendors` | `Key`, `Model`, `VoiceSetting.VoiceID` | `minimax_duplex` |
+| `NewStepFunSTT` | `agentkit/cn/vendors` | `APIKey` | `stepfun` |
+| `NewSonioxTTS` | `agentkit/vendors` | `APIKey` | `soniox` |
+
+MiniMax Duplex currently has only a CN implementation. It uses BYOK credentials and does not infer an Agora-managed MiniMax preset. The constructor follows the existing CN MiniMax helper, with a required voice setting rather than a timbre mix.
+
+<!-- snippet: fragment -->
+```go
+import cnvendors "github.com/AgoraIO/agora-agents-go/v2/agentkit/cn/vendors"
+
+tts := cnvendors.NewMiniMaxDuplexTTS(cnvendors.MiniMaxDuplexTTSOptions{
+    Key:   "<minimax-key>",
+    Model: "speech-2.8-turbo",
+    VoiceSetting: &cnvendors.MiniMaxDuplexVoiceSetting{
+        VoiceID: "female-shaonv",
+    },
+    AudioSetting: &cnvendors.MiniMaxDuplexAudioSetting{
+        SampleRate: 24000,
+        Format:     "pcm",
+        Channels:   1,
+    },
+})
+stt := cnvendors.NewStepFunSTT(cnvendors.StepFunSTTOptions{APIKey: "<stepfun-key>"})
+```
+
+Duplex also accepts `URL`, `PronunciationDict`, `VoiceModify` (`Pitch`, `Intensity`, `Timbre`, `SoundEffects`), `LanguageBoost`, `TextNormalizationMode`, `SubtitleEnable`, `SubtitleType`, `ContinuousSound`, and `SessionID`. Voice speed, volume, and pitch use `*float64`; optional booleans use pointers so explicit `false` is preserved. `GetSampleRate()` reads `AudioSetting.SampleRate`.
+
+Soniox accepts optional `BaseURL`, `Model`, `Language`, `Voice`, `SampleRate`, `Speed` (0.7–1.3), `ReduceSilence`, `ReturnTimestamps`, `ClientReferenceID`, and `Dump`. Defaults remain with the provider when omitted.
+
+All three helpers accept `AdditionalParams`, with named options taking precedence. Both TTS helpers accept `SkipPatterns`. StepFun recognition language comes from the agent's turn detection configuration, as with other STT vendors.
+
 ## SampleRate
 
 <!-- snippet: fragment -->

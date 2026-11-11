@@ -47,6 +47,32 @@ func (f *FengmingSTT) ToConfig() map[string]interface{} {
 	return config
 }
 
+type StepFunSTTOptions struct {
+	APIKey           string
+	AdditionalParams map[string]interface{}
+}
+
+// StepFunSTT is the mainland China StepFun ASR provider.
+type StepFunSTT struct {
+	options StepFunSTTOptions
+}
+
+func NewStepFunSTT(opts StepFunSTTOptions) *StepFunSTT {
+	if opts.APIKey == "" {
+		panic("StepFunSTT requires APIKey")
+	}
+	return &StepFunSTT{options: opts}
+}
+
+func (s *StepFunSTT) ToConfig() map[string]interface{} {
+	params := map[string]interface{}{}
+	for key, value := range s.options.AdditionalParams {
+		params[key] = value
+	}
+	params["api_key"] = s.options.APIKey
+	return map[string]interface{}{"vendor": "stepfun", "params": params}
+}
+
 type TencentSTTOptions struct {
 	Key              string
 	AppID            string
