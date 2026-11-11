@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [v2.13.1] — 2026-11-06
+
+### Added
+
+- `agentkit.GenerateClientToken` for front-end token routes. It grants RTC and RTM only, with no ConvoAI service, so client tokens cannot authenticate ConvoAI REST calls. `UID` takes the string form of a numeric UID or a user account.
+
 ## [v2.13.0] — 2026-10-29
 
 ### Added
