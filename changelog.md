@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [v2.14.0] — 2026-11-11
+
+### Added
+
+- **Soniox TTS** — Added the global `NewSonioxTTS` provider with typed streaming speech options, speed validation, additional parameters, and skip patterns. Only `APIKey` is required; omitted options use provider defaults.
+- **MiniMax Duplex TTS** — Added the mainland China `NewMiniMaxDuplexTTS` provider with typed voice, audio, pronunciation, and voice modification settings. BYOK credentials, a model, and `VoiceSetting.VoiceID` are required; fractional voice multipliers and explicit `false` values are preserved.
+- **StepFun ASR** — Added the mainland China `NewStepFunSTT` provider with `APIKey` and additional parameters. Generated ASR/TTS unions support all three new vendors through typed configurations and optional visitor extensions, preserving existing visitor interfaces.
+
 ## [v2.13.1] — 2026-11-06
 
 ### Added
