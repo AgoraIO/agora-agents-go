@@ -126,6 +126,8 @@ Use `TurnDetectionConfig.Language` for Agora interaction language; it defaults t
 | Constructor | Options Struct | Required Fields |
 |---|---|---|
 | `NewSpeechmaticsSTT` | `SpeechmaticsSTTOptions` | `Key`, `Language`; deprecated `APIKey` remains supported |
+| `NewElevenLabsSTT` | `ElevenLabsSTTOptions` | `APIKey`; global ElevenLabs ASR |
+| `NewFishAudioSTT` | `FishAudioSTTOptions` | `APIKey`; global Fish Audio ASR |
 | `NewDeepgramSTT` | `DeepgramSTTOptions` | `APIKey` for BYOK; none for supported Agora-managed global/default Deepgram models; `Keyterm?` |
 | `NewMicrosoftSTT` | `MicrosoftSTTOptions` | `Key`, `Region`, `Language` |
 | `NewOpenAISTT` | `OpenAISTTOptions` | `APIKey` |
@@ -227,6 +229,7 @@ REST `asr.language` comes from `TurnDetectionConfig.Language` (default `en-US`),
 | `NewFengmingSTT()` / `NewFengmingSTT(FengmingSTTOptions)` | `fengming` | none; optional `Keywords` and `AdditionalParams` |
 | `NewTencentSTT` | `tencent` | `Key`, `AppID`, `Secret` |
 | `NewStepFunSTT` | `stepfun` | `APIKey` |
+| `NewQwenSTT` | `qwen` | `APIKey` |
 | `NewMicrosoftSTT` | `microsoft` | `Key`, `Region`, `Language` (in `params.language`) |
 | `NewXfyunSTT` | `xfyun` | `APIKey`, `AppID`, `APISecret`; `Language` optional in `params` |
 | `NewXfyunBigModelSTT` | `xfyun_bigmodel` | `APIKey`, `AppID`, `APISecret`; `Language` / `LanguageName` optional in `params` |

@@ -15,6 +15,30 @@ This reference describes the default/global vendor package. Mainland China vendo
 - Global/default package: `github.com/AgoraIO/agora-agents-go/v2/agentkit/vendors`
 - CN package: `github.com/AgoraIO/agora-agents-go/v2/agentkit/cn/vendors`
 
+## Engine v2.16 ASR vendors
+
+| Constructor | Package | Required options | Wire vendor | Scope |
+|---|---|---|---|---|
+| `NewElevenLabsSTT` | `agentkit/vendors` | `APIKey` | `elevenlabs` | global |
+| `NewFishAudioSTT` | `agentkit/vendors` | `APIKey` | `fishaudio` | global |
+| `NewQwenSTT` | `agentkit/cn/vendors` | `APIKey` | `qwen` | cn |
+
+Each constructor panics when `APIKey` is empty. All three accept `AdditionalParams` for provider-specific parameters; the explicit `APIKey` takes precedence over `AdditionalParams["api_key"]`. REST `asr.language` comes from `TurnDetectionConfig.Language` (default `en-US`), so configure `zh-CN` on the agent for Chinese recognition.
+
+<!-- snippet: fragment -->
+```go
+import (
+    cnvendors "github.com/AgoraIO/agora-agents-go/v2/agentkit/cn/vendors"
+    "github.com/AgoraIO/agora-agents-go/v2/agentkit/vendors"
+)
+
+elevenLabs := vendors.NewElevenLabsSTT(vendors.ElevenLabsSTTOptions{APIKey: "<elevenlabs-key>"})
+fishAudio := vendors.NewFishAudioSTT(vendors.FishAudioSTTOptions{APIKey: "<fishaudio-key>"})
+qwen := cnvendors.NewQwenSTT(cnvendors.QwenSTTOptions{APIKey: "<dashscope-key>"})
+```
+
+Pass the desired provider to `WithStt()` on your agent.
+
 ## Engine v2.15 vendors
 
 | Constructor | Package | Required options | Wire vendor |

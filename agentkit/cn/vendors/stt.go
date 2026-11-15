@@ -1,5 +1,37 @@
 package vendors
 
+// QwenSTTOptions configures Qwen ASR for mainland China.
+type QwenSTTOptions struct {
+	APIKey           string
+	AdditionalParams map[string]any
+}
+
+// QwenSTT is the mainland China Qwen ASR provider.
+type QwenSTT struct {
+	options QwenSTTOptions
+}
+
+var _ STT = (*QwenSTT)(nil)
+
+// NewQwenSTT creates a Qwen ASR configuration.
+// It panics if APIKey is empty. Set recognition language on the agent's turn detection configuration.
+func NewQwenSTT(opts QwenSTTOptions) *QwenSTT {
+	if opts.APIKey == "" {
+		panic("QwenSTT requires APIKey")
+	}
+	return &QwenSTT{options: opts}
+}
+
+// ToConfig returns the Qwen ASR configuration expected by the API.
+func (q *QwenSTT) ToConfig() map[string]any {
+	params := map[string]any{}
+	for key, value := range q.options.AdditionalParams {
+		params[key] = value
+	}
+	params["api_key"] = q.options.APIKey
+	return map[string]any{"vendor": "qwen", "params": params}
+}
+
 // FengmingSTTOptions configures the Agora-managed mainland China Fengming ASR provider.
 type FengmingSTTOptions struct {
 	Keywords         []string
