@@ -1546,8 +1546,20 @@ type SmallestAiAsrVisitor interface {
 // StepfunAsrVisitor optionally extends AsrVisitor with StepFun ASR support.
 type StepfunAsrVisitor interface {
 	VisitStepfun(*StepfunAsr) error
+}
+
+// ElevenLabsAsrVisitor optionally extends AsrVisitor with ElevenLabs ASR support.
+type ElevenLabsAsrVisitor interface {
 	VisitElevenlabs(*ElevenLabsAsr) error
+}
+
+// FishAudioAsrVisitor optionally extends AsrVisitor with Fish Audio ASR support.
+type FishAudioAsrVisitor interface {
 	VisitFishaudio(*FishAudioAsr) error
+}
+
+// QwenAsrVisitor optionally extends AsrVisitor with Qwen ASR support.
+type QwenAsrVisitor interface {
 	VisitQwen(*QwenAsr) error
 }
 
@@ -1618,13 +1630,25 @@ func (a *Asr) Accept(visitor AsrVisitor) error {
 		return stepfunVisitor.VisitStepfun(a.Stepfun)
 	}
 	if a.Elevenlabs != nil {
-		return visitor.VisitElevenlabs(a.Elevenlabs)
+		elevenlabsVisitor, ok := visitor.(ElevenLabsAsrVisitor)
+		if !ok {
+			return fmt.Errorf("visitor %T does not support elevenlabs ASR", visitor)
+		}
+		return elevenlabsVisitor.VisitElevenlabs(a.Elevenlabs)
 	}
 	if a.Fishaudio != nil {
-		return visitor.VisitFishaudio(a.Fishaudio)
+		fishaudioVisitor, ok := visitor.(FishAudioAsrVisitor)
+		if !ok {
+			return fmt.Errorf("visitor %T does not support fishaudio ASR", visitor)
+		}
+		return fishaudioVisitor.VisitFishaudio(a.Fishaudio)
 	}
 	if a.Qwen != nil {
-		return visitor.VisitQwen(a.Qwen)
+		qwenVisitor, ok := visitor.(QwenAsrVisitor)
+		if !ok {
+			return fmt.Errorf("visitor %T does not support qwen ASR", visitor)
+		}
+		return qwenVisitor.VisitQwen(a.Qwen)
 	}
 	return fmt.Errorf("type %T does not define a non-empty union type", a)
 }
