@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	Agora "github.com/AgoraIO/agora-agents-go/v2"
+	cnvendors "github.com/AgoraIO/agora-agents-go/v2/agentkit/cn/vendors"
 	"github.com/AgoraIO/agora-agents-go/v2/agentkit/vendors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -81,4 +82,24 @@ func TestDeepgramCredentialNormalizationPreservesBYOK(t *testing.T) {
 			assert.Equal(t, tt.params, agent.BaseAgent().STT["params"])
 		})
 	}
+}
+
+func TestStepFunSTTConfig(t *testing.T) {
+	t.Parallel()
+	assertJSONEqual(t, cnvendors.NewStepFunSTT(cnvendors.StepFunSTTOptions{APIKey: "k"}).ToConfig(),
+		`{"vendor":"stepfun","params":{"api_key":"k"}}`)
+	stt := cnvendors.NewStepFunSTT(cnvendors.StepFunSTTOptions{
+		APIKey: "k", AdditionalParams: map[string]interface{}{"api_key": "overridden", "future_param": 42},
+	})
+	assertJSONEqual(t, stt.ToConfig(), `{"vendor":"stepfun","params":{"api_key":"k","future_param":42}}`)
+}
+
+func TestStepFunSTTRequiresAPIKey(t *testing.T) {
+	t.Parallel()
+	defer func() {
+		if recover() == nil {
+			t.Fatal("expected missing API key to panic")
+		}
+	}()
+	cnvendors.NewStepFunSTT(cnvendors.StepFunSTTOptions{})
 }

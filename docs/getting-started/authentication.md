@@ -48,3 +48,19 @@ import "fmt"
 
 fmt.Println(client.AuthMode) // "app-credentials"
 ```
+
+## Client tokens
+
+Browsers and apps need their own token to join the channel and log in to RTM, which carries agent transcripts and state. Mint it on your server with `agentkit.GenerateClientToken`:
+
+```go
+token, err := agentkit.GenerateClientToken(agentkit.GenerateClientTokenOptions{
+    AppID:          os.Getenv("AGORA_APP_ID"),
+    AppCertificate: os.Getenv("AGORA_APP_CERTIFICATE"),
+    ChannelName:    "my-room",
+    UID:            "100", // or a string user account; also the RTM user ID
+    TokenExpire:    3600,
+})
+```
+
+The token grants RTC (publisher) and RTM login only. Never hand a client a token from `GenerateConvoAIToken`: its ConvoAI service authenticates REST calls, so a client holding it could control agents in your project. Keep ConvoAI tokens on the server.
