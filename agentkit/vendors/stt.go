@@ -7,6 +7,70 @@ import (
 	Agora "github.com/AgoraIO/agora-agents-go/v2"
 )
 
+// ElevenLabsSTTOptions configures ElevenLabs ASR for global deployments.
+type ElevenLabsSTTOptions struct {
+	APIKey           string
+	AdditionalParams map[string]any
+}
+
+// ElevenLabsSTT is the global ElevenLabs ASR provider.
+type ElevenLabsSTT struct {
+	options ElevenLabsSTTOptions
+}
+
+var _ STT = (*ElevenLabsSTT)(nil)
+
+// NewElevenLabsSTT creates an ElevenLabs ASR configuration.
+// It panics if APIKey is empty. Set recognition language on the agent's turn detection configuration.
+func NewElevenLabsSTT(opts ElevenLabsSTTOptions) *ElevenLabsSTT {
+	if opts.APIKey == "" {
+		panic("ElevenLabsSTT requires APIKey")
+	}
+	return &ElevenLabsSTT{options: opts}
+}
+
+// ToConfig returns the ElevenLabs ASR configuration expected by the API.
+func (e *ElevenLabsSTT) ToConfig() map[string]any {
+	params := map[string]any{}
+	for key, value := range e.options.AdditionalParams {
+		params[key] = value
+	}
+	params["api_key"] = e.options.APIKey
+	return map[string]any{"vendor": "elevenlabs", "params": params}
+}
+
+// FishAudioSTTOptions configures Fish Audio ASR for global deployments.
+type FishAudioSTTOptions struct {
+	APIKey           string
+	AdditionalParams map[string]any
+}
+
+// FishAudioSTT is the global Fish Audio ASR provider.
+type FishAudioSTT struct {
+	options FishAudioSTTOptions
+}
+
+var _ STT = (*FishAudioSTT)(nil)
+
+// NewFishAudioSTT creates a Fish Audio ASR configuration.
+// It panics if APIKey is empty. Set recognition language on the agent's turn detection configuration.
+func NewFishAudioSTT(opts FishAudioSTTOptions) *FishAudioSTT {
+	if opts.APIKey == "" {
+		panic("FishAudioSTT requires APIKey")
+	}
+	return &FishAudioSTT{options: opts}
+}
+
+// ToConfig returns the Fish Audio ASR configuration expected by the API.
+func (f *FishAudioSTT) ToConfig() map[string]any {
+	params := map[string]any{}
+	for key, value := range f.options.AdditionalParams {
+		params[key] = value
+	}
+	params["api_key"] = f.options.APIKey
+	return map[string]any{"vendor": "fishaudio", "params": params}
+}
+
 type SpeechmaticsSTTOptions struct {
 	Key string
 	// Deprecated: Use Key instead. APIKey is normalized to the REST API's key field.
