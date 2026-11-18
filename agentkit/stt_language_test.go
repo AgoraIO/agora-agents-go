@@ -223,3 +223,103 @@ func TestAssemblyAIParamsStayNestedAndASRLanguageComesFromTurnDetection(t *testi
 	}, props["asr"])
 	assert.Equal(t, map[string]interface{}{"language": "fr-FR"}, props["turn_detection"])
 }
+
+func TestTurnDetectionLanguagesJoinIntoASRLanguageAndFallBackToVAD(t *testing.T) {
+	props := propertiesForSTTLanguage(t, baseAgentForSTTLanguage().
+		WithTurnDetection(&TurnDetectionConfig{
+			Languages: []Agora.AsrLanguage{Agora.AsrLanguageEnUs, Agora.AsrLanguageEsEs, Agora.AsrLanguageEnUs},
+		}))
+
+	asr := asrFromProperties(t, props)
+	assert.Equal(t, "ares", asr["vendor"])
+	assert.Equal(t, "en-US,es-ES", asr["language"])
+	assert.Equal(t, map[string]interface{}{
+		"language": "en-US,es-ES",
+		"config": map[string]interface{}{
+			"end_of_speech": map[string]interface{}{"mode": "vad"},
+		},
+	}, props["turn_detection"])
+}
+
+func TestTurnDetectionLanguagesKeepCallerVADConfig(t *testing.T) {
+	vad := Agora.StartAgentsRequestPropertiesTurnDetectionConfigEndOfSpeechModeVad
+	silence := 640
+	props := propertiesForSTTLanguage(t, baseAgentForSTTLanguage().
+		WithTurnDetection(&TurnDetectionConfig{
+			Languages: []Agora.AsrLanguage{Agora.AsrLanguageEnUs, Agora.AsrLanguageHiIn},
+			Config: &TurnDetectionNestedConfig{
+				EndOfSpeech: &EndOfSpeechConfig{
+					Mode:      &vad,
+					VadConfig: &EndOfSpeechVadConfig{SilenceDurationMs: &silence},
+				},
+			},
+		}))
+
+	assert.Equal(t, "en-US,hi-IN", asrFromProperties(t, props)["language"])
+	assert.Equal(t, map[string]interface{}{
+		"mode":       "vad",
+		"vad_config": map[string]interface{}{"silence_duration_ms": float64(640)},
+	}, props["turn_detection"].(map[string]interface{})["config"].(map[string]interface{})["end_of_speech"])
+}
+
+func TestTurnDetectionSingleLanguageListHasNoVADFallback(t *testing.T) {
+	props := propertiesForSTTLanguage(t, baseAgentForSTTLanguage().
+		WithTurnDetection(&TurnDetectionConfig{Languages: []Agora.AsrLanguage{Agora.AsrLanguageJaJp}}))
+
+	assert.Equal(t, map[string]interface{}{"language": "ja-JP"}, props["turn_detection"])
+}
+
+func TestTurnDetectionSemanticEndOfSpeechAllowsOneEnglishOrChineseLanguage(t *testing.T) {
+	semantic := Agora.StartAgentsRequestPropertiesTurnDetectionConfigEndOfSpeechModeSemantic
+	props := propertiesForSTTLanguage(t, baseAgentForSTTLanguage().
+		WithTurnDetection(&TurnDetectionConfig{
+			Language: Agora.AsrLanguageZhCn.Ptr(),
+			Config:   &TurnDetectionNestedConfig{EndOfSpeech: &EndOfSpeechConfig{Mode: &semantic}},
+		}))
+
+	assert.Equal(t, "zh-CN", asrFromProperties(t, props)["language"])
+}
+
+func TestTurnDetectionLanguageErrors(t *testing.T) {
+	semantic := Agora.StartAgentsRequestPropertiesTurnDetectionConfigEndOfSpeechModeSemantic
+	semanticConfig := &TurnDetectionNestedConfig{EndOfSpeech: &EndOfSpeechConfig{Mode: &semantic}}
+	cases := map[string]struct {
+		config  *TurnDetectionConfig
+		message string
+	}{
+		"languages with semantic": {
+			config: &TurnDetectionConfig{
+				Languages: []Agora.AsrLanguage{Agora.AsrLanguageEnUs, Agora.AsrLanguageZhCn},
+				Config:    semanticConfig,
+			},
+			message: "cannot be used with semantic end_of_speech",
+		},
+		"semantic with unsupported language": {
+			config:  &TurnDetectionConfig{Language: Agora.AsrLanguageFrFr.Ptr(), Config: semanticConfig},
+			message: "supports only English and Chinese",
+		},
+		"language and languages": {
+			config: &TurnDetectionConfig{
+				Language:  Agora.AsrLanguageEnUs.Ptr(),
+				Languages: []Agora.AsrLanguage{Agora.AsrLanguageEsEs},
+			},
+			message: "not both",
+		},
+		"empty languages": {
+			config:  &TurnDetectionConfig{Languages: []Agora.AsrLanguage{}},
+			message: "must not be empty",
+		},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, err := baseAgentForSTTLanguage().WithTurnDetection(tc.config).ToPropertiesMap(ToPropertiesOptions{
+				Channel:    "channel",
+				Token:      "token",
+				AgentUID:   "1001",
+				RemoteUIDs: []string{"1002"},
+			})
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tc.message)
+		})
+	}
+}

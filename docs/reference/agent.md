@@ -82,6 +82,19 @@ func WithTurnDetectionConfig(td *TurnDetectionConfig) AgentOption
 
 Sets cascading-flow turn detection configuration. Use `Language` for the Agora interaction language, `Config.StartOfSpeech` and `Config.EndOfSpeech` for SOS/EOS detection, interruption config for interruption behavior, and MLLM vendor `TurnDetection` for MLLM turn detection.
 
+For a multi-language session, set `Languages` instead of `Language`. AgentKit sends them to `asr.language` as one comma-separated string. When there is more than one language and `Config.EndOfSpeech.Mode` is unset, AgentKit sends `end_of_speech.mode: "vad"` (silence VAD).
+
+Semantic end of speech supports one English or Chinese `Language` only (`en-US`, `en-IN`, `zh-CN`, `zh-HK`, `zh-TW`). Go cannot check this at compile time, so `ToPropertiesMap` and `Start` return an error if `Languages` is combined with semantic end of speech, if `Language` is another language, or if both `Language` and `Languages` are set.
+
+```go
+agent := agentkit.NewAgent(client,
+    agentkit.WithTurnDetectionConfig(&agentkit.TurnDetectionConfig{
+        // Sends asr.language "en-US,es-ES" and end_of_speech.mode "vad"
+        Languages: []Agora.AsrLanguage{Agora.AsrLanguageEnUs, Agora.AsrLanguageEsEs},
+    }),
+)
+```
+
 ### WithInterruptionConfig
 
 <!-- snippet: fragment -->

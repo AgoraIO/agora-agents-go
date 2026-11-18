@@ -3,6 +3,9 @@ package core
 import (
 	"fmt"
 	"log"
+	"strings"
+
+	Agora "github.com/AgoraIO/agora-agents-go/v2"
 )
 
 func BuildPropertiesMap(profile Profile, base *BaseAgent, opts ToPropertiesOptions, tokenFactory TokenFactory) (map[string]interface{}, error) {
@@ -141,6 +144,13 @@ func BuildPropertiesMap(profile Profile, base *BaseAgent, opts ToPropertiesOptio
 			if err := SetStructMap(propsMap, "turn_detection", base.TurnDetection); err != nil {
 				return nil, err
 			}
+			if len(base.TurnDetection.Languages) > 0 {
+				languages, err := turnDetectionLanguages(base.TurnDetection)
+				if err != nil {
+					return nil, err
+				}
+				AsMap(propsMap["turn_detection"])["language"] = strings.Join(languages, ",")
+			}
 		}
 		return propsMap, nil
 	}
@@ -232,25 +242,81 @@ func defaultASRVendor(profile Profile) string {
 }
 
 func resolveTurnDetectionConfig(base *BaseAgent) (map[string]interface{}, error) {
+	td := base.TurnDetection
 	turnDetection := map[string]interface{}{}
-	if base.TurnDetection != nil {
+	if td != nil {
 		var err error
-		turnDetection, err = StructToMap(base.TurnDetection)
+		turnDetection, err = StructToMap(td)
 		if err != nil {
 			return nil, fmt.Errorf("failed to serialize turn detection config: %w", err)
 		}
 	}
 
-	language := ""
-	if existing, ok := turnDetection["language"].(string); ok && existing != "" {
-		language = existing
+	languages, err := turnDetectionLanguages(td)
+	if err != nil {
+		return nil, err
 	}
-	if language == "" {
-		language = string(defaultTurnDetectionLanguage)
+	for _, language := range languages {
+		ValidateTurnDetectionLanguage(language)
 	}
-	ValidateTurnDetectionLanguage(language)
-	turnDetection["language"] = language
+
+	var eosMode *EndOfSpeechMode
+	if td != nil && td.Config != nil && td.Config.EndOfSpeech != nil {
+		eosMode = td.Config.EndOfSpeech.Mode
+	}
+	if eosMode != nil && *eosMode == Agora.StartAgentsRequestPropertiesTurnDetectionConfigEndOfSpeechModeSemantic {
+		if len(td.Languages) > 0 {
+			return nil, fmt.Errorf("turn_detection.languages cannot be used with semantic end_of_speech; set one English or Chinese Language, or use end_of_speech.mode vad. Otherwise the service silently uses VAD instead of semantic end of speech")
+		}
+		if !strings.HasPrefix(languages[0], "en-") && !strings.HasPrefix(languages[0], "zh-") {
+			return nil, fmt.Errorf("semantic end_of_speech supports only English and Chinese languages; got turn_detection.language: %s. Otherwise the service silently uses VAD instead of semantic end of speech", languages[0])
+		}
+	}
+
+	turnDetection["language"] = strings.Join(languages, ",")
+	if len(languages) > 1 && eosMode == nil {
+		config := AsMap(turnDetection["config"])
+		if config == nil {
+			config = map[string]interface{}{}
+			turnDetection["config"] = config
+		}
+		endOfSpeech := AsMap(config["end_of_speech"])
+		if endOfSpeech == nil {
+			endOfSpeech = map[string]interface{}{}
+			config["end_of_speech"] = endOfSpeech
+		}
+		endOfSpeech["mode"] = string(Agora.StartAgentsRequestPropertiesTurnDetectionConfigEndOfSpeechModeVad)
+	}
 	return turnDetection, nil
+}
+
+// turnDetectionLanguages returns the configured languages in order, without
+// duplicates. It returns the default language when none is set.
+func turnDetectionLanguages(td *TurnDetectionConfig) ([]string, error) {
+	if td == nil {
+		return []string{string(defaultTurnDetectionLanguage)}, nil
+	}
+	if td.Language != nil && td.Languages != nil {
+		return nil, fmt.Errorf("set turn_detection Language or Languages, not both")
+	}
+	if td.Languages == nil {
+		if td.Language != nil && *td.Language != "" {
+			return []string{string(*td.Language)}, nil
+		}
+		return []string{string(defaultTurnDetectionLanguage)}, nil
+	}
+	if len(td.Languages) == 0 {
+		return nil, fmt.Errorf("turn_detection.languages must not be empty")
+	}
+	seen := map[string]bool{}
+	languages := make([]string, 0, len(td.Languages))
+	for _, language := range td.Languages {
+		if !seen[string(language)] {
+			seen[string(language)] = true
+			languages = append(languages, string(language))
+		}
+	}
+	return languages, nil
 }
 
 // buildMllmConfigMap fills agent-level values the vendor left unset.

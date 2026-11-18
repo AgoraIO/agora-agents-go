@@ -30,7 +30,14 @@ const (
 type TurnDetectionConfig struct {
 	// Language is the BCP-47 language tag identifying the primary language used
 	// for agent interaction. AgentKit-only field; not present in the generated SDK.
-	Language            *Agora.AsrLanguage                                            `json:"language,omitempty"`
+	Language *Agora.AsrLanguage `json:"language,omitempty"`
+	// Languages sets several BCP-47 tags for a multi-language session. AgentKit
+	// sends them to asr.language as one comma-separated string. Set Language or
+	// Languages, not both. Languages cannot be used with semantic end of speech;
+	// AgentKit returns an error from ToPropertiesMap if they are combined. With
+	// more than one language and no end_of_speech.mode, AgentKit sends
+	// end_of_speech.mode = "vad".
+	Languages           []Agora.AsrLanguage                                           `json:"-"`
 	Mode                *string                                                       `json:"mode,omitempty"`
 	Config              *Agora.StartAgentsRequestPropertiesTurnDetectionConfig        `json:"config,omitempty"`
 	Type                *Agora.StartAgentsRequestPropertiesTurnDetectionType          `json:"type,omitempty"`
