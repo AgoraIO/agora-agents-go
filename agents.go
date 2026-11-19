@@ -6699,312 +6699,6 @@ func (g *GradiumTtsParams) String() string {
 	return fmt.Sprintf("%#v", g)
 }
 
-// Hume AI Text-to-Speech configuration (Beta).
-var (
-	humeAiTtsFieldParams       = big.NewInt(1 << 0)
-	humeAiTtsFieldSkipPatterns = big.NewInt(1 << 1)
-)
-
-type HumeAiTts struct {
-	Params *HumeAiTtsParams `json:"params" url:"params"`
-	// Controls whether the TTS module skips bracketed content when reading LLM response text.
-	SkipPatterns []int `json:"skip_patterns,omitempty" url:"skip_patterns,omitempty"`
-
-	// Private bitmask of fields set to an explicit value and therefore not to be omitted
-	explicitFields *big.Int `json:"-" url:"-"`
-
-	extraProperties map[string]interface{}
-	rawJSON         json.RawMessage
-}
-
-func (h *HumeAiTts) GetParams() *HumeAiTtsParams {
-	if h == nil {
-		return nil
-	}
-	return h.Params
-}
-
-func (h *HumeAiTts) GetSkipPatterns() []int {
-	if h == nil {
-		return nil
-	}
-	return h.SkipPatterns
-}
-
-func (h *HumeAiTts) GetExtraProperties() map[string]interface{} {
-	return h.extraProperties
-}
-
-func (h *HumeAiTts) require(field *big.Int) {
-	if h.explicitFields == nil {
-		h.explicitFields = big.NewInt(0)
-	}
-	h.explicitFields.Or(h.explicitFields, field)
-}
-
-// SetParams sets the Params field and marks it as non-optional;
-// this prevents an empty or null value for this field from being omitted during serialization.
-func (h *HumeAiTts) SetParams(params *HumeAiTtsParams) {
-	h.Params = params
-	h.require(humeAiTtsFieldParams)
-}
-
-// SetSkipPatterns sets the SkipPatterns field and marks it as non-optional;
-// this prevents an empty or null value for this field from being omitted during serialization.
-func (h *HumeAiTts) SetSkipPatterns(skipPatterns []int) {
-	h.SkipPatterns = skipPatterns
-	h.require(humeAiTtsFieldSkipPatterns)
-}
-
-func (h *HumeAiTts) UnmarshalJSON(data []byte) error {
-	type unmarshaler HumeAiTts
-	var value unmarshaler
-	if err := json.Unmarshal(data, &value); err != nil {
-		return err
-	}
-	*h = HumeAiTts(value)
-	extraProperties, err := internal.ExtractExtraProperties(data, *h)
-	if err != nil {
-		return err
-	}
-	h.extraProperties = extraProperties
-	h.rawJSON = json.RawMessage(data)
-	return nil
-}
-
-func (h *HumeAiTts) MarshalJSON() ([]byte, error) {
-	type embed HumeAiTts
-	var marshaler = struct {
-		embed
-	}{
-		embed: embed(*h),
-	}
-	explicitMarshaler := internal.HandleExplicitFields(marshaler, h.explicitFields)
-	return json.Marshal(explicitMarshaler)
-}
-
-func (h *HumeAiTts) String() string {
-	if len(h.rawJSON) > 0 {
-		if value, err := internal.StringifyJSON(h.rawJSON); err == nil {
-			return value
-		}
-	}
-	if value, err := internal.StringifyJSON(h); err == nil {
-		return value
-	}
-	return fmt.Sprintf("%#v", h)
-}
-
-// Hume AI TTS configuration parameters.
-var (
-	humeAiTtsParamsFieldKey             = big.NewInt(1 << 0)
-	humeAiTtsParamsFieldVoiceID         = big.NewInt(1 << 1)
-	humeAiTtsParamsFieldBaseURL         = big.NewInt(1 << 2)
-	humeAiTtsParamsFieldProvider        = big.NewInt(1 << 3)
-	humeAiTtsParamsFieldSpeed           = big.NewInt(1 << 4)
-	humeAiTtsParamsFieldTrailingSilence = big.NewInt(1 << 5)
-	humeAiTtsParamsFieldConfigID        = big.NewInt(1 << 6)
-)
-
-type HumeAiTtsParams struct {
-	// Hume AI API key
-	Key string `json:"key" url:"key"`
-	// Hume AI voice ID
-	VoiceID string `json:"voice_id" url:"voice_id"`
-	// Base URL for the Hume AI API
-	BaseURL *string `json:"base_url,omitempty" url:"base_url,omitempty"`
-	// Voice provider type
-	Provider HumeAiTtsParamsProvider `json:"provider" url:"provider"`
-	// Playback speed of the generated speech
-	Speed *float64 `json:"speed,omitempty" url:"speed,omitempty"`
-	// Duration of silence in seconds to add at the end of each utterance
-	TrailingSilence *float64 `json:"trailing_silence,omitempty" url:"trailing_silence,omitempty"`
-	// Hume AI configuration ID. Deprecated; use voice_id for the documented TTS shape.
-	ConfigID *string `json:"config_id,omitempty" url:"config_id,omitempty"`
-
-	// Private bitmask of fields set to an explicit value and therefore not to be omitted
-	explicitFields *big.Int `json:"-" url:"-"`
-
-	ExtraProperties map[string]interface{} `json:"-" url:"-"`
-
-	rawJSON json.RawMessage
-}
-
-func (h *HumeAiTtsParams) GetKey() string {
-	if h == nil {
-		return ""
-	}
-	return h.Key
-}
-
-func (h *HumeAiTtsParams) GetVoiceID() string {
-	if h == nil {
-		return ""
-	}
-	return h.VoiceID
-}
-
-func (h *HumeAiTtsParams) GetBaseURL() *string {
-	if h == nil {
-		return nil
-	}
-	return h.BaseURL
-}
-
-func (h *HumeAiTtsParams) GetProvider() HumeAiTtsParamsProvider {
-	if h == nil {
-		return ""
-	}
-	return h.Provider
-}
-
-func (h *HumeAiTtsParams) GetSpeed() *float64 {
-	if h == nil {
-		return nil
-	}
-	return h.Speed
-}
-
-func (h *HumeAiTtsParams) GetTrailingSilence() *float64 {
-	if h == nil {
-		return nil
-	}
-	return h.TrailingSilence
-}
-
-func (h *HumeAiTtsParams) GetConfigID() *string {
-	if h == nil {
-		return nil
-	}
-	return h.ConfigID
-}
-
-func (h *HumeAiTtsParams) GetExtraProperties() map[string]interface{} {
-	return h.ExtraProperties
-}
-
-func (h *HumeAiTtsParams) require(field *big.Int) {
-	if h.explicitFields == nil {
-		h.explicitFields = big.NewInt(0)
-	}
-	h.explicitFields.Or(h.explicitFields, field)
-}
-
-// SetKey sets the Key field and marks it as non-optional;
-// this prevents an empty or null value for this field from being omitted during serialization.
-func (h *HumeAiTtsParams) SetKey(key string) {
-	h.Key = key
-	h.require(humeAiTtsParamsFieldKey)
-}
-
-// SetVoiceID sets the VoiceID field and marks it as non-optional;
-// this prevents an empty or null value for this field from being omitted during serialization.
-func (h *HumeAiTtsParams) SetVoiceID(voiceID string) {
-	h.VoiceID = voiceID
-	h.require(humeAiTtsParamsFieldVoiceID)
-}
-
-// SetBaseURL sets the BaseURL field and marks it as non-optional;
-// this prevents an empty or null value for this field from being omitted during serialization.
-func (h *HumeAiTtsParams) SetBaseURL(baseURL *string) {
-	h.BaseURL = baseURL
-	h.require(humeAiTtsParamsFieldBaseURL)
-}
-
-// SetProvider sets the Provider field and marks it as non-optional;
-// this prevents an empty or null value for this field from being omitted during serialization.
-func (h *HumeAiTtsParams) SetProvider(provider HumeAiTtsParamsProvider) {
-	h.Provider = provider
-	h.require(humeAiTtsParamsFieldProvider)
-}
-
-// SetSpeed sets the Speed field and marks it as non-optional;
-// this prevents an empty or null value for this field from being omitted during serialization.
-func (h *HumeAiTtsParams) SetSpeed(speed *float64) {
-	h.Speed = speed
-	h.require(humeAiTtsParamsFieldSpeed)
-}
-
-// SetTrailingSilence sets the TrailingSilence field and marks it as non-optional;
-// this prevents an empty or null value for this field from being omitted during serialization.
-func (h *HumeAiTtsParams) SetTrailingSilence(trailingSilence *float64) {
-	h.TrailingSilence = trailingSilence
-	h.require(humeAiTtsParamsFieldTrailingSilence)
-}
-
-// SetConfigID sets the ConfigID field and marks it as non-optional;
-// this prevents an empty or null value for this field from being omitted during serialization.
-func (h *HumeAiTtsParams) SetConfigID(configID *string) {
-	h.ConfigID = configID
-	h.require(humeAiTtsParamsFieldConfigID)
-}
-
-func (h *HumeAiTtsParams) UnmarshalJSON(data []byte) error {
-	type embed HumeAiTtsParams
-	var unmarshaler = struct {
-		embed
-	}{
-		embed: embed(*h),
-	}
-	if err := json.Unmarshal(data, &unmarshaler); err != nil {
-		return err
-	}
-	*h = HumeAiTtsParams(unmarshaler.embed)
-	extraProperties, err := internal.ExtractExtraProperties(data, *h)
-	if err != nil {
-		return err
-	}
-	h.ExtraProperties = extraProperties
-	h.rawJSON = json.RawMessage(data)
-	return nil
-}
-
-func (h *HumeAiTtsParams) MarshalJSON() ([]byte, error) {
-	type embed HumeAiTtsParams
-	var marshaler = struct {
-		embed
-	}{
-		embed: embed(*h),
-	}
-	explicitMarshaler := internal.HandleExplicitFields(marshaler, h.explicitFields)
-	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, h.ExtraProperties)
-}
-
-func (h *HumeAiTtsParams) String() string {
-	if len(h.rawJSON) > 0 {
-		if value, err := internal.StringifyJSON(h.rawJSON); err == nil {
-			return value
-		}
-	}
-	if value, err := internal.StringifyJSON(h); err == nil {
-		return value
-	}
-	return fmt.Sprintf("%#v", h)
-}
-
-// Voice provider type
-type HumeAiTtsParamsProvider string
-
-const (
-	HumeAiTtsParamsProviderHumeAi      HumeAiTtsParamsProvider = "HUME_AI"
-	HumeAiTtsParamsProviderCustomVoice HumeAiTtsParamsProvider = "CUSTOM_VOICE"
-)
-
-func NewHumeAiTtsParamsProviderFromString(s string) (HumeAiTtsParamsProvider, error) {
-	switch s {
-	case "HUME_AI":
-		return HumeAiTtsParamsProviderHumeAi, nil
-	case "CUSTOM_VOICE":
-		return HumeAiTtsParamsProviderCustomVoice, nil
-	}
-	var t HumeAiTtsParamsProvider
-	return "", fmt.Errorf("%s is not a valid %T", s, t)
-}
-
-func (h HumeAiTtsParamsProvider) Ptr() *HumeAiTtsParamsProvider {
-	return &h
-}
-
 // Large language model (LLM) configuration.
 var (
 	llmFieldURL               = big.NewInt(1 << 0)
@@ -17172,7 +16866,6 @@ type Tts struct {
 	Murf            *MurfTts
 	Cartesia        *CartesiaTts
 	Openai          *OpenAiTts
-	Humeai          *HumeAiTts
 	Rime            *RimeTts
 	Fishaudio       *FishAudioTts
 	Google          *GoogleTts
@@ -17260,13 +16953,6 @@ func (t *Tts) GetOpenai() *OpenAiTts {
 		return nil
 	}
 	return t.Openai
-}
-
-func (t *Tts) GetHumeai() *HumeAiTts {
-	if t == nil {
-		return nil
-	}
-	return t.Humeai
 }
 
 func (t *Tts) GetRime() *RimeTts {
@@ -17454,12 +17140,6 @@ func (t *Tts) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		t.Openai = value
-	case "humeai":
-		value := new(HumeAiTts)
-		if err := json.Unmarshal(data, &value); err != nil {
-			return err
-		}
-		t.Humeai = value
 	case "rime":
 		value := new(RimeTts)
 		if err := json.Unmarshal(data, &value); err != nil {
@@ -17597,9 +17277,6 @@ func (t Tts) MarshalJSON() ([]byte, error) {
 	if t.Openai != nil {
 		return internal.MarshalJSONWithExtraProperty(t.Openai, "vendor", "openai")
 	}
-	if t.Humeai != nil {
-		return internal.MarshalJSONWithExtraProperty(t.Humeai, "vendor", "humeai")
-	}
 	if t.Rime != nil {
 		return internal.MarshalJSONWithExtraProperty(t.Rime, "vendor", "rime")
 	}
@@ -17663,7 +17340,6 @@ type TtsVisitor interface {
 	VisitMurf(*MurfTts) error
 	VisitCartesia(*CartesiaTts) error
 	VisitOpenai(*OpenAiTts) error
-	VisitHumeai(*HumeAiTts) error
 	VisitRime(*RimeTts) error
 	VisitFishaudio(*FishAudioTts) error
 	VisitGoogle(*GoogleTts) error
@@ -17726,9 +17402,6 @@ func (t *Tts) Accept(visitor TtsVisitor) error {
 	}
 	if t.Openai != nil {
 		return visitor.VisitOpenai(t.Openai)
-	}
-	if t.Humeai != nil {
-		return visitor.VisitHumeai(t.Humeai)
 	}
 	if t.Rime != nil {
 		return visitor.VisitRime(t.Rime)
@@ -17823,9 +17496,6 @@ func (t *Tts) validate() error {
 	}
 	if t.Openai != nil {
 		fields = append(fields, "openai")
-	}
-	if t.Humeai != nil {
-		fields = append(fields, "humeai")
 	}
 	if t.Rime != nil {
 		fields = append(fields, "rime")

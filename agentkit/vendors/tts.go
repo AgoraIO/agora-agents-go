@@ -571,67 +571,6 @@ func (d *DeepgramTTS) ToConfig() map[string]interface{} {
 	return config
 }
 
-type HumeAITTSOptions struct {
-	Key             string
-	ConfigID        string
-	VoiceID         string
-	BaseURL         string
-	Provider        string
-	Speed           *float64
-	TrailingSilence *float64
-	SkipPatterns    []int
-}
-
-type HumeAITTS struct {
-	options HumeAITTSOptions
-}
-
-func NewHumeAITTS(opts HumeAITTSOptions) *HumeAITTS {
-	if opts.Key == "" {
-		panic("HumeAITTS requires Key")
-	}
-	if opts.VoiceID == "" {
-		panic("HumeAITTS requires VoiceID")
-	}
-	if opts.Provider == "" {
-		panic("HumeAITTS requires Provider")
-	}
-	return &HumeAITTS{options: opts}
-}
-
-func (h *HumeAITTS) GetSampleRate() *SampleRate {
-	return nil
-}
-
-func (h *HumeAITTS) ToConfig() map[string]interface{} {
-	params := map[string]interface{}{
-		"key":      h.options.Key,
-		"voice_id": h.options.VoiceID,
-		"provider": h.options.Provider,
-	}
-	if h.options.ConfigID != "" {
-		params["config_id"] = h.options.ConfigID
-	}
-	if h.options.BaseURL != "" {
-		params["base_url"] = h.options.BaseURL
-	}
-	if h.options.Speed != nil {
-		params["speed"] = *h.options.Speed
-	}
-	if h.options.TrailingSilence != nil {
-		params["trailing_silence"] = *h.options.TrailingSilence
-	}
-
-	config := map[string]interface{}{
-		"vendor": "humeai",
-		"params": params,
-	}
-	if h.options.SkipPatterns != nil {
-		config["skip_patterns"] = h.options.SkipPatterns
-	}
-	return config
-}
-
 type RimeTTSOptions struct {
 	CredentialMode CredentialMode
 	Key            string

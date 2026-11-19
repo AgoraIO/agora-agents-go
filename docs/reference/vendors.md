@@ -422,28 +422,6 @@ Panics if `APIKey` or `Model` is empty.
 | `AdditionalParams` | `map[string]interface{}` | No       | Additional Deepgram TTS parameters, flattened into `params` |
 | `SkipPatterns` | `[]int`                  | No       | Patterns to skip |
 
-### NewHumeAITTS
-
-<!-- snippet: fragment -->
-```go
-func NewHumeAITTS(opts HumeAITTSOptions) *HumeAITTS
-```
-
-Panics if `Key`, `VoiceID`, or `Provider` is empty.
-
-#### HumeAITTSOptions
-
-| Field          | Type     | Required | Description      |
-| -------------- | -------- | -------- | ---------------- |
-| `Key`          | `string` | Yes      | Hume AI API key  |
-| `VoiceID`      | `string` | Yes      | Hume AI voice ID |
-| `Provider`     | `string` | Yes      | Voice provider type, such as `CUSTOM_VOICE` or `HUME_AI` |
-| `ConfigID`     | `string` | No       | Configuration ID |
-| `BaseURL`      | `string` | No       | Base URL         |
-| `Speed`        | `*float64` | No     | Playback speed |
-| `TrailingSilence` | `*float64` | No | Trailing silence in seconds |
-| `SkipPatterns` | `[]int`  | No       | Patterns to skip |
-
 ### NewRimeTTS
 
 <!-- snippet: fragment -->
