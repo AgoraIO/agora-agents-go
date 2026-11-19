@@ -15,41 +15,6 @@ This reference describes the default/global vendor package. Mainland China vendo
 - Global/default package: `github.com/AgoraIO/agora-agents-go/v2/agentkit/vendors`
 - CN package: `github.com/AgoraIO/agora-agents-go/v2/agentkit/cn/vendors`
 
-## Engine v2.15 vendors
-
-| Constructor | Package | Required options | Wire vendor |
-|---|---|---|---|
-| `NewMiniMaxDuplexTTS` | `agentkit/cn/vendors` | `Key`, `Model`, `VoiceSetting.VoiceID` | `minimax_duplex` |
-| `NewStepFunSTT` | `agentkit/cn/vendors` | `APIKey` | `stepfun` |
-| `NewSonioxTTS` | `agentkit/vendors` | `APIKey` | `soniox` |
-
-MiniMax Duplex currently has only a CN implementation. It uses BYOK credentials and does not infer an Agora-managed MiniMax preset. The constructor follows the existing CN MiniMax helper, with a required voice setting rather than a timbre mix.
-
-<!-- snippet: fragment -->
-```go
-import cnvendors "github.com/AgoraIO/agora-agents-go/v2/agentkit/cn/vendors"
-
-tts := cnvendors.NewMiniMaxDuplexTTS(cnvendors.MiniMaxDuplexTTSOptions{
-    Key:   "<minimax-key>",
-    Model: "speech-2.8-turbo",
-    VoiceSetting: &cnvendors.MiniMaxDuplexVoiceSetting{
-        VoiceID: "female-shaonv",
-    },
-    AudioSetting: &cnvendors.MiniMaxDuplexAudioSetting{
-        SampleRate: 24000,
-        Format:     "pcm",
-        Channels:   1,
-    },
-})
-stt := cnvendors.NewStepFunSTT(cnvendors.StepFunSTTOptions{APIKey: "<stepfun-key>"})
-```
-
-Duplex also accepts `URL`, `PronunciationDict`, `VoiceModify` (`Pitch`, `Intensity`, `Timbre`, `SoundEffects`), `LanguageBoost`, `TextNormalizationMode`, `SubtitleEnable`, `SubtitleType`, `ContinuousSound`, and `SessionID`. Voice speed, volume, and pitch use `*float64`; optional booleans use pointers so explicit `false` is preserved. `GetSampleRate()` reads `AudioSetting.SampleRate`.
-
-Soniox accepts optional `BaseURL`, `Model`, `Language`, `Voice`, `SampleRate`, `Speed` (0.7–1.3), `ReduceSilence`, `ReturnTimestamps`, `ClientReferenceID`, and `Dump`. Defaults remain with the provider when omitted.
-
-All three helpers accept `AdditionalParams`, with named options taking precedence. Both TTS helpers accept `SkipPatterns`. StepFun recognition language comes from the agent's turn detection configuration, as with other STT vendors.
-
 ## SampleRate
 
 <!-- snippet: fragment -->
@@ -679,6 +644,17 @@ Named fields are written after `AdditionalParams`, so `APIKey`, `VoiceID`, and `
 | `AdditionalParams` | `map[string]interface{}` | No | Additional provider parameters forwarded under `tts.params` |
 | `SkipPatterns` | `[]int` | No | Patterns to skip |
 
+### NewSonioxTTS
+
+<!-- snippet: fragment -->
+```go
+func NewSonioxTTS(opts SonioxTTSOptions) *SonioxTTS
+```
+
+Global Soniox TTS provider (`tts.vendor = "soniox"`). Requires `APIKey`. Optional fields are `BaseURL`, `Model`, `Language`, `Voice`, `SampleRate`, `Speed` (0.7–1.3), `ReduceSilence`, `ReturnTimestamps`, `ClientReferenceID`, and `Dump`. Defaults remain with the provider when omitted.
+
+`AdditionalParams` accepts extra provider parameters, with named options taking precedence. `SkipPatterns` is also supported.
+
 ### NewSmallestAITTS
 
 ```go
@@ -707,6 +683,50 @@ Panics if `APIKey` is empty. Emits `tts.vendor = "smallestai"`.
 ---
 
 ## STT Vendors
+
+REST `asr.language` comes from the agent's `TurnDetectionConfig.Language` (default `en-US`). Pass the desired provider to `WithStt()`; configure `zh-CN` on the agent for Chinese recognition.
+
+### NewElevenLabsSTT
+
+<!-- snippet: fragment -->
+```go
+func NewElevenLabsSTT(opts ElevenLabsSTTOptions) *ElevenLabsSTT
+```
+
+Global ElevenLabs ASR provider (`asr.vendor = "elevenlabs"`). Panics if `APIKey` is empty. The explicit key takes precedence over `AdditionalParams["api_key"]`.
+
+#### ElevenLabsSTTOptions
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `APIKey` | `string` | Yes | ElevenLabs ASR API key |
+| `AdditionalParams` | `map[string]any` | No | Additional provider parameters |
+
+<!-- snippet: fragment -->
+```go
+stt := vendors.NewElevenLabsSTT(vendors.ElevenLabsSTTOptions{APIKey: "<elevenlabs-key>"})
+```
+
+### NewFishAudioSTT
+
+<!-- snippet: fragment -->
+```go
+func NewFishAudioSTT(opts FishAudioSTTOptions) *FishAudioSTT
+```
+
+Global Fish Audio ASR provider (`asr.vendor = "fishaudio"`). Panics if `APIKey` is empty. The explicit key takes precedence over `AdditionalParams["api_key"]`.
+
+#### FishAudioSTTOptions
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `APIKey` | `string` | Yes | Fish Audio ASR API key |
+| `AdditionalParams` | `map[string]any` | No | Additional provider parameters |
+
+<!-- snippet: fragment -->
+```go
+stt := vendors.NewFishAudioSTT(vendors.FishAudioSTTOptions{APIKey: "<fishaudio-key>"})
+```
 
 ### NewSpeechmaticsSTT
 
@@ -1197,6 +1217,36 @@ func NewVertexAI(opts VertexAIOptions) *VertexAI
 | `McpServers`       | `[]*Agora.McpServer`       | No       | —                        | MCP servers exposed to the MLLM                 |
 | `TurnDetection`    | `*Agora.MllmTurnDetection` | No | — | MLLM turn detection configuration; overrides top-level turn detection |
 
+## CN TTS Vendors
+
+The following constructors live in `github.com/AgoraIO/agora-agents-go/v2/agentkit/cn/vendors`.
+
+### NewMiniMaxDuplexTTS
+
+MiniMax Duplex currently has only a CN implementation (`tts.vendor = "minimax_duplex"`). It uses BYOK credentials and does not infer an Agora-managed MiniMax preset. The constructor follows the existing CN MiniMax helper, with required `Key`, `Model`, and `VoiceSetting.VoiceID` rather than a timbre mix.
+
+<!-- snippet: fragment -->
+```go
+import cnvendors "github.com/AgoraIO/agora-agents-go/v2/agentkit/cn/vendors"
+
+tts := cnvendors.NewMiniMaxDuplexTTS(cnvendors.MiniMaxDuplexTTSOptions{
+    Key:   "<minimax-key>",
+    Model: "speech-2.8-turbo",
+    VoiceSetting: &cnvendors.MiniMaxDuplexVoiceSetting{
+        VoiceID: "female-shaonv",
+    },
+    AudioSetting: &cnvendors.MiniMaxDuplexAudioSetting{
+        SampleRate: 24000,
+        Format:     "pcm",
+        Channels:   1,
+    },
+})
+```
+
+Duplex also accepts `URL`, `PronunciationDict`, `VoiceModify` (`Pitch`, `Intensity`, `Timbre`, `SoundEffects`), `LanguageBoost`, `TextNormalizationMode`, `SubtitleEnable`, `SubtitleType`, `ContinuousSound`, and `SessionID`. Voice speed, volume, and pitch use `*float64`; optional booleans use pointers so explicit `false` is preserved. `GetSampleRate()` reads `AudioSetting.SampleRate`.
+
+`AdditionalParams` accepts extra provider parameters, with named options taking precedence. `SkipPatterns` is also supported.
+
 ## CN STT and MLLM Vendors
 
 The following constructors live in `github.com/AgoraIO/agora-agents-go/v2/agentkit/cn/vendors` and are used with `agentkit/cn.Agent`.
@@ -1228,6 +1278,43 @@ Panics if `APIKey`, `Model`, or `URL` is empty. Qwen Omni is a mainland China ML
 | `Tools` | `[]*Agora.LlmTool` | No | — | Inline REST tools exposed to Qwen Omni |
 | `McpServers` | `[]*Agora.McpServer` | No | — | Typed MCP servers exposed to Qwen Omni |
 | `TurnDetection` | `*Agora.MllmTurnDetection` | No | — | Optional MLLM turn detection configuration; overrides top-level turn detection |
+
+### NewQwenSTT
+
+<!-- snippet: fragment -->
+```go
+func NewQwenSTT(opts QwenSTTOptions) *QwenSTT
+```
+
+Mainland China Qwen ASR provider (`asr.vendor = "qwen"`). Panics if `APIKey` is empty. The explicit key takes precedence over `AdditionalParams["api_key"]`. Recognition language comes from the agent's `TurnDetectionConfig.Language`.
+
+#### QwenSTTOptions
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `APIKey` | `string` | Yes | DashScope API key |
+| `AdditionalParams` | `map[string]any` | No | Additional Qwen ASR parameters |
+
+<!-- snippet: fragment -->
+```go
+import cnvendors "github.com/AgoraIO/agora-agents-go/v2/agentkit/cn/vendors"
+
+stt := cnvendors.NewQwenSTT(cnvendors.QwenSTTOptions{APIKey: "<dashscope-key>"})
+```
+
+### NewStepFunSTT
+
+<!-- snippet: fragment -->
+```go
+func NewStepFunSTT(opts StepFunSTTOptions) *StepFunSTT
+```
+
+Mainland China StepFun ASR provider (`asr.vendor = "stepfun"`). Requires `APIKey` and accepts `AdditionalParams`, with the explicit key taking precedence. Recognition language comes from the agent's turn detection configuration.
+
+<!-- snippet: fragment -->
+```go
+stt := cnvendors.NewStepFunSTT(cnvendors.StepFunSTTOptions{APIKey: "<stepfun-key>"})
+```
 
 ### NewFengmingSTT
 

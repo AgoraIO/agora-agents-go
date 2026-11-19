@@ -1132,6 +1132,9 @@ type Asr struct {
 	XfyunDialect  *XfyunDialectAsr
 	Smallestai    *SmallestAiAsr
 	Stepfun       *StepfunAsr
+	Elevenlabs    *ElevenLabsAsr
+	Fishaudio     *FishAudioAsr
+	Qwen          *QwenAsr
 }
 
 func (a *Asr) GetVendor() string {
@@ -1274,6 +1277,27 @@ func (a *Asr) GetStepfun() *StepfunAsr {
 	return a.Stepfun
 }
 
+func (a *Asr) GetElevenlabs() *ElevenLabsAsr {
+	if a == nil {
+		return nil
+	}
+	return a.Elevenlabs
+}
+
+func (a *Asr) GetFishaudio() *FishAudioAsr {
+	if a == nil {
+		return nil
+	}
+	return a.Fishaudio
+}
+
+func (a *Asr) GetQwen() *QwenAsr {
+	if a == nil {
+		return nil
+	}
+	return a.Qwen
+}
+
 func (a *Asr) UnmarshalJSON(data []byte) error {
 	var unmarshaler struct {
 		Vendor string `json:"vendor"`
@@ -1400,6 +1424,24 @@ func (a *Asr) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		a.Stepfun = value
+	case "elevenlabs":
+		value := new(ElevenLabsAsr)
+		if err := json.Unmarshal(data, &value); err != nil {
+			return err
+		}
+		a.Elevenlabs = value
+	case "fishaudio":
+		value := new(FishAudioAsr)
+		if err := json.Unmarshal(data, &value); err != nil {
+			return err
+		}
+		a.Fishaudio = value
+	case "qwen":
+		value := new(QwenAsr)
+		if err := json.Unmarshal(data, &value); err != nil {
+			return err
+		}
+		a.Qwen = value
 	}
 	return nil
 }
@@ -1465,6 +1507,15 @@ func (a Asr) MarshalJSON() ([]byte, error) {
 	if a.Stepfun != nil {
 		return internal.MarshalJSONWithExtraProperty(a.Stepfun, "vendor", "stepfun")
 	}
+	if a.Elevenlabs != nil {
+		return internal.MarshalJSONWithExtraProperty(a.Elevenlabs, "vendor", "elevenlabs")
+	}
+	if a.Fishaudio != nil {
+		return internal.MarshalJSONWithExtraProperty(a.Fishaudio, "vendor", "fishaudio")
+	}
+	if a.Qwen != nil {
+		return internal.MarshalJSONWithExtraProperty(a.Qwen, "vendor", "qwen")
+	}
 	return nil, fmt.Errorf("type %T does not define a non-empty union type", a)
 }
 
@@ -1495,6 +1546,21 @@ type SmallestAiAsrVisitor interface {
 // StepfunAsrVisitor optionally extends AsrVisitor with StepFun ASR support.
 type StepfunAsrVisitor interface {
 	VisitStepfun(*StepfunAsr) error
+}
+
+// ElevenLabsAsrVisitor optionally extends AsrVisitor with ElevenLabs ASR support.
+type ElevenLabsAsrVisitor interface {
+	VisitElevenlabs(*ElevenLabsAsr) error
+}
+
+// FishAudioAsrVisitor optionally extends AsrVisitor with Fish Audio ASR support.
+type FishAudioAsrVisitor interface {
+	VisitFishaudio(*FishAudioAsr) error
+}
+
+// QwenAsrVisitor optionally extends AsrVisitor with Qwen ASR support.
+type QwenAsrVisitor interface {
+	VisitQwen(*QwenAsr) error
 }
 
 func (a *Asr) Accept(visitor AsrVisitor) error {
@@ -1563,6 +1629,27 @@ func (a *Asr) Accept(visitor AsrVisitor) error {
 		}
 		return stepfunVisitor.VisitStepfun(a.Stepfun)
 	}
+	if a.Elevenlabs != nil {
+		elevenlabsVisitor, ok := visitor.(ElevenLabsAsrVisitor)
+		if !ok {
+			return fmt.Errorf("visitor %T does not support elevenlabs ASR", visitor)
+		}
+		return elevenlabsVisitor.VisitElevenlabs(a.Elevenlabs)
+	}
+	if a.Fishaudio != nil {
+		fishaudioVisitor, ok := visitor.(FishAudioAsrVisitor)
+		if !ok {
+			return fmt.Errorf("visitor %T does not support fishaudio ASR", visitor)
+		}
+		return fishaudioVisitor.VisitFishaudio(a.Fishaudio)
+	}
+	if a.Qwen != nil {
+		qwenVisitor, ok := visitor.(QwenAsrVisitor)
+		if !ok {
+			return fmt.Errorf("visitor %T does not support qwen ASR", visitor)
+		}
+		return qwenVisitor.VisitQwen(a.Qwen)
+	}
 	return fmt.Errorf("type %T does not define a non-empty union type", a)
 }
 
@@ -1627,6 +1714,15 @@ func (a *Asr) validate() error {
 	}
 	if a.Stepfun != nil {
 		fields = append(fields, "stepfun")
+	}
+	if a.Elevenlabs != nil {
+		fields = append(fields, "elevenlabs")
+	}
+	if a.Fishaudio != nil {
+		fields = append(fields, "fishaudio")
+	}
+	if a.Qwen != nil {
+		fields = append(fields, "qwen")
 	}
 	if len(fields) == 0 {
 		if a.Vendor != "" {
@@ -3736,6 +3832,191 @@ func (d *DeepgramTtsParams) String() string {
 	return fmt.Sprintf("%#v", d)
 }
 
+// ElevenLabs ASR configuration.
+var (
+	elevenLabsAsrFieldLanguage = big.NewInt(1 << 0)
+	elevenLabsAsrFieldParams   = big.NewInt(1 << 1)
+)
+
+type ElevenLabsAsr struct {
+	Language *AsrLanguage         `json:"language,omitempty" url:"language,omitempty"`
+	Params   *ElevenLabsAsrParams `json:"params" url:"params"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (e *ElevenLabsAsr) GetLanguage() *AsrLanguage {
+	if e == nil {
+		return nil
+	}
+	return e.Language
+}
+
+func (e *ElevenLabsAsr) GetParams() *ElevenLabsAsrParams {
+	if e == nil {
+		return nil
+	}
+	return e.Params
+}
+
+func (e *ElevenLabsAsr) GetExtraProperties() map[string]interface{} {
+	return e.ExtraProperties
+}
+
+func (e *ElevenLabsAsr) require(field *big.Int) {
+	if e.explicitFields == nil {
+		e.explicitFields = big.NewInt(0)
+	}
+	e.explicitFields.Or(e.explicitFields, field)
+}
+
+// SetLanguage sets the Language field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (e *ElevenLabsAsr) SetLanguage(language *AsrLanguage) {
+	e.Language = language
+	e.require(elevenLabsAsrFieldLanguage)
+}
+
+// SetParams sets the Params field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (e *ElevenLabsAsr) SetParams(params *ElevenLabsAsrParams) {
+	e.Params = params
+	e.require(elevenLabsAsrFieldParams)
+}
+
+func (e *ElevenLabsAsr) UnmarshalJSON(data []byte) error {
+	type embed ElevenLabsAsr
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*e),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*e = ElevenLabsAsr(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *e)
+	if err != nil {
+		return err
+	}
+	e.ExtraProperties = extraProperties
+	e.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (e *ElevenLabsAsr) MarshalJSON() ([]byte, error) {
+	type embed ElevenLabsAsr
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*e),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, e.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, e.ExtraProperties)
+}
+
+func (e *ElevenLabsAsr) String() string {
+	if len(e.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(e.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(e); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", e)
+}
+
+// ElevenLabs ASR configuration parameters.
+var (
+	elevenLabsAsrParamsFieldAPIKey = big.NewInt(1 << 0)
+)
+
+type ElevenLabsAsrParams struct {
+	// ElevenLabs API key.
+	APIKey string `json:"api_key" url:"api_key"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (e *ElevenLabsAsrParams) GetAPIKey() string {
+	if e == nil {
+		return ""
+	}
+	return e.APIKey
+}
+
+func (e *ElevenLabsAsrParams) GetExtraProperties() map[string]interface{} {
+	return e.ExtraProperties
+}
+
+func (e *ElevenLabsAsrParams) require(field *big.Int) {
+	if e.explicitFields == nil {
+		e.explicitFields = big.NewInt(0)
+	}
+	e.explicitFields.Or(e.explicitFields, field)
+}
+
+// SetAPIKey sets the APIKey field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (e *ElevenLabsAsrParams) SetAPIKey(apiKey string) {
+	e.APIKey = apiKey
+	e.require(elevenLabsAsrParamsFieldAPIKey)
+}
+
+func (e *ElevenLabsAsrParams) UnmarshalJSON(data []byte) error {
+	type embed ElevenLabsAsrParams
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*e),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*e = ElevenLabsAsrParams(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *e)
+	if err != nil {
+		return err
+	}
+	e.ExtraProperties = extraProperties
+	e.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (e *ElevenLabsAsrParams) MarshalJSON() ([]byte, error) {
+	type embed ElevenLabsAsrParams
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*e),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, e.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, e.ExtraProperties)
+}
+
+func (e *ElevenLabsAsrParams) String() string {
+	if len(e.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(e.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(e); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", e)
+}
+
 // ElevenLabs Text-to-Speech configuration.
 var (
 	elevenLabsTtsFieldParams       = big.NewInt(1 << 0)
@@ -4189,6 +4470,191 @@ func (f *FengmingAsr) String() string {
 
 // Agora Fengming ASR configuration parameters.
 type FengmingAsrParams = map[string]interface{}
+
+// Fish Audio ASR configuration.
+var (
+	fishAudioAsrFieldLanguage = big.NewInt(1 << 0)
+	fishAudioAsrFieldParams   = big.NewInt(1 << 1)
+)
+
+type FishAudioAsr struct {
+	Language *AsrLanguage        `json:"language,omitempty" url:"language,omitempty"`
+	Params   *FishAudioAsrParams `json:"params" url:"params"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (f *FishAudioAsr) GetLanguage() *AsrLanguage {
+	if f == nil {
+		return nil
+	}
+	return f.Language
+}
+
+func (f *FishAudioAsr) GetParams() *FishAudioAsrParams {
+	if f == nil {
+		return nil
+	}
+	return f.Params
+}
+
+func (f *FishAudioAsr) GetExtraProperties() map[string]interface{} {
+	return f.ExtraProperties
+}
+
+func (f *FishAudioAsr) require(field *big.Int) {
+	if f.explicitFields == nil {
+		f.explicitFields = big.NewInt(0)
+	}
+	f.explicitFields.Or(f.explicitFields, field)
+}
+
+// SetLanguage sets the Language field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (f *FishAudioAsr) SetLanguage(language *AsrLanguage) {
+	f.Language = language
+	f.require(fishAudioAsrFieldLanguage)
+}
+
+// SetParams sets the Params field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (f *FishAudioAsr) SetParams(params *FishAudioAsrParams) {
+	f.Params = params
+	f.require(fishAudioAsrFieldParams)
+}
+
+func (f *FishAudioAsr) UnmarshalJSON(data []byte) error {
+	type embed FishAudioAsr
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*f),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*f = FishAudioAsr(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *f)
+	if err != nil {
+		return err
+	}
+	f.ExtraProperties = extraProperties
+	f.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (f *FishAudioAsr) MarshalJSON() ([]byte, error) {
+	type embed FishAudioAsr
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*f),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, f.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, f.ExtraProperties)
+}
+
+func (f *FishAudioAsr) String() string {
+	if len(f.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(f.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(f); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", f)
+}
+
+// Fish Audio ASR configuration parameters.
+var (
+	fishAudioAsrParamsFieldAPIKey = big.NewInt(1 << 0)
+)
+
+type FishAudioAsrParams struct {
+	// Fish Audio API key.
+	APIKey string `json:"api_key" url:"api_key"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (f *FishAudioAsrParams) GetAPIKey() string {
+	if f == nil {
+		return ""
+	}
+	return f.APIKey
+}
+
+func (f *FishAudioAsrParams) GetExtraProperties() map[string]interface{} {
+	return f.ExtraProperties
+}
+
+func (f *FishAudioAsrParams) require(field *big.Int) {
+	if f.explicitFields == nil {
+		f.explicitFields = big.NewInt(0)
+	}
+	f.explicitFields.Or(f.explicitFields, field)
+}
+
+// SetAPIKey sets the APIKey field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (f *FishAudioAsrParams) SetAPIKey(apiKey string) {
+	f.APIKey = apiKey
+	f.require(fishAudioAsrParamsFieldAPIKey)
+}
+
+func (f *FishAudioAsrParams) UnmarshalJSON(data []byte) error {
+	type embed FishAudioAsrParams
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*f),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*f = FishAudioAsrParams(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *f)
+	if err != nil {
+		return err
+	}
+	f.ExtraProperties = extraProperties
+	f.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (f *FishAudioAsrParams) MarshalJSON() ([]byte, error) {
+	type embed FishAudioAsrParams
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*f),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, f.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, f.ExtraProperties)
+}
+
+func (f *FishAudioAsrParams) String() string {
+	if len(f.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(f.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(f); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", f)
+}
 
 // Fish Audio Text-to-Speech configuration (Beta).
 var (
@@ -12836,6 +13302,191 @@ func (o *OpenAiTtsParams) String() string {
 		return value
 	}
 	return fmt.Sprintf("%#v", o)
+}
+
+// Qwen ASR configuration.
+var (
+	qwenAsrFieldLanguage = big.NewInt(1 << 0)
+	qwenAsrFieldParams   = big.NewInt(1 << 1)
+)
+
+type QwenAsr struct {
+	Language *AsrLanguage   `json:"language,omitempty" url:"language,omitempty"`
+	Params   *QwenAsrParams `json:"params" url:"params"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (q *QwenAsr) GetLanguage() *AsrLanguage {
+	if q == nil {
+		return nil
+	}
+	return q.Language
+}
+
+func (q *QwenAsr) GetParams() *QwenAsrParams {
+	if q == nil {
+		return nil
+	}
+	return q.Params
+}
+
+func (q *QwenAsr) GetExtraProperties() map[string]interface{} {
+	return q.ExtraProperties
+}
+
+func (q *QwenAsr) require(field *big.Int) {
+	if q.explicitFields == nil {
+		q.explicitFields = big.NewInt(0)
+	}
+	q.explicitFields.Or(q.explicitFields, field)
+}
+
+// SetLanguage sets the Language field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (q *QwenAsr) SetLanguage(language *AsrLanguage) {
+	q.Language = language
+	q.require(qwenAsrFieldLanguage)
+}
+
+// SetParams sets the Params field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (q *QwenAsr) SetParams(params *QwenAsrParams) {
+	q.Params = params
+	q.require(qwenAsrFieldParams)
+}
+
+func (q *QwenAsr) UnmarshalJSON(data []byte) error {
+	type embed QwenAsr
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*q),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*q = QwenAsr(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *q)
+	if err != nil {
+		return err
+	}
+	q.ExtraProperties = extraProperties
+	q.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (q *QwenAsr) MarshalJSON() ([]byte, error) {
+	type embed QwenAsr
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*q),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, q.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, q.ExtraProperties)
+}
+
+func (q *QwenAsr) String() string {
+	if len(q.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(q.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(q); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", q)
+}
+
+// Qwen ASR configuration parameters.
+var (
+	qwenAsrParamsFieldAPIKey = big.NewInt(1 << 0)
+)
+
+type QwenAsrParams struct {
+	// Qwen API key.
+	APIKey string `json:"api_key" url:"api_key"`
+
+	// Private bitmask of fields set to an explicit value and therefore not to be omitted
+	explicitFields *big.Int `json:"-" url:"-"`
+
+	ExtraProperties map[string]interface{} `json:"-" url:"-"`
+
+	rawJSON json.RawMessage
+}
+
+func (q *QwenAsrParams) GetAPIKey() string {
+	if q == nil {
+		return ""
+	}
+	return q.APIKey
+}
+
+func (q *QwenAsrParams) GetExtraProperties() map[string]interface{} {
+	return q.ExtraProperties
+}
+
+func (q *QwenAsrParams) require(field *big.Int) {
+	if q.explicitFields == nil {
+		q.explicitFields = big.NewInt(0)
+	}
+	q.explicitFields.Or(q.explicitFields, field)
+}
+
+// SetAPIKey sets the APIKey field and marks it as non-optional;
+// this prevents an empty or null value for this field from being omitted during serialization.
+func (q *QwenAsrParams) SetAPIKey(apiKey string) {
+	q.APIKey = apiKey
+	q.require(qwenAsrParamsFieldAPIKey)
+}
+
+func (q *QwenAsrParams) UnmarshalJSON(data []byte) error {
+	type embed QwenAsrParams
+	var unmarshaler = struct {
+		embed
+	}{
+		embed: embed(*q),
+	}
+	if err := json.Unmarshal(data, &unmarshaler); err != nil {
+		return err
+	}
+	*q = QwenAsrParams(unmarshaler.embed)
+	extraProperties, err := internal.ExtractExtraProperties(data, *q)
+	if err != nil {
+		return err
+	}
+	q.ExtraProperties = extraProperties
+	q.rawJSON = json.RawMessage(data)
+	return nil
+}
+
+func (q *QwenAsrParams) MarshalJSON() ([]byte, error) {
+	type embed QwenAsrParams
+	var marshaler = struct {
+		embed
+	}{
+		embed: embed(*q),
+	}
+	explicitMarshaler := internal.HandleExplicitFields(marshaler, q.explicitFields)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, q.ExtraProperties)
+}
+
+func (q *QwenAsrParams) String() string {
+	if len(q.rawJSON) > 0 {
+		if value, err := internal.StringifyJSON(q.rawJSON); err == nil {
+			return value
+		}
+	}
+	if value, err := internal.StringifyJSON(q); err == nil {
+		return value
+	}
+	return fmt.Sprintf("%#v", q)
 }
 
 // Rime Text-to-Speech configuration (Beta).
