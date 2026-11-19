@@ -195,19 +195,6 @@ func TestTTSVendorParamsMatchGeneratedCoreShapes(t *testing.T) {
 			},
 		},
 		{
-			name: "humeai",
-			params: NewHumeAITTS(HumeAITTSOptions{
-				Key:      "hume-key",
-				VoiceID:  "voice",
-				Provider: "CUSTOM_VOICE",
-			}).ToConfig()["params"].(map[string]interface{}),
-			want: map[string]interface{}{
-				"key":      "hume-key",
-				"voice_id": "voice",
-				"provider": "CUSTOM_VOICE",
-			},
-		},
-		{
 			name: "minimax byok voice_id shortcut",
 			params: NewMiniMaxTTS(MiniMaxTTSOptions{
 				Key:     "minimax-key",

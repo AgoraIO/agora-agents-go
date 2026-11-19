@@ -1208,22 +1208,6 @@ func TestBYOKTTSVendorShapes(t *testing.T) {
 		assert.Equal(t, "aura-2-en-us", p["model"])
 	})
 
-	t.Run("HumeAI", func(t *testing.T) {
-		agent := agentWithTTS(vendors.NewHumeAITTS(vendors.HumeAITTSOptions{
-			Key:      "hume-key",
-			VoiceID:  "v1",
-			Provider: "hume_ai",
-		}))
-		props, err := agent.ToPropertiesMap(ttsOpts())
-		require.NoError(t, err)
-		tts := props["tts"].(map[string]interface{})
-		assert.Equal(t, "humeai", tts["vendor"])
-		p := tts["params"].(map[string]interface{})
-		assert.Equal(t, "hume-key", p["key"])
-		assert.Equal(t, "v1", p["voice_id"])
-		assert.Equal(t, "hume_ai", p["provider"])
-	})
-
 	t.Run("Rime", func(t *testing.T) {
 		agent := agentWithTTS(vendors.NewRimeTTS(vendors.RimeTTSOptions{
 			CredentialMode: CredentialModeBYOK,
