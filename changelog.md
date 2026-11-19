@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [v2.14.1] — 2026-11-18
+
+### Fixed
+
+- **Multi-language turn detection** — `TurnDetectionConfig` could not express multiple languages, although the API supports them, and a comma-separated `Language` panicked. Set the new `Languages []Agora.AsrLanguage` field for a multi-language session. AgentKit sends the list to `asr.language` and `turn_detection.language` as a comma-separated string, without duplicates. When there is more than one language and `Config.EndOfSpeech.Mode` is unset, AgentKit sends `end_of_speech.mode: "vad"`. Setting both `Language` and `Languages` returns an error.
+- **Semantic end-of-speech languages** — Semantic end of speech supports one English or Chinese `Language` only (`en-US`, `en-IN`, `zh-CN`, `zh-HK`, `zh-TW`). With `Languages` or any other language, the service silently used VAD instead, so the setting had no effect. `ToPropertiesMap` and `Start` now return an error. Use one English or Chinese language, or set `end_of_speech.mode: "vad"`.
+
 ## [v2.14.0] — 2026-11-11
 
 ### Added
