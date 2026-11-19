@@ -1537,29 +1537,10 @@ type AsrVisitor interface {
 	VisitXfyun(*XfyunAsr) error
 	VisitXfyunBigmodel(*XfyunBigmodelAsr) error
 	VisitXfyunDialect(*XfyunDialectAsr) error
-}
-
-type SmallestAiAsrVisitor interface {
 	VisitSmallestai(*SmallestAiAsr) error
-}
-
-// StepfunAsrVisitor optionally extends AsrVisitor with StepFun ASR support.
-type StepfunAsrVisitor interface {
 	VisitStepfun(*StepfunAsr) error
-}
-
-// ElevenLabsAsrVisitor optionally extends AsrVisitor with ElevenLabs ASR support.
-type ElevenLabsAsrVisitor interface {
 	VisitElevenlabs(*ElevenLabsAsr) error
-}
-
-// FishAudioAsrVisitor optionally extends AsrVisitor with Fish Audio ASR support.
-type FishAudioAsrVisitor interface {
 	VisitFishaudio(*FishAudioAsr) error
-}
-
-// QwenAsrVisitor optionally extends AsrVisitor with Qwen ASR support.
-type QwenAsrVisitor interface {
 	VisitQwen(*QwenAsr) error
 }
 
@@ -1616,39 +1597,19 @@ func (a *Asr) Accept(visitor AsrVisitor) error {
 		return visitor.VisitXfyunDialect(a.XfyunDialect)
 	}
 	if a.Smallestai != nil {
-		smallestaiVisitor, ok := visitor.(SmallestAiAsrVisitor)
-		if !ok {
-			return fmt.Errorf("visitor %T does not support smallestai ASR", visitor)
-		}
-		return smallestaiVisitor.VisitSmallestai(a.Smallestai)
+		return visitor.VisitSmallestai(a.Smallestai)
 	}
 	if a.Stepfun != nil {
-		stepfunVisitor, ok := visitor.(StepfunAsrVisitor)
-		if !ok {
-			return fmt.Errorf("visitor %T does not support stepfun ASR", visitor)
-		}
-		return stepfunVisitor.VisitStepfun(a.Stepfun)
+		return visitor.VisitStepfun(a.Stepfun)
 	}
 	if a.Elevenlabs != nil {
-		elevenlabsVisitor, ok := visitor.(ElevenLabsAsrVisitor)
-		if !ok {
-			return fmt.Errorf("visitor %T does not support elevenlabs ASR", visitor)
-		}
-		return elevenlabsVisitor.VisitElevenlabs(a.Elevenlabs)
+		return visitor.VisitElevenlabs(a.Elevenlabs)
 	}
 	if a.Fishaudio != nil {
-		fishaudioVisitor, ok := visitor.(FishAudioAsrVisitor)
-		if !ok {
-			return fmt.Errorf("visitor %T does not support fishaudio ASR", visitor)
-		}
-		return fishaudioVisitor.VisitFishaudio(a.Fishaudio)
+		return visitor.VisitFishaudio(a.Fishaudio)
 	}
 	if a.Qwen != nil {
-		qwenVisitor, ok := visitor.(QwenAsrVisitor)
-		if !ok {
-			return fmt.Errorf("visitor %T does not support qwen ASR", visitor)
-		}
-		return qwenVisitor.VisitQwen(a.Qwen)
+		return visitor.VisitQwen(a.Qwen)
 	}
 	return fmt.Errorf("type %T does not define a non-empty union type", a)
 }
@@ -6699,312 +6660,6 @@ func (g *GradiumTtsParams) String() string {
 	return fmt.Sprintf("%#v", g)
 }
 
-// Hume AI Text-to-Speech configuration (Beta).
-var (
-	humeAiTtsFieldParams       = big.NewInt(1 << 0)
-	humeAiTtsFieldSkipPatterns = big.NewInt(1 << 1)
-)
-
-type HumeAiTts struct {
-	Params *HumeAiTtsParams `json:"params" url:"params"`
-	// Controls whether the TTS module skips bracketed content when reading LLM response text.
-	SkipPatterns []int `json:"skip_patterns,omitempty" url:"skip_patterns,omitempty"`
-
-	// Private bitmask of fields set to an explicit value and therefore not to be omitted
-	explicitFields *big.Int `json:"-" url:"-"`
-
-	extraProperties map[string]interface{}
-	rawJSON         json.RawMessage
-}
-
-func (h *HumeAiTts) GetParams() *HumeAiTtsParams {
-	if h == nil {
-		return nil
-	}
-	return h.Params
-}
-
-func (h *HumeAiTts) GetSkipPatterns() []int {
-	if h == nil {
-		return nil
-	}
-	return h.SkipPatterns
-}
-
-func (h *HumeAiTts) GetExtraProperties() map[string]interface{} {
-	return h.extraProperties
-}
-
-func (h *HumeAiTts) require(field *big.Int) {
-	if h.explicitFields == nil {
-		h.explicitFields = big.NewInt(0)
-	}
-	h.explicitFields.Or(h.explicitFields, field)
-}
-
-// SetParams sets the Params field and marks it as non-optional;
-// this prevents an empty or null value for this field from being omitted during serialization.
-func (h *HumeAiTts) SetParams(params *HumeAiTtsParams) {
-	h.Params = params
-	h.require(humeAiTtsFieldParams)
-}
-
-// SetSkipPatterns sets the SkipPatterns field and marks it as non-optional;
-// this prevents an empty or null value for this field from being omitted during serialization.
-func (h *HumeAiTts) SetSkipPatterns(skipPatterns []int) {
-	h.SkipPatterns = skipPatterns
-	h.require(humeAiTtsFieldSkipPatterns)
-}
-
-func (h *HumeAiTts) UnmarshalJSON(data []byte) error {
-	type unmarshaler HumeAiTts
-	var value unmarshaler
-	if err := json.Unmarshal(data, &value); err != nil {
-		return err
-	}
-	*h = HumeAiTts(value)
-	extraProperties, err := internal.ExtractExtraProperties(data, *h)
-	if err != nil {
-		return err
-	}
-	h.extraProperties = extraProperties
-	h.rawJSON = json.RawMessage(data)
-	return nil
-}
-
-func (h *HumeAiTts) MarshalJSON() ([]byte, error) {
-	type embed HumeAiTts
-	var marshaler = struct {
-		embed
-	}{
-		embed: embed(*h),
-	}
-	explicitMarshaler := internal.HandleExplicitFields(marshaler, h.explicitFields)
-	return json.Marshal(explicitMarshaler)
-}
-
-func (h *HumeAiTts) String() string {
-	if len(h.rawJSON) > 0 {
-		if value, err := internal.StringifyJSON(h.rawJSON); err == nil {
-			return value
-		}
-	}
-	if value, err := internal.StringifyJSON(h); err == nil {
-		return value
-	}
-	return fmt.Sprintf("%#v", h)
-}
-
-// Hume AI TTS configuration parameters.
-var (
-	humeAiTtsParamsFieldKey             = big.NewInt(1 << 0)
-	humeAiTtsParamsFieldVoiceID         = big.NewInt(1 << 1)
-	humeAiTtsParamsFieldBaseURL         = big.NewInt(1 << 2)
-	humeAiTtsParamsFieldProvider        = big.NewInt(1 << 3)
-	humeAiTtsParamsFieldSpeed           = big.NewInt(1 << 4)
-	humeAiTtsParamsFieldTrailingSilence = big.NewInt(1 << 5)
-	humeAiTtsParamsFieldConfigID        = big.NewInt(1 << 6)
-)
-
-type HumeAiTtsParams struct {
-	// Hume AI API key
-	Key string `json:"key" url:"key"`
-	// Hume AI voice ID
-	VoiceID string `json:"voice_id" url:"voice_id"`
-	// Base URL for the Hume AI API
-	BaseURL *string `json:"base_url,omitempty" url:"base_url,omitempty"`
-	// Voice provider type
-	Provider HumeAiTtsParamsProvider `json:"provider" url:"provider"`
-	// Playback speed of the generated speech
-	Speed *float64 `json:"speed,omitempty" url:"speed,omitempty"`
-	// Duration of silence in seconds to add at the end of each utterance
-	TrailingSilence *float64 `json:"trailing_silence,omitempty" url:"trailing_silence,omitempty"`
-	// Hume AI configuration ID. Deprecated; use voice_id for the documented TTS shape.
-	ConfigID *string `json:"config_id,omitempty" url:"config_id,omitempty"`
-
-	// Private bitmask of fields set to an explicit value and therefore not to be omitted
-	explicitFields *big.Int `json:"-" url:"-"`
-
-	ExtraProperties map[string]interface{} `json:"-" url:"-"`
-
-	rawJSON json.RawMessage
-}
-
-func (h *HumeAiTtsParams) GetKey() string {
-	if h == nil {
-		return ""
-	}
-	return h.Key
-}
-
-func (h *HumeAiTtsParams) GetVoiceID() string {
-	if h == nil {
-		return ""
-	}
-	return h.VoiceID
-}
-
-func (h *HumeAiTtsParams) GetBaseURL() *string {
-	if h == nil {
-		return nil
-	}
-	return h.BaseURL
-}
-
-func (h *HumeAiTtsParams) GetProvider() HumeAiTtsParamsProvider {
-	if h == nil {
-		return ""
-	}
-	return h.Provider
-}
-
-func (h *HumeAiTtsParams) GetSpeed() *float64 {
-	if h == nil {
-		return nil
-	}
-	return h.Speed
-}
-
-func (h *HumeAiTtsParams) GetTrailingSilence() *float64 {
-	if h == nil {
-		return nil
-	}
-	return h.TrailingSilence
-}
-
-func (h *HumeAiTtsParams) GetConfigID() *string {
-	if h == nil {
-		return nil
-	}
-	return h.ConfigID
-}
-
-func (h *HumeAiTtsParams) GetExtraProperties() map[string]interface{} {
-	return h.ExtraProperties
-}
-
-func (h *HumeAiTtsParams) require(field *big.Int) {
-	if h.explicitFields == nil {
-		h.explicitFields = big.NewInt(0)
-	}
-	h.explicitFields.Or(h.explicitFields, field)
-}
-
-// SetKey sets the Key field and marks it as non-optional;
-// this prevents an empty or null value for this field from being omitted during serialization.
-func (h *HumeAiTtsParams) SetKey(key string) {
-	h.Key = key
-	h.require(humeAiTtsParamsFieldKey)
-}
-
-// SetVoiceID sets the VoiceID field and marks it as non-optional;
-// this prevents an empty or null value for this field from being omitted during serialization.
-func (h *HumeAiTtsParams) SetVoiceID(voiceID string) {
-	h.VoiceID = voiceID
-	h.require(humeAiTtsParamsFieldVoiceID)
-}
-
-// SetBaseURL sets the BaseURL field and marks it as non-optional;
-// this prevents an empty or null value for this field from being omitted during serialization.
-func (h *HumeAiTtsParams) SetBaseURL(baseURL *string) {
-	h.BaseURL = baseURL
-	h.require(humeAiTtsParamsFieldBaseURL)
-}
-
-// SetProvider sets the Provider field and marks it as non-optional;
-// this prevents an empty or null value for this field from being omitted during serialization.
-func (h *HumeAiTtsParams) SetProvider(provider HumeAiTtsParamsProvider) {
-	h.Provider = provider
-	h.require(humeAiTtsParamsFieldProvider)
-}
-
-// SetSpeed sets the Speed field and marks it as non-optional;
-// this prevents an empty or null value for this field from being omitted during serialization.
-func (h *HumeAiTtsParams) SetSpeed(speed *float64) {
-	h.Speed = speed
-	h.require(humeAiTtsParamsFieldSpeed)
-}
-
-// SetTrailingSilence sets the TrailingSilence field and marks it as non-optional;
-// this prevents an empty or null value for this field from being omitted during serialization.
-func (h *HumeAiTtsParams) SetTrailingSilence(trailingSilence *float64) {
-	h.TrailingSilence = trailingSilence
-	h.require(humeAiTtsParamsFieldTrailingSilence)
-}
-
-// SetConfigID sets the ConfigID field and marks it as non-optional;
-// this prevents an empty or null value for this field from being omitted during serialization.
-func (h *HumeAiTtsParams) SetConfigID(configID *string) {
-	h.ConfigID = configID
-	h.require(humeAiTtsParamsFieldConfigID)
-}
-
-func (h *HumeAiTtsParams) UnmarshalJSON(data []byte) error {
-	type embed HumeAiTtsParams
-	var unmarshaler = struct {
-		embed
-	}{
-		embed: embed(*h),
-	}
-	if err := json.Unmarshal(data, &unmarshaler); err != nil {
-		return err
-	}
-	*h = HumeAiTtsParams(unmarshaler.embed)
-	extraProperties, err := internal.ExtractExtraProperties(data, *h)
-	if err != nil {
-		return err
-	}
-	h.ExtraProperties = extraProperties
-	h.rawJSON = json.RawMessage(data)
-	return nil
-}
-
-func (h *HumeAiTtsParams) MarshalJSON() ([]byte, error) {
-	type embed HumeAiTtsParams
-	var marshaler = struct {
-		embed
-	}{
-		embed: embed(*h),
-	}
-	explicitMarshaler := internal.HandleExplicitFields(marshaler, h.explicitFields)
-	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, h.ExtraProperties)
-}
-
-func (h *HumeAiTtsParams) String() string {
-	if len(h.rawJSON) > 0 {
-		if value, err := internal.StringifyJSON(h.rawJSON); err == nil {
-			return value
-		}
-	}
-	if value, err := internal.StringifyJSON(h); err == nil {
-		return value
-	}
-	return fmt.Sprintf("%#v", h)
-}
-
-// Voice provider type
-type HumeAiTtsParamsProvider string
-
-const (
-	HumeAiTtsParamsProviderHumeAi      HumeAiTtsParamsProvider = "HUME_AI"
-	HumeAiTtsParamsProviderCustomVoice HumeAiTtsParamsProvider = "CUSTOM_VOICE"
-)
-
-func NewHumeAiTtsParamsProviderFromString(s string) (HumeAiTtsParamsProvider, error) {
-	switch s {
-	case "HUME_AI":
-		return HumeAiTtsParamsProviderHumeAi, nil
-	case "CUSTOM_VOICE":
-		return HumeAiTtsParamsProviderCustomVoice, nil
-	}
-	var t HumeAiTtsParamsProvider
-	return "", fmt.Errorf("%s is not a valid %T", s, t)
-}
-
-func (h HumeAiTtsParamsProvider) Ptr() *HumeAiTtsParamsProvider {
-	return &h
-}
-
 // Large language model (LLM) configuration.
 var (
 	llmFieldURL               = big.NewInt(1 << 0)
@@ -7872,7 +7527,7 @@ var (
 
 type LlmToolExecution struct {
 	// Execution mode. Phase 1a only accepts `sync`.
-	Mode *LlmToolExecutionMode `json:"mode,omitempty" url:"mode,omitempty"`
+	Mode *string `json:"mode,omitempty" url:"mode,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
 	explicitFields *big.Int `json:"-" url:"-"`
@@ -7895,20 +7550,9 @@ func (l *LlmToolExecution) require(field *big.Int) {
 
 // SetMode sets the Mode field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (l *LlmToolExecution) SetMode(mode *LlmToolExecutionMode) {
+func (l *LlmToolExecution) SetMode(mode *string) {
 	l.Mode = mode
 	l.require(llmToolExecutionFieldMode)
-}
-
-// LlmToolExecutionMode controls how an inline REST tool is executed.
-type LlmToolExecutionMode string
-
-const (
-	LlmToolExecutionModeSync LlmToolExecutionMode = "sync"
-)
-
-func (l LlmToolExecutionMode) Ptr() *LlmToolExecutionMode {
-	return &l
 }
 
 func (l *LlmToolExecution) UnmarshalJSON(data []byte) error {
@@ -16049,16 +15693,14 @@ func (s *SpeechmaticsAsr) String() string {
 
 // Speechmatics ASR configuration parameters.
 var (
-	speechmaticsAsrParamsFieldKey      = big.NewInt(1 << 0)
+	speechmaticsAsrParamsFieldAPIKey   = big.NewInt(1 << 0)
 	speechmaticsAsrParamsFieldLanguage = big.NewInt(1 << 1)
 	speechmaticsAsrParamsFieldURI      = big.NewInt(1 << 2)
 )
 
 type SpeechmaticsAsrParams struct {
 	// Speechmatics API key
-	Key string `json:"key" url:"key"`
-	// Deprecated: Use Key instead. APIKey is normalized to Key during serialization.
-	APIKey string `json:"-" url:"-"`
+	APIKey string `json:"api_key" url:"api_key"`
 	// Language code to use for transcription
 	Language string `json:"language" url:"language"`
 	// WebSocket URL for the Speechmatics streaming API
@@ -16072,19 +15714,11 @@ type SpeechmaticsAsrParams struct {
 	rawJSON json.RawMessage
 }
 
-func (s *SpeechmaticsAsrParams) GetKey() string {
+func (s *SpeechmaticsAsrParams) GetAPIKey() string {
 	if s == nil {
 		return ""
 	}
-	if s.Key != "" {
-		return s.Key
-	}
 	return s.APIKey
-}
-
-// Deprecated: Use GetKey instead.
-func (s *SpeechmaticsAsrParams) GetAPIKey() string {
-	return s.GetKey()
 }
 
 func (s *SpeechmaticsAsrParams) GetLanguage() string {
@@ -16112,19 +15746,11 @@ func (s *SpeechmaticsAsrParams) require(field *big.Int) {
 	s.explicitFields.Or(s.explicitFields, field)
 }
 
-// SetKey sets the Key field and marks it as non-optional;
+// SetAPIKey sets the APIKey field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (s *SpeechmaticsAsrParams) SetKey(key string) {
-	s.Key = key
-	s.require(speechmaticsAsrParamsFieldKey)
-}
-
-// SetAPIKey sets the deprecated APIKey field and normalizes it to Key.
-// Deprecated: Use SetKey instead.
 func (s *SpeechmaticsAsrParams) SetAPIKey(apiKey string) {
 	s.APIKey = apiKey
-	s.Key = apiKey
-	s.require(speechmaticsAsrParamsFieldKey)
+	s.require(speechmaticsAsrParamsFieldAPIKey)
 }
 
 // SetLanguage sets the Language field and marks it as non-optional;
@@ -16157,37 +15783,19 @@ func (s *SpeechmaticsAsrParams) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	s.ExtraProperties = extraProperties
-	if legacyKey, ok := s.ExtraProperties["api_key"].(string); ok {
-		if s.Key == "" {
-			s.Key = legacyKey
-		}
-		delete(s.ExtraProperties, "api_key")
-	}
-	s.APIKey = s.Key
 	s.rawJSON = json.RawMessage(data)
 	return nil
 }
 
 func (s *SpeechmaticsAsrParams) MarshalJSON() ([]byte, error) {
 	type embed SpeechmaticsAsrParams
-	normalized := *s
-	if normalized.Key == "" {
-		normalized.Key = normalized.APIKey
-	}
-	normalized.APIKey = ""
 	var marshaler = struct {
 		embed
 	}{
-		embed: embed(normalized),
+		embed: embed(*s),
 	}
 	explicitMarshaler := internal.HandleExplicitFields(marshaler, s.explicitFields)
-	extraProperties := make(map[string]interface{}, len(s.ExtraProperties))
-	for key, value := range s.ExtraProperties {
-		if key != "api_key" {
-			extraProperties[key] = value
-		}
-	}
-	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, extraProperties)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, s.ExtraProperties)
 }
 
 func (s *SpeechmaticsAsrParams) String() string {
@@ -16287,13 +15895,7 @@ func (s *StepfunAsr) MarshalJSON() ([]byte, error) {
 		embed: embed(*s),
 	}
 	explicitMarshaler := internal.HandleExplicitFields(marshaler, s.explicitFields)
-	extraProperties := make(map[string]interface{}, len(s.ExtraProperties))
-	for key, value := range s.ExtraProperties {
-		if key != "api_key" {
-			extraProperties[key] = value
-		}
-	}
-	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, extraProperties)
+	return internal.MarshalJSONWithExtraProperties(explicitMarshaler, s.ExtraProperties)
 }
 
 func (s *StepfunAsr) String() string {
@@ -17172,7 +16774,6 @@ type Tts struct {
 	Murf            *MurfTts
 	Cartesia        *CartesiaTts
 	Openai          *OpenAiTts
-	Humeai          *HumeAiTts
 	Rime            *RimeTts
 	Fishaudio       *FishAudioTts
 	Google          *GoogleTts
@@ -17260,13 +16861,6 @@ func (t *Tts) GetOpenai() *OpenAiTts {
 		return nil
 	}
 	return t.Openai
-}
-
-func (t *Tts) GetHumeai() *HumeAiTts {
-	if t == nil {
-		return nil
-	}
-	return t.Humeai
 }
 
 func (t *Tts) GetRime() *RimeTts {
@@ -17454,12 +17048,6 @@ func (t *Tts) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		t.Openai = value
-	case "humeai":
-		value := new(HumeAiTts)
-		if err := json.Unmarshal(data, &value); err != nil {
-			return err
-		}
-		t.Humeai = value
 	case "rime":
 		value := new(RimeTts)
 		if err := json.Unmarshal(data, &value); err != nil {
@@ -17597,9 +17185,6 @@ func (t Tts) MarshalJSON() ([]byte, error) {
 	if t.Openai != nil {
 		return internal.MarshalJSONWithExtraProperty(t.Openai, "vendor", "openai")
 	}
-	if t.Humeai != nil {
-		return internal.MarshalJSONWithExtraProperty(t.Humeai, "vendor", "humeai")
-	}
 	if t.Rime != nil {
 		return internal.MarshalJSONWithExtraProperty(t.Rime, "vendor", "rime")
 	}
@@ -17660,10 +17245,10 @@ type TtsVisitor interface {
 	VisitMicrosoft(*MicrosoftTts) error
 	VisitElevenlabs(*ElevenLabsTts) error
 	VisitMinimax(*MinimaxTts) error
+	VisitMinimaxDuplex(*MinimaxDuplexTts) error
 	VisitMurf(*MurfTts) error
 	VisitCartesia(*CartesiaTts) error
 	VisitOpenai(*OpenAiTts) error
-	VisitHumeai(*HumeAiTts) error
 	VisitRime(*RimeTts) error
 	VisitFishaudio(*FishAudioTts) error
 	VisitGoogle(*GoogleTts) error
@@ -17679,19 +17264,7 @@ type TtsVisitor interface {
 	VisitGradium(*GradiumTts) error
 	VisitMistral(*MistralTts) error
 	VisitTypecast(*TypecastTts) error
-}
-
-type SmallestAiTtsVisitor interface {
 	VisitSmallestai(*SmallestAiTts) error
-}
-
-// MinimaxDuplexTtsVisitor optionally extends TtsVisitor with MiniMax duplex TTS support.
-type MinimaxDuplexTtsVisitor interface {
-	VisitMinimaxDuplex(*MinimaxDuplexTts) error
-}
-
-// SonioxTtsVisitor optionally extends TtsVisitor with Soniox TTS support.
-type SonioxTtsVisitor interface {
 	VisitSoniox(*SonioxTts) error
 }
 
@@ -17712,11 +17285,7 @@ func (t *Tts) Accept(visitor TtsVisitor) error {
 		return visitor.VisitMinimax(t.Minimax)
 	}
 	if t.MinimaxDuplex != nil {
-		minimaxDuplexVisitor, ok := visitor.(MinimaxDuplexTtsVisitor)
-		if !ok {
-			return fmt.Errorf("visitor %T does not support minimax_duplex TTS", visitor)
-		}
-		return minimaxDuplexVisitor.VisitMinimaxDuplex(t.MinimaxDuplex)
+		return visitor.VisitMinimaxDuplex(t.MinimaxDuplex)
 	}
 	if t.Murf != nil {
 		return visitor.VisitMurf(t.Murf)
@@ -17726,9 +17295,6 @@ func (t *Tts) Accept(visitor TtsVisitor) error {
 	}
 	if t.Openai != nil {
 		return visitor.VisitOpenai(t.Openai)
-	}
-	if t.Humeai != nil {
-		return visitor.VisitHumeai(t.Humeai)
 	}
 	if t.Rime != nil {
 		return visitor.VisitRime(t.Rime)
@@ -17776,18 +17342,10 @@ func (t *Tts) Accept(visitor TtsVisitor) error {
 		return visitor.VisitTypecast(t.Typecast)
 	}
 	if t.Smallestai != nil {
-		smallestaiVisitor, ok := visitor.(SmallestAiTtsVisitor)
-		if !ok {
-			return fmt.Errorf("visitor %T does not support smallestai TTS", visitor)
-		}
-		return smallestaiVisitor.VisitSmallestai(t.Smallestai)
+		return visitor.VisitSmallestai(t.Smallestai)
 	}
 	if t.Soniox != nil {
-		sonioxVisitor, ok := visitor.(SonioxTtsVisitor)
-		if !ok {
-			return fmt.Errorf("visitor %T does not support soniox TTS", visitor)
-		}
-		return sonioxVisitor.VisitSoniox(t.Soniox)
+		return visitor.VisitSoniox(t.Soniox)
 	}
 	return fmt.Errorf("type %T does not define a non-empty union type", t)
 }
@@ -17823,9 +17381,6 @@ func (t *Tts) validate() error {
 	}
 	if t.Openai != nil {
 		fields = append(fields, "openai")
-	}
-	if t.Humeai != nil {
-		fields = append(fields, "humeai")
 	}
 	if t.Rime != nil {
 		fields = append(fields, "rime")
@@ -22213,7 +21768,7 @@ type StartAgentsRequestPropertiesAdvancedFeatures struct {
 	EnableRtm *bool `json:"enable_rtm,omitempty" url:"enable_rtm,omitempty"`
 	// Enable Selective Attention Locking (SAL). When enabled, configure the `sal` field to set up speaker recognition or locking modes.
 	EnableSal *bool `json:"enable_sal,omitempty" url:"enable_sal,omitempty"`
-	// Enable invocation for MCP servers and inline REST tools.
+	// Enable tool invocation. When enabled, the agent can invoke tools provided by the MCP server to implement advanced functionality.
 	EnableTools *bool `json:"enable_tools,omitempty" url:"enable_tools,omitempty"`
 
 	// Private bitmask of fields set to an explicit value and therefore not to be omitted
@@ -22746,7 +22301,7 @@ type StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig struct {
 	// System prompt used to generate a short filler phrase based on recent conversation context. The generated text should be conversational and must not answer the user's question.
 	Prompt *string `json:"prompt,omitempty" url:"prompt,omitempty"`
 	// Fallback strategy when generated filler text is not ready, fails, or returns empty text. Phase 1 only supports `static`.
-	FallbackStrategy *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy `json:"fallback_strategy,omitempty" url:"fallback_strategy,omitempty"`
+	FallbackStrategy *string `json:"fallback_strategy,omitempty" url:"fallback_strategy,omitempty"`
 	// Maximum number of recent conversation messages used to generate a filler word.
 	ContextMessageLimit *int `json:"context_message_limit,omitempty" url:"context_message_limit,omitempty"`
 	// Maximum number of characters from conversation history used to generate a filler word.
@@ -22814,20 +22369,9 @@ func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetPromp
 
 // SetFallbackStrategy sets the FallbackStrategy field and marks it as non-optional;
 // this prevents an empty or null value for this field from being omitted during serialization.
-func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetFallbackStrategy(fallbackStrategy *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy) {
+func (s *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfig) SetFallbackStrategy(fallbackStrategy *string) {
 	s.FallbackStrategy = fallbackStrategy
 	s.require(startAgentsRequestPropertiesFillerWordsContentGeneratedConfigFieldFallbackStrategy)
-}
-
-// StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy controls fallback behavior for generated filler words.
-type StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy string
-
-const (
-	StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategyStatic StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy = "static"
-)
-
-func (s StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy) Ptr() *StartAgentsRequestPropertiesFillerWordsContentGeneratedConfigFallbackStrategy {
-	return &s
 }
 
 // SetContextMessageLimit sets the ContextMessageLimit field and marks it as non-optional;
